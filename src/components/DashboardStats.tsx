@@ -44,16 +44,16 @@ const cellBorderRounding = [
 
 const DashboardStats: React.FC = () => (
   <Card className="w-full rounded-2xl glass-morphism border-white/10 bg-[#1A1F2Ccc] shadow-lg mb-8 p-0">
-    <div className="grid grid-cols-2 gap-0">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
       {stats.slice(0, 4).map((stat, idx) => (
         <div
           key={stat.label}
           className={[
             "flex items-center gap-4 px-6 py-7 bg-transparent",
-            // Add the right border for the first column (exclude rightmost col)
-            idx % 2 === 0 ? "border-r border-white/10" : "",
-            // Add the bottom border for the first row
-            idx < 2 ? "border-b border-white/10" : "",
+            // Add the right border for col 1 on sm+ only
+            idx % 2 === 0 ? "sm:border-r sm:border-white/10" : "",
+            // Add the bottom border for the first row on sm+ only
+            idx < 2 ? "sm:border-b sm:border-white/10" : "",
             // Add outer border radius per cell
             cellBorderRounding[idx],
           ].join(" ")}
@@ -83,4 +83,3 @@ const DashboardStats: React.FC = () => (
 );
 
 export default DashboardStats;
-
