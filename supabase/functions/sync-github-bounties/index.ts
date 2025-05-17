@@ -165,6 +165,21 @@ serve(async (req) => {
               fetchAllItems.fieldsMap[f.name] = f.id;
             }
           });
+
+          // --- ADDED: print all fields and options for diagnostics ---
+          console.log("== PROJECT FIELDS DIAGNOSTIC ==");
+          (project.fields?.nodes ?? []).forEach((field: any) => {
+            if (!field) return;
+            if (field.options) {
+              console.log(
+                `[Field "${field.name}" (${field.id})] has options:`,
+                field.options.map((opt: any) => `[${opt.name}:${opt.id}]`).join(", ")
+              );
+            } else {
+              console.log(`[Field "${field.name}" (${field.id})]`);
+            }
+          });
+
           fetchAllItems.statusField = project.fields?.nodes?.find(
             (f: any) =>
               f.name?.toLowerCase() === "status" ||
@@ -189,6 +204,23 @@ serve(async (req) => {
     // Fetch all items in all pages
     const allItems = await fetchAllItems();
     const bountyFieldId = fetchAllItems.bountyFieldId;
+
+    // Print fieldValues for first couple items for debugging
+    if (allItems.length > 0) {
+      console.log("== First 5 items' fieldValues for diagnostics ==");
+      allItems.slice(0, 5).forEach((item: any, idx: number) => {
+        if (item?.fieldValues?.nodes) {
+          console.log(
+            `Item #${idx + 1} title: "${item.content?.title}", fieldValues:`,
+            JSON.stringify(item.fieldValues.nodes, null, 2)
+          );
+        } else {
+          console.log(`Item #${idx + 1} title: "${item.content?.title}" has no fieldValues`);
+        }
+      });
+    } else {
+      console.log("No items received from GitHub to print diagnostic fieldValues.");
+    }
 
     // Fetch status field info, fallback if necessary
     const fieldsRes = await fetch(
