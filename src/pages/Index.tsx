@@ -10,6 +10,14 @@ import MyContributions from "@/components/MyContributions";
 import PayoutForecast from "@/components/PayoutForecast";
 import WeeklySummary from "@/components/WeeklySummary";
 import Bounties from "@/components/Bounties";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 const Index = () => {
   const [progress, setProgress] = useState(42); // demo static
@@ -25,6 +33,22 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#131522] to-[#0c0c13] flex flex-col items-center justify-center pt-12 relative">
       <OnboardingBanner />
+      {/* Breadcrumb */}
+      <div className="w-full max-w-6xl pt-2 px-2">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/" className="text-gray-400 hover:text-primary transition story-link">
+                Home
+              </BreadcrumbLink>
+              <BreadcrumbSeparator />
+            </BreadcrumbItem>
+            <BreadcrumbItem>
+              <BreadcrumbPage className="font-semibold text-lg text-white">Dashboard</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
       <div className="max-w-6xl w-full flex flex-col items-center justify-center px-2">
         <DashboardStats />
         <div className="max-w-2xl w-full flex flex-col items-center justify-center">
@@ -50,3 +74,4 @@ const Index = () => {
 };
 
 export default Index;
+
