@@ -26,9 +26,6 @@ serve(async (req) => {
       let endCursor: string | null = null;
       const first = 50;
 
-      // These will be initialized with the field/option info we discover
-      fetchAllItems.fieldsMap = undefined;
-
       while (hasNextPage) {
         const query = `
           query {
@@ -49,14 +46,6 @@ serve(async (req) => {
                         id
                         name
                       }
-                    }
-                    ... on ProjectV2TextField {
-                      id
-                      name
-                    }
-                    ... on ProjectV2NumberField {
-                      id
-                      name
                     }
                   }
                 }
@@ -93,36 +82,11 @@ serve(async (req) => {
                         }
                       }
                     }
-                    fieldValues(first: 20) {
+                    fieldValues(first: 10) {
                       nodes {
                         ... on ProjectV2ItemFieldSingleSelectValue {
-                          field {
-                            ... on ProjectV2SingleSelectField { id name }
-                            name
-                          }
                           name
                           optionId
-                        }
-                        ... on ProjectV2ItemFieldTextValue {
-                          field {
-                            ... on ProjectV2TextField { id name }
-                            name
-                          }
-                          text
-                        }
-                        ... on ProjectV2ItemFieldNumberValue {
-                          field {
-                            ... on ProjectV2NumberField { id name }
-                            name
-                          }
-                          number
-                        }
-                        ... on ProjectV2ItemFieldGenericValue {
-                          field {
-                            id
-                            name
-                          }
-                          value
                         }
                       }
                     }
@@ -156,40 +120,15 @@ serve(async (req) => {
           // project empty!
           break;
         }
-        // On first fetch, grab fields for lookup
-        if (typeof fetchAllItems.fieldsMap === "undefined") {
-          // Map field names to IDs for quick lookup
-          fetchAllItems.fieldsMap = {};
-          (project.fields?.nodes ?? []).forEach((f: any) => {
-            if (f && f.name) {
-              fetchAllItems.fieldsMap[f.name] = f.id;
-            }
-          });
-
-          // --- ADDED: print all fields and options for diagnostics ---
-          console.log("== PROJECT FIELDS DIAGNOSTIC ==");
-          (project.fields?.nodes ?? []).forEach((field: any) => {
-            if (!field) return;
-            if (field.options) {
-              console.log(
-                `[Field "${field.name}" (${field.id})] has options:`,
-                field.options.map((opt: any) => `[${opt.name}:${opt.id}]`).join(", ")
-              );
-            } else {
-              console.log(`[Field "${field.name}" (${field.id})]`);
-            }
-          });
-
+        // On first fetch, grab fields for later use
+        if (typeof fetchAllItems.statusField === "undefined") {
           fetchAllItems.statusField = project.fields?.nodes?.find(
-            (f: any) =>
-              f.name?.toLowerCase() === "status" ||
-              f.name?.toLowerCase() === "column"
+            (f: any) => f.name?.toLowerCase() === "status" ||
+                        f.name?.toLowerCase() === "column"
           );
           fetchAllItems.openStatusOptions = fetchAllItems.statusField?.options?.find(
             (o: any) => o.name?.toLowerCase() === openColumnName.toLowerCase()
           )?.id;
-          fetchAllItems.bountyFieldId =
-            (project.fields?.nodes ?? []).find((f: any) => f.name && f.name.toLowerCase() === "bounty")?.id;
         }
 
         const pageItems = project.items?.nodes ?? [];
@@ -203,26 +142,8 @@ serve(async (req) => {
 
     // Fetch all items in all pages
     const allItems = await fetchAllItems();
-    const bountyFieldId = fetchAllItems.bountyFieldId;
 
-    // Print fieldValues for first couple items for debugging
-    if (allItems.length > 0) {
-      console.log("== First 5 items' fieldValues for diagnostics ==");
-      allItems.slice(0, 5).forEach((item: any, idx: number) => {
-        if (item?.fieldValues?.nodes) {
-          console.log(
-            `Item #${idx + 1} title: "${item.content?.title}", fieldValues:`,
-            JSON.stringify(item.fieldValues.nodes, null, 2)
-          );
-        } else {
-          console.log(`Item #${idx + 1} title: "${item.content?.title}" has no fieldValues`);
-        }
-      });
-    } else {
-      console.log("No items received from GitHub to print diagnostic fieldValues.");
-    }
-
-    // Fetch status field info, fallback if necessary
+    // Get field info for status
     const fieldsRes = await fetch(
       apiUrl,
       {
@@ -250,14 +171,6 @@ serve(async (req) => {
                           name
                         }
                       }
-                      ... on ProjectV2TextField {
-                        id
-                        name
-                      }
-                      ... on ProjectV2NumberField {
-                        id
-                        name
-                      }
                     }
                   }
                 }
@@ -282,88 +195,24 @@ serve(async (req) => {
     // Filter "Open" status cards
     const openItems = allItems.filter((item: any) => {
       if (!item.fieldValues) return false;
-      // DEBUG: Log item fieldValues for investigation if empty
-      if (!item.fieldValues || !item.fieldValues.nodes) {
-        console.log("Item missing fieldValues or fieldValues.nodes", { item });
-        return false;
-      }
       const fieldValue = item.fieldValues.nodes.find(
         (fv: any) => fv?.optionId === openStatusOptions
       );
       return !!fieldValue && item.content;
     });
 
-    // DEBUG: Log the Open items right before processing
-    console.log(
-      `Fetched ${allItems.length} items from GitHub, filtered Open items: ${openItems.length}`
-    );
-    if (openItems.length === 0 && allItems.length > 0) {
-      // If no items are detected as Open, dump some diagnostic info for debugging
-      for (let i = 0; i < Math.min(3, allItems.length); i++) {
-        const item = allItems[i];
-        console.log(
-          `Item #${i + 1} fieldValues:`,
-          JSON.stringify(item.fieldValues, null, 2)
-        );
-      }
-      console.warn(
-        "No items found in Open status! This will cause ALL bounties to be removed. Check fieldValues/optionId matching."
-      );
-    } else {
-      openItems.forEach((item: any, idx: number) => {
-        if (item.content) {
-          console.log(
-            `[Open #${idx + 1}] title: "${item.content.title}", github_id: ${item.content.id}`
-          );
-        }
-      });
-    }
-
-    // Prepare upserts using "Bounty" field as reward if available
+    // Prepare upserts
     const inserts = openItems
       .map((item: any) => {
         const content = item.content;
         if (!content) return null;
-        // --- Get reward from "Bounty" field if present ---
-        let bountyReward: string | null = null;
-        if (bountyFieldId && Array.isArray(item.fieldValues?.nodes)) {
-          const bountyFieldValue = item.fieldValues.nodes.find(
-            (fv: any) =>
-              fv?.field?.id === bountyFieldId &&
-              (
-                typeof fv.text === "string" ||
-                typeof fv.number === "string" ||
-                typeof fv.value === "string"
-              )
-          );
-          if (bountyFieldValue) {
-            // Prefer .text, then .number, then .value
-            bountyReward =
-              bountyFieldValue.text ??
-              bountyFieldValue.number?.toString() ??
-              bountyFieldValue.value ??
-              null;
-            if (
-              typeof bountyReward === "string" &&
-              bountyReward.trim() === ""
-            ) {
-              bountyReward = null;
-            }
-          }
-        }
-        // fallback: parse from label if Bounty field not present
-        let reward = bountyReward;
-        if (!reward) {
-          reward =
-            content.labels?.nodes?.find((l: any) =>
-              l.name.startsWith("$")
-            )?.name || null;
-        }
-
         const labels =
           content.labels?.nodes
             ?.map((l: any) => l.name)
             ?.filter((n: string) => n !== "bounty" && !n.startsWith("$")) || [];
+        const reward =
+          content.labels?.nodes
+            ?.find((l: any) => l.name.startsWith("$"))?.name || null;
 
         return {
           github_id: content.id,
@@ -377,10 +226,7 @@ serve(async (req) => {
       })
       .filter(Boolean);
 
-    // Collect all open github_ids to keep
-    const openGithubIds = inserts.map((b: any) => b.github_id);
-
-    // ---- Upsert via Supabase ----
+    // Upsert via Supabase
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -388,19 +234,17 @@ serve(async (req) => {
       throw new Error("Supabase URL/Service Role Key missing");
     }
 
-    const upRes = await fetch(
-      `${supabaseUrl}/rest/v1/bounties?on_conflict=github_id`,
-      {
-        method: "POST",
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-          "Content-Type": "application/json",
-          Prefer: "resolution=merge-duplicates",
-        },
-        body: JSON.stringify(inserts),
-      }
-    );
+    // CHANGED: Add ?on_conflict=github_id to upsert endpoint
+    const upRes = await fetch(`${supabaseUrl}/rest/v1/bounties?on_conflict=github_id`, {
+      method: "POST",
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates",
+      },
+      body: JSON.stringify(inserts),
+    });
 
     if (!upRes.ok) {
       const text = await upRes.text();
