@@ -230,10 +230,13 @@ serve(async (req) => {
           content.labels?.nodes
             ?.map((l: any) => l.name)
             ?.filter((n: string) => n !== "bounty" && !n.startsWith("$")) || [];
-        const reward =
+
+        // Extract reward from label with $ (legacy, fallback)
+        let reward =
           content.labels?.nodes
             ?.find((l: any) => l.name.startsWith("$"))?.name || null;
 
+        // Extract Bounty field value (card field)
         let bountyFieldValue: string | null = null;
         if (item.fieldValues?.nodes && bountyFieldId) {
           const bountyFV = item.fieldValues.nodes.find(
@@ -241,6 +244,11 @@ serve(async (req) => {
           );
           // Try to extract value as name (for single select), or text (for text field)
           bountyFieldValue = bountyFV?.name || bountyFV?.text || null;
+        }
+
+        // If bountyFieldValue exists, use it as reward
+        if (bountyFieldValue) {
+          reward = bountyFieldValue;
         }
 
         return {
@@ -251,13 +259,13 @@ serve(async (req) => {
           reward,
           status: "open",
           url: content.url,
-          bounty: bountyFieldValue, // not yet saved to Supabase unless you add a column!
+          // bounty: bountyFieldValue, // no longer output for upsert
         };
       })
       .filter(Boolean);
 
     // Only upsert properties that exist in Supabase schema
-    const supabaseUpserts = inserts.map(({bounty, ...rest}) => rest);
+    const supabaseUpserts = inserts.map(({ /* bounty, */ ...rest }) => rest);
 
     // Delete all rows in bounties first
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
