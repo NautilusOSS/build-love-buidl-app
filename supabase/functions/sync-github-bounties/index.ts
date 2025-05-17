@@ -82,22 +82,12 @@ serve(async (req) => {
                         }
                       }
                     }
-                    fieldValues(first: 30) {
+                    fieldValues(first: 10) {
                       nodes {
                         ... on ProjectV2ItemFieldSingleSelectValue {
-                          field {
-                            id
-                          }
                           name
                           optionId
                         }
-                        ... on ProjectV2ItemFieldTextValue {
-                          field {
-                            id
-                          }
-                          text
-                        }
-                        # Add more if relevant type for bounty field
                       }
                     }
                   }
@@ -139,10 +129,6 @@ serve(async (req) => {
           fetchAllItems.openStatusOptions = fetchAllItems.statusField?.options?.find(
             (o: any) => o.name?.toLowerCase() === openColumnName.toLowerCase()
           )?.id;
-          // Grab bountyField id
-          fetchAllItems.bountyField = project.fields?.nodes?.find(
-            (f: any) => f.name?.toLowerCase() === "bounty"
-          );
         }
 
         const pageItems = project.items?.nodes ?? [];
@@ -157,7 +143,7 @@ serve(async (req) => {
     // Fetch all items in all pages
     const allItems = await fetchAllItems();
 
-    // Get field info for status and bounty (not just status!)
+    // Get field info for status
     const fieldsRes = await fetch(
       apiUrl,
       {
@@ -206,12 +192,6 @@ serve(async (req) => {
         (o: any) => o.name?.toLowerCase() === openColumnName.toLowerCase()
       )?.id;
 
-    const bountyField = fieldsNode?.find(
-      (f: any) =>
-        f.name?.toLowerCase() === "bounty"
-    );
-    const bountyFieldId = bountyField?.id;
-
     // Filter "Open" status cards
     const openItems = allItems.filter((item: any) => {
       if (!item.fieldValues) return false;
@@ -221,7 +201,7 @@ serve(async (req) => {
       return !!fieldValue && item.content;
     });
 
-    // Prepare upserts, extract Bounty field
+    // Prepare upserts
     const inserts = openItems
       .map((item: any) => {
         const content = item.content;
@@ -230,26 +210,9 @@ serve(async (req) => {
           content.labels?.nodes
             ?.map((l: any) => l.name)
             ?.filter((n: string) => n !== "bounty" && !n.startsWith("$")) || [];
-
-        // Extract reward from label with $ (legacy, fallback)
-        let reward =
+        const reward =
           content.labels?.nodes
             ?.find((l: any) => l.name.startsWith("$"))?.name || null;
-
-        // Extract Bounty field value (card field)
-        let bountyFieldValue: string | null = null;
-        if (item.fieldValues?.nodes && bountyFieldId) {
-          const bountyFV = item.fieldValues.nodes.find(
-            (fv: any) => fv?.field?.id === bountyFieldId
-          );
-          // Try to extract value as name (for single select), or text (for text field)
-          bountyFieldValue = bountyFV?.name || bountyFV?.text || null;
-        }
-
-        // If bountyFieldValue exists, use it as reward
-        if (bountyFieldValue) {
-          reward = bountyFieldValue;
-        }
 
         return {
           github_id: content.id,
@@ -259,13 +222,9 @@ serve(async (req) => {
           reward,
           status: "open",
           url: content.url,
-          // bounty: bountyFieldValue, // no longer output for upsert
         };
       })
       .filter(Boolean);
-
-    // Only upsert properties that exist in Supabase schema
-    const supabaseUpserts = inserts.map(({ /* bounty, */ ...rest }) => rest);
 
     // Delete all rows in bounties first
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -275,6 +234,7 @@ serve(async (req) => {
       throw new Error("Supabase URL/Service Role Key missing");
     }
 
+    // Delete all rows in bounties first
     const deleteRes = await fetch(`${supabaseUrl}/rest/v1/bounties?id=not.is.null`, {
       method: "DELETE",
       headers: {
@@ -303,7 +263,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
         Prefer: "resolution=merge-duplicates",
       },
-      body: JSON.stringify(supabaseUpserts),
+      body: JSON.stringify(inserts),
     });
 
     if (!upRes.ok) {
@@ -316,7 +276,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, inserted: supabaseUpserts.length, bounties_bounty_fields: inserts.map(i => i.bounty) }),
+      JSON.stringify({ success: true, inserted: inserts.length }),
       { status: 200, headers: corsHeaders }
     );
   } catch (error) {
