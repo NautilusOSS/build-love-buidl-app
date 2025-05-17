@@ -25,6 +25,7 @@ serve(async (req) => {
       let hasNextPage = true;
       let endCursor: string | null = null;
       const first = 50;
+      let bountyFieldId: string | null = null;
 
       while (hasNextPage) {
         const query = `
@@ -46,6 +47,10 @@ serve(async (req) => {
                         id
                         name
                       }
+                    }
+                    ... on ProjectV2TextField {
+                      id
+                      name
                     }
                   }
                 }
@@ -82,11 +87,26 @@ serve(async (req) => {
                         }
                       }
                     }
-                    fieldValues(first: 10) {
+                    fieldValues(first: 30) {
                       nodes {
                         ... on ProjectV2ItemFieldSingleSelectValue {
+                          field {
+                            ... on ProjectV2SingleSelectField {
+                              id
+                              name
+                            }
+                          }
                           name
                           optionId
+                        }
+                        ... on ProjectV2ItemFieldTextValue {
+                          field {
+                            ... on ProjectV2TextField {
+                              id
+                              name
+                            }
+                          }
+                          text
                         }
                       }
                     }
@@ -120,6 +140,7 @@ serve(async (req) => {
           // project empty!
           break;
         }
+
         // On first fetch, grab fields for later use
         if (typeof fetchAllItems.statusField === "undefined") {
           fetchAllItems.statusField = project.fields?.nodes?.find(
@@ -129,6 +150,12 @@ serve(async (req) => {
           fetchAllItems.openStatusOptions = fetchAllItems.statusField?.options?.find(
             (o: any) => o.name?.toLowerCase() === openColumnName.toLowerCase()
           )?.id;
+          // Find custom "Bounty" field ID (can be a SingleSelect or Text field)
+          const bountyField = project.fields?.nodes?.find(
+            (f: any) => f.name?.toLowerCase() === "bounty"
+          );
+          bountyFieldId = bountyField?.id ?? null;
+          fetchAllItems.bountyFieldId = bountyFieldId;
         }
 
         const pageItems = project.items?.nodes ?? [];
@@ -210,9 +237,36 @@ serve(async (req) => {
           content.labels?.nodes
             ?.map((l: any) => l.name)
             ?.filter((n: string) => n !== "bounty" && !n.startsWith("$")) || [];
+        // Find Bounty value in project card (single-select or text)
+        let bountyFieldValue: string | null = null;
+
+        if (item.fieldValues && Array.isArray(item.fieldValues.nodes)) {
+          const bountyFieldId = fetchAllItems.bountyFieldId;
+          // Look for Bounty as a text value
+          const bountyTextValue = item.fieldValues.nodes.find(
+            (fv: any) => fv?.field?.id === bountyFieldId && fv.text
+          );
+          if (bountyTextValue && bountyTextValue.text) {
+            bountyFieldValue = bountyTextValue.text;
+          }
+          // If not found, look for Bounty as a single select value
+          if (!bountyFieldValue) {
+            const bountySelectValue = item.fieldValues.nodes.find(
+              (fv: any) => fv?.field?.id === bountyFieldId && fv.name
+            );
+            if (bountySelectValue && bountySelectValue.name) {
+              bountyFieldValue = bountySelectValue.name;
+            }
+          }
+        }
+
+        // If no bounty field, fallback to $label
         const reward =
-          content.labels?.nodes
-            ?.find((l: any) => l.name.startsWith("$"))?.name || null;
+          bountyFieldValue ||
+          (
+            content.labels?.nodes
+              ?.find((l: any) => l.name.startsWith("$"))?.name || null
+          );
 
         return {
           github_id: content.id,
