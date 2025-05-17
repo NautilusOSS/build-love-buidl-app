@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import PageLayout from "@/components/PageLayout";
 import { Input } from "@/components/ui/input";
@@ -112,7 +111,10 @@ const Bounties: React.FC = () => {
 
   return (
     <PageLayout breadcrumb={breadcrumb}>
-      <div className="w-full max-w-4xl mx-auto pt-2">
+      {/* Add spacing after breadcrumbs */}
+      <div className="mt-4" />
+      {/* Make table container full width */}
+      <div className="w-full pt-2">
         <div className="flex flex-col sm:flex-row gap-4 items-start mb-6">
           <div className="flex-1 w-full">
             <h1 className="text-white font-extrabold text-3xl mb-2 drop-shadow-sm">
@@ -140,7 +142,8 @@ const Bounties: React.FC = () => {
             </button>
           </div>
         </div>
-        <div className="overflow-x-auto rounded-3xl shadow-2xl glass-morphism border-0 p-2 min-h-[120px]">
+        {/* Full-width table container */}
+        <div className="w-full overflow-x-auto rounded-3xl shadow-2xl glass-morphism border-0 p-2 min-h-[120px]">
           {loading ? (
             <div className="w-full flex justify-center items-center py-8">
               <span className="text-white/80">Loading bounties...</span>
