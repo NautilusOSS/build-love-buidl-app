@@ -421,13 +421,14 @@ const SidebarContent = React.forwardRef<
     };
   }, []);
 
+  // The flashy background is applied to the menu area, except when at top
   return (
     <div
       ref={contentRef}
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden transition-colors duration-200", // smooth transition
-        isAtTop ? "bg-transparent" : "bg-[#1a1f2cee]/70", // transparent at top, else slightly colored
+        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden transition-colors duration-300",
+        isAtTop ? "bg-transparent" : "sidebar-flashy-bg",
         className
       )}
       {...props}
