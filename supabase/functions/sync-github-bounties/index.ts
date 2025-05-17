@@ -226,7 +226,7 @@ serve(async (req) => {
       })
       .filter(Boolean);
 
-    // Upsert via Supabase
+    // Delete all rows in bounties first
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -234,7 +234,27 @@ serve(async (req) => {
       throw new Error("Supabase URL/Service Role Key missing");
     }
 
-    // CHANGED: Add ?on_conflict=github_id to upsert endpoint
+    // Delete all rows in bounties first
+    const deleteRes = await fetch(`${supabaseUrl}/rest/v1/bounties`, {
+      method: "DELETE",
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      }
+    });
+
+    if (!deleteRes.ok) {
+      const text = await deleteRes.text();
+      console.error("Supabase delete failed:", text);
+      return new Response(JSON.stringify({ error: text }), {
+        status: 500,
+        headers: corsHeaders,
+      });
+    }
+
+    // Upsert via Supabase
     const upRes = await fetch(`${supabaseUrl}/rest/v1/bounties?on_conflict=github_id`, {
       method: "POST",
       headers: {
