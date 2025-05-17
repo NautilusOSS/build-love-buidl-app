@@ -35,13 +35,21 @@ const stats = [
 ];
 
 const DashboardStats: React.FC = () => (
-  <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-    {stats.map((stat) => (
-      <Card
-        key={stat.label}
-        className="flex items-center gap-4 bg-[#1A1F2Ccc] glass-morphism border-white/10 shadow-lg hover-scale transition-transform"
-      >
-        <CardContent className="flex items-center gap-3 py-6">
+  <Card className="w-full rounded-2xl glass-morphism border-white/10 bg-[#1A1F2Ccc] shadow-lg mb-8 p-0">
+    <div className="grid grid-cols-1 lg:grid-cols-4">
+      {stats.map((stat, i) => (
+        <div
+          key={stat.label}
+          className={
+            // Remove border on last item; right border for all except last
+            [
+              "flex items-center gap-4 px-6 py-7",
+              "bg-transparent",
+              // Add right border except for last column
+              i !== stats.length - 1 ? "border-r border-white/10" : "",
+            ].join(" ")
+          }
+        >
           <div 
             className={`rounded-xl p-3 bg-[#232534e8] shadow-md ${stat.color} flex items-center justify-center`}
           >
@@ -54,11 +62,10 @@ const DashboardStats: React.FC = () => (
               {stat.sub && <span className="text-sm font-semibold ml-1 text-[#9b87f5]">{stat.sub}</span>}
             </div>
           </div>
-        </CardContent>
-      </Card>
-    ))}
-  </div>
+        </div>
+      ))}
+    </div>
+  </Card>
 );
 
 export default DashboardStats;
-
