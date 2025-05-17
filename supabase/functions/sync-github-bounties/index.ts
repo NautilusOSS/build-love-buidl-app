@@ -325,7 +325,6 @@ serve(async (req) => {
       throw new Error("Supabase URL/Service Role Key missing");
     }
 
-    // Add ?on_conflict=github_id to upsert endpoint
     const upRes = await fetch(
       `${supabaseUrl}/rest/v1/bounties?on_conflict=github_id`,
       {
@@ -349,26 +348,36 @@ serve(async (req) => {
       });
     }
 
-    // ---- New: Remove bounties not in Open ----
-    // DELETE bounties where github_id is not among the open ones, but only for rows with a github_id
+    // ---- Remove bounties not in Open ----
+    // We must delete all bounties not in openStatus. If openGithubIds is empty, delete ALL with github_id
+    let deleteUrl;
     if (openGithubIds.length > 0) {
-      // Build a PostgREST filter
-      const notInIds = openGithubIds.map((id) => `"${id}"`).join(",");
-      const deleteRes = await fetch(
-        `${supabaseUrl}/rest/v1/bounties?github_id=not.in.(${notInIds})`,
-        {
-          method: "DELETE",
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-          },
-        }
-      );
-      if (!deleteRes.ok) {
-        const text = await deleteRes.text();
-        console.error("Supabase cleanup (delete) failed:", text);
-        // Don't fail all, just log
-      }
+      // No quotes needed for text uuids/ids: id1,id2,id3
+      const notInIds = openGithubIds.join(",");
+      deleteUrl = `${supabaseUrl}/rest/v1/bounties?github_id=not.in.(${notInIds})`;
+    } else {
+      // All are closed. Remove every row with a github_id present (cannot filter for not.in nothing)
+      // `not.is.null` filter will remove all rows where github_id is present.
+      deleteUrl = `${supabaseUrl}/rest/v1/bounties?github_id=not.is.null`;
+    }
+    // Add diagnostic logging for debugging!
+    console.log("Open Github IDs:", openGithubIds);
+    console.log("DELETE bounties with url:", deleteUrl);
+
+    const deleteRes = await fetch(deleteUrl, {
+      method: "DELETE",
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+      },
+    });
+
+    if (!deleteRes.ok) {
+      const text = await deleteRes.text();
+      console.error("Supabase cleanup (delete) failed:", text);
+      // Don't fail all, just log
+    } else {
+      console.log("Supabase cleanup (delete) success!");
     }
 
     return new Response(
