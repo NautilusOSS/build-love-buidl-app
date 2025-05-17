@@ -91,7 +91,7 @@ const Bounties: React.FC = () => {
           <div className="flex w-full sm:w-72 items-center relative">
             <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
             <Input
-              className="pl-10 bg-[#23263a] border border-[#393952] text-white"
+              className="pl-10 bg-[#23263a] border border-[#393952] text-white rounded-full shadow focus:ring-2 focus:ring-[#8B5CF6]/60"
               placeholder="Search bounties..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -99,45 +99,49 @@ const Bounties: React.FC = () => {
             />
           </div>
         </div>
-        <div className="overflow-x-auto rounded-lg shadow">
-          <Table className="min-w-full glass-morphism">
+        <div className="overflow-x-auto rounded-3xl shadow-2xl glass-morphism border-0 p-2">
+          <Table className="min-w-full">
             <TableHeader>
-              <TableRow>
-                <TableHead className="w-2/5 text-white/90">Title</TableHead>
-                <TableHead className="w-1/6 text-white/90">Reward</TableHead>
-                <TableHead className="w-1/4 text-white/90">Tags</TableHead>
-                <TableHead className="w-1/6 text-white/90"></TableHead>
+              <TableRow className="bg-[#212540]/80 rounded-2xl [th]:first:rounded-l-2xl [th]:last:rounded-r-2xl">
+                <TableHead className="w-2/5 text-white/90 text-base px-6 py-4 rounded-l-2xl">Title</TableHead>
+                <TableHead className="w-1/6 text-white/90 text-base px-6 py-4">Reward</TableHead>
+                <TableHead className="w-1/4 text-white/90 text-base px-6 py-4">Tags</TableHead>
+                <TableHead className="w-1/6 text-white/90 px-6 py-4 rounded-r-2xl"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-gray-400 py-6">
+                  <TableCell colSpan={4} className="text-center text-gray-400 py-8 text-lg">
                     No bounties found.
                   </TableCell>
                 </TableRow>
               ) : (
                 filtered.map((bounty) => (
-                  <TableRow key={bounty.id}>
-                    <TableCell className="font-bold text-white">{bounty.title}</TableCell>
-                    <TableCell>
-                      <span className="text-[#1EAEDB] font-semibold">{bounty.reward}</span>
+                  <TableRow
+                    key={bounty.id}
+                    className="bg-[#22263a]/60 hover:bg-[#2e3156]/80 transition rounded-2xl border-b border-white/10 last:border-b-0"
+                    style={{ boxShadow: "0 2px 16px 0 rgba(139,92,246,0.04)" }}
+                  >
+                    <TableCell className="font-bold text-white px-6 py-4 rounded-l-2xl">{bounty.title}</TableCell>
+                    <TableCell className="px-6 py-4">
+                      <span className="text-[#1EAEDB] font-semibold bg-[#213147]/60 rounded-lg px-3 py-1">{bounty.reward}</span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-6 py-4">
                       <div className="flex gap-1 flex-wrap">
                         {bounty.tags.map((tag) => (
                           <span
                             key={tag}
-                            className="bg-[#2b2e44] text-[#9b87f5] font-semibold px-2 py-0.5 rounded text-xs"
+                            className="bg-[#2b2e44]/70 text-[#9b87f5] font-semibold px-2.5 py-0.5 rounded-md text-xs"
                           >
                             {tag}
                           </span>
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-6 py-4 rounded-r-2xl">
                       <button
-                        className="px-4 py-1.5 rounded-md font-bold bg-[#8B5CF6] hover:bg-[#9b87f5] text-white shadow transition"
+                        className="px-5 py-1.5 rounded-full font-bold bg-gradient-to-r from-[#8B5CF6] via-[#9b87f5] to-[#1EAEDB] hover:brightness-110 text-white shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed"
                         disabled // Demo only, so button does nothing
                         title="Claim bounty coming soon"
                       >
