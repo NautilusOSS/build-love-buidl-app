@@ -84,7 +84,7 @@ const Bounties: React.FC = () => {
             <h1 className="text-white font-extrabold text-3xl mb-2 drop-shadow-sm">
               Open Bounties
             </h1>
-            <p className="text-muted-foreground mb-1">
+            <p className="mb-1 text-white/80 font-medium">
               Find and claim unassigned bounties.
             </p>
           </div>
