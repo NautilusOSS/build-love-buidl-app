@@ -21,6 +21,7 @@ import {
 import WalletConnectButton from "./WalletConnectButton";
 
 const navItems = [
+  { label: "Home", to: "/home", icon: LayoutDashboard },
   { label: "Dashboard", to: "/", icon: LayoutDashboard },
   { label: "Bounties", to: "/bounties", icon: Award },
   { label: "bVOI", to: "/bvoi", icon: Wallet },
