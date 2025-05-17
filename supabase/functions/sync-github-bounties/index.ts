@@ -235,7 +235,7 @@ serve(async (req) => {
     }
 
     // Delete all rows in bounties first
-    const deleteRes = await fetch(`${supabaseUrl}/rest/v1/bounties`, {
+    const deleteRes = await fetch(`${supabaseUrl}/rest/v1/bounties?id=not.is.null`, {
       method: "DELETE",
       headers: {
         apikey: supabaseKey,
