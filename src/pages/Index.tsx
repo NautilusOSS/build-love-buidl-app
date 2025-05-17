@@ -38,13 +38,31 @@ const Index = () => {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/" className="text-gray-400 hover:text-primary transition story-link">
-                Home
+              <BreadcrumbLink
+                href="/"
+                className="text-[#D946EF] font-bold tracking-tight hover:text-[#e95cf4] transition"
+              >
+                [BUIDL]
               </BreadcrumbLink>
-              <BreadcrumbSeparator />
+              <BreadcrumbSeparator>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="size-3.5"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="#1EAEDB"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="6 3 11 8 6 13" />
+                </svg>
+              </BreadcrumbSeparator>
             </BreadcrumbItem>
             <BreadcrumbItem>
-              <BreadcrumbPage className="font-semibold text-lg text-white">Dashboard</BreadcrumbPage>
+              <BreadcrumbPage className="font-semibold text-lg text-white">
+                Dashboard
+              </BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
