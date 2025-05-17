@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import PageLayout from "@/components/PageLayout";
 import { Input } from "@/components/ui/input";
@@ -11,12 +12,17 @@ import {
 } from "@/components/ui/table";
 import { Search } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import { supabase, SUPABASE_ANON_KEY } from "@/integrations/supabase/client"; // updated import
+import { supabase, SUPABASE_ANON_KEY } from "@/integrations/supabase/client";
 
-// GitHub project/board constants for NautilusOSS Board 2
-const GITHUB_OWNER = "NautilusOSS";
-const GITHUB_PROJECT_NUMBER = 2;
-const GITHUB_REPO = "bounties"; // Try 'bounties' repo; adjust if needed
+// Types for bounties (matches table)
+interface BountyItem {
+  id: string;
+  title: string;
+  reward?: string | null;
+  tags?: string[] | null;
+  url?: string | null;
+  status: string;
+}
 
 const breadcrumb = [
   {
@@ -29,55 +35,30 @@ const breadcrumb = [
   },
 ];
 
-// Types for bounties
-interface BountyItem {
-  id: number | string;
-  title: string;
-  reward?: string;
-  tags?: string[];
-  url?: string;
-  status: "open" | "closed" | string;
-}
-
 const Bounties: React.FC = () => {
   const [search, setSearch] = useState("");
   const [bounties, setBounties] = useState<BountyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch open issues with "bounty" label as bounties
+  // Fetch bounties from Supabase
   useEffect(() => {
-    async function fetchBountyIssues() {
+    async function fetchSupabaseBounties() {
       setLoading(true);
       setError(null);
-      try {
-        // Fetch issues from the repo, labels=bounty, state=open (assuming GitHub Issues are used as bounties)
-        const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues?labels=bounty&state=open&per_page=30`;
-        const res = await fetch(url);
-        if (!res.ok) {
-          throw new Error(`GitHub API error: ${res.status}`);
-        }
-        const data = await res.json();
-        // Map GitHub issues to BountyItem format
-        const mapped = (data as any[]).map((issue) => ({
-          id: issue.id,
-          title: issue.title,
-          reward: (issue.labels.find((l: any) => l.name.startsWith("$"))?.name) || "$???",
-          tags: issue.labels
-            .filter((l: any) => l.name !== "bounty" && !l.name.startsWith("$"))
-            .map((l: any) => l.name),
-          url: issue.html_url,
-          status: issue.state,
-        }));
-        setBounties(mapped);
-      } catch (err: any) {
-        setError("Failed to fetch bounties from GitHub. Try again later.");
+      const { data, error } = await supabase
+        .from("bounties")
+        .select("id, title, reward, tags, url, status")
+        .order("created_at", { ascending: false });
+      if (error) {
+        setError("Failed to fetch bounties from Supabase. Try again later.");
         setBounties([]);
-      } finally {
-        setLoading(false);
+      } else {
+        setBounties(data || []);
       }
+      setLoading(false);
     }
-    fetchBountyIssues();
+    fetchSupabaseBounties();
   }, []);
 
   // Sync bounties from GitHub (Edge function)
@@ -197,7 +178,7 @@ const Bounties: React.FC = () => {
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <span className="text-[#1EAEDB] font-semibold bg-[#213147]/60 rounded-lg px-3 py-1">
-                          {bounty.reward}
+                          {bounty.reward ?? "$???"}
                         </span>
                       </TableCell>
                       <TableCell className="px-6 py-4">
@@ -213,15 +194,19 @@ const Bounties: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4 rounded-r-2xl">
-                        <a
-                          href={bounty.url}
-                          className="px-5 py-1.5 rounded-full font-bold bg-gradient-to-r from-[#8B5CF6] via-[#9b87f5] to-[#1EAEDB] hover:brightness-110 text-white shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="View on GitHub"
-                        >
-                          View
-                        </a>
+                        {bounty.url ? (
+                          <a
+                            href={bounty.url}
+                            className="px-5 py-1.5 rounded-full font-bold bg-gradient-to-r from-[#8B5CF6] via-[#9b87f5] to-[#1EAEDB] hover:brightness-110 text-white shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="View on GitHub"
+                          >
+                            View
+                          </a>
+                        ) : (
+                          <span className="text-white/40">N/A</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
