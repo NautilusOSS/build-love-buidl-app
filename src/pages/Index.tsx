@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import OnboardingBanner from "@/components/OnboardingBanner";
 import ProgressBar from "@/components/ProgressBar";
@@ -40,7 +39,7 @@ const Index = () => {
             <BreadcrumbItem>
               <BreadcrumbLink
                 href="/"
-                className="text-[#D946EF] font-bold tracking-tight hover:text-[#e95cf4] transition"
+                className="text-[#1EAEDB] font-bold tracking-tight hover:text-[#42c6f5] transition"
               >
                 [BUIDL]
               </BreadcrumbLink>
@@ -92,4 +91,3 @@ const Index = () => {
 };
 
 export default Index;
-
