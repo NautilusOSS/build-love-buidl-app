@@ -128,7 +128,7 @@ serve(async (req) => {
           );
           fetchAllItems.openStatusOptions = fetchAllItems.statusField?.options?.find(
             (o: any) => o.name?.toLowerCase() === openColumnName.toLowerCase()
-          )?.id;
+          )?.id;a
         }
 
         const pageItems = project.items?.nodes ?? [];
