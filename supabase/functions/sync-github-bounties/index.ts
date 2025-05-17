@@ -26,6 +26,9 @@ serve(async (req) => {
       let endCursor: string | null = null;
       const first = 50;
 
+      // These will be initialized with the field/option info we discover
+      fetchAllItems.fieldsMap = undefined;
+
       while (hasNextPage) {
         const query = `
           query {
@@ -46,6 +49,14 @@ serve(async (req) => {
                         id
                         name
                       }
+                    }
+                    ... on ProjectV2TextField {
+                      id
+                      name
+                    }
+                    ... on ProjectV2NumberField {
+                      id
+                      name
                     }
                   }
                 }
@@ -82,11 +93,36 @@ serve(async (req) => {
                         }
                       }
                     }
-                    fieldValues(first: 10) {
+                    fieldValues(first: 20) {
                       nodes {
                         ... on ProjectV2ItemFieldSingleSelectValue {
+                          field {
+                            ... on ProjectV2SingleSelectField { id name }
+                            name
+                          }
                           name
                           optionId
+                        }
+                        ... on ProjectV2ItemFieldTextValue {
+                          field {
+                            ... on ProjectV2TextField { id name }
+                            name
+                          }
+                          text
+                        }
+                        ... on ProjectV2ItemFieldNumberValue {
+                          field {
+                            ... on ProjectV2NumberField { id name }
+                            name
+                          }
+                          number
+                        }
+                        ... on ProjectV2ItemFieldGenericValue {
+                          field {
+                            id
+                            name
+                          }
+                          value
                         }
                       }
                     }
@@ -120,15 +156,25 @@ serve(async (req) => {
           // project empty!
           break;
         }
-        // On first fetch, grab fields for later use
-        if (typeof fetchAllItems.statusField === "undefined") {
+        // On first fetch, grab fields for lookup
+        if (typeof fetchAllItems.fieldsMap === "undefined") {
+          // Map field names to IDs for quick lookup
+          fetchAllItems.fieldsMap = {};
+          (project.fields?.nodes ?? []).forEach((f: any) => {
+            if (f && f.name) {
+              fetchAllItems.fieldsMap[f.name] = f.id;
+            }
+          });
           fetchAllItems.statusField = project.fields?.nodes?.find(
-            (f: any) => f.name?.toLowerCase() === "status" ||
-                        f.name?.toLowerCase() === "column"
+            (f: any) =>
+              f.name?.toLowerCase() === "status" ||
+              f.name?.toLowerCase() === "column"
           );
           fetchAllItems.openStatusOptions = fetchAllItems.statusField?.options?.find(
             (o: any) => o.name?.toLowerCase() === openColumnName.toLowerCase()
           )?.id;
+          fetchAllItems.bountyFieldId =
+            (project.fields?.nodes ?? []).find((f: any) => f.name && f.name.toLowerCase() === "bounty")?.id;
         }
 
         const pageItems = project.items?.nodes ?? [];
@@ -142,8 +188,9 @@ serve(async (req) => {
 
     // Fetch all items in all pages
     const allItems = await fetchAllItems();
+    const bountyFieldId = fetchAllItems.bountyFieldId;
 
-    // Get field info for status
+    // Fetch status field info, fallback if necessary
     const fieldsRes = await fetch(
       apiUrl,
       {
@@ -170,6 +217,14 @@ serve(async (req) => {
                           id
                           name
                         }
+                      }
+                      ... on ProjectV2TextField {
+                        id
+                        name
+                      }
+                      ... on ProjectV2NumberField {
+                        id
+                        name
                       }
                     }
                   }
@@ -201,18 +256,51 @@ serve(async (req) => {
       return !!fieldValue && item.content;
     });
 
-    // Prepare upserts
+    // Prepare upserts using "Bounty" field as reward if available
     const inserts = openItems
       .map((item: any) => {
         const content = item.content;
         if (!content) return null;
+        // --- Get reward from "Bounty" field if present ---
+        let bountyReward: string | null = null;
+        if (bountyFieldId && Array.isArray(item.fieldValues?.nodes)) {
+          const bountyFieldValue = item.fieldValues.nodes.find(
+            (fv: any) =>
+              fv?.field?.id === bountyFieldId &&
+              (
+                typeof fv.text === "string" ||
+                typeof fv.number === "string" ||
+                typeof fv.value === "string"
+              )
+          );
+          if (bountyFieldValue) {
+            // Prefer .text, then .number, then .value
+            bountyReward =
+              bountyFieldValue.text ??
+              bountyFieldValue.number?.toString() ??
+              bountyFieldValue.value ??
+              null;
+            if (
+              typeof bountyReward === "string" &&
+              bountyReward.trim() === ""
+            ) {
+              bountyReward = null;
+            }
+          }
+        }
+        // fallback: parse from label if Bounty field not present
+        let reward = bountyReward;
+        if (!reward) {
+          reward =
+            content.labels?.nodes?.find((l: any) =>
+              l.name.startsWith("$")
+            )?.name || null;
+        }
+
         const labels =
           content.labels?.nodes
             ?.map((l: any) => l.name)
             ?.filter((n: string) => n !== "bounty" && !n.startsWith("$")) || [];
-        const reward =
-          content.labels?.nodes
-            ?.find((l: any) => l.name.startsWith("$"))?.name || null;
 
         return {
           github_id: content.id,
@@ -234,17 +322,20 @@ serve(async (req) => {
       throw new Error("Supabase URL/Service Role Key missing");
     }
 
-    // CHANGED: Add ?on_conflict=github_id to upsert endpoint
-    const upRes = await fetch(`${supabaseUrl}/rest/v1/bounties?on_conflict=github_id`, {
-      method: "POST",
-      headers: {
-        apikey: supabaseKey,
-        Authorization: `Bearer ${supabaseKey}`,
-        "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates",
-      },
-      body: JSON.stringify(inserts),
-    });
+    // Add ?on_conflict=github_id to upsert endpoint
+    const upRes = await fetch(
+      `${supabaseUrl}/rest/v1/bounties?on_conflict=github_id`,
+      {
+        method: "POST",
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates",
+        },
+        body: JSON.stringify(inserts),
+      }
+    );
 
     if (!upRes.ok) {
       const text = await upRes.text();
