@@ -143,9 +143,9 @@ const Bounties: React.FC = () => {
                       <button
                         className="px-5 py-1.5 rounded-full font-bold bg-gradient-to-r from-[#8B5CF6] via-[#9b87f5] to-[#1EAEDB] hover:brightness-110 text-white shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed"
                         disabled // Demo only, so button does nothing
-                        title="Claim bounty coming soon"
+                        title="View bounty coming soon"
                       >
-                        Claim
+                        View
                       </button>
                     </TableCell>
                   </TableRow>
