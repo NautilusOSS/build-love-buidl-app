@@ -234,7 +234,8 @@ serve(async (req) => {
       throw new Error("Supabase URL/Service Role Key missing");
     }
 
-    const upRes = await fetch(`${supabaseUrl}/rest/v1/bounties`, {
+    // CHANGED: Add ?on_conflict=github_id to upsert endpoint
+    const upRes = await fetch(`${supabaseUrl}/rest/v1/bounties?on_conflict=github_id`, {
       method: "POST",
       headers: {
         apikey: supabaseKey,
