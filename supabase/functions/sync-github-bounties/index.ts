@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
@@ -16,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const projectId = "PVT_kwDOBvG7Jc4Acg"; // NautilusOSS/Board 2
+    const projectId = "PVT_kwDOCbEr484A0yNe"; // NautilusOSS/Board 2 (correct ProjectV2 ID)
     const openColumnName = "Open";
     const apiUrl = "https://api.github.com/graphql";
 
@@ -267,4 +266,3 @@ serve(async (req) => {
     );
   }
 });
-
