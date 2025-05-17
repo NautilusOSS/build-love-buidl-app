@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import PageLayout from "@/components/PageLayout";
 import { Input } from "@/components/ui/input";
@@ -14,7 +13,7 @@ import { Search } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { supabase, SUPABASE_ANON_KEY } from "@/integrations/supabase/client";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+import { Info, RefreshCcw } from "lucide-react";
 
 // Types for bounties (matches table)
 interface BountyItem {
@@ -141,10 +140,12 @@ const Bounties: React.FC = () => {
             </div>
             <button
               onClick={handleSyncBounties}
-              className="bg-[#8B5CF6] hover:bg-[#A78BFA] text-white font-semibold px-4 py-2 rounded-full shadow transition focus:outline-none sm:ml-2 w-full sm:w-auto text-sm sm:text-base"
-              title="Import bounties from GitHub"
+              className="bg-[#8B5CF6] hover:bg-[#A78BFA] text-white font-semibold px-4 py-2 rounded-full shadow transition focus:outline-none sm:ml-2 w-full sm:w-auto text-sm sm:text-base flex items-center justify-center"
+              title="Refresh bounties from GitHub"
+              aria-label="Refresh bounties"
             >
-              Sync Bounties
+              <RefreshCcw className="w-5 h-5" aria-hidden="true" />
+              <span className="sr-only">Refresh Bounties</span>
             </button>
           </div>
         </div>
