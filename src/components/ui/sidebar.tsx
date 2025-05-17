@@ -510,7 +510,10 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-xl p-2 text-left text-base font-medium outline-none border border-transparent ring-sidebar-ring transition-all duration-200 hover:bg-[#2e2642] hover:text-[#9b87f5] hover:border-[#9b87f5] hover:shadow-[0_0_8px_0_#9b87f5aa] focus-visible:ring-2 focus-visible:ring-[#a188fa] focus:border-[#a188fa] active:bg-[#322353] active:text-white data-[active=true]:bg-[#2e2642] data-[active=true]:border-[#9b87f5] data-[active=true]:text-[#9b87f5]",
+  // MENU BUTTON BASE STYLE
+  // - Inactive state: text-[#C8C8C9]
+  // - Active state: purple accent on border/text
+  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-xl p-2 text-left text-base font-medium outline-none border border-transparent ring-sidebar-ring transition-all duration-200 text-[#C8C8C9] hover:bg-[#262448] hover:text-[#fff] hover:border-[#a388f8] hover:shadow-[0_0_6px_0_#9b87f585] focus-visible:ring-2 focus-visible:ring-[#a188fa] focus:border-[#a188fa] active:bg-[#322353] active:text-[#fff] data-[active=true]:bg-[#2e2642] data-[active=true]:border-[#9b87f5] data-[active=true]:text-[#9b87f5]",
   {
     variants: {
       variant: {
