@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import OnboardingBanner from "@/components/OnboardingBanner";
 import ProgressBar from "@/components/ProgressBar";
@@ -6,6 +5,10 @@ import BuidlButton from "@/components/BuidlButton";
 import ConfettiPop from "@/components/ConfettiPop";
 import MentorTooltip from "@/components/MentorTooltip";
 import DashboardStats from "@/components/DashboardStats";
+import MyContributions from "@/components/MyContributions";
+import PayoutForecast from "@/components/PayoutForecast";
+import WeeklySummary from "@/components/WeeklySummary";
+import Bounties from "@/components/Bounties";
 
 const Index = () => {
   const [progress, setProgress] = useState(42); // demo static
@@ -24,6 +27,12 @@ const Index = () => {
       <div className="max-w-6xl w-full flex flex-col items-center justify-center px-2">
         <DashboardStats />
         <div className="max-w-2xl w-full flex flex-col items-center justify-center">
+          {/* Add new dashboard sections here */}
+          <MyContributions />
+          <PayoutForecast />
+          <WeeklySummary />
+          <Bounties />
+          {/* ... keep existing code (glass-morphism card, etc.) the same ... */}
           <div className="glass-morphism rounded-3xl p-10 md:p-14 mb-8 shadow-2xl bg-[#221F26cc]">
             <div className="text-gradient-primary font-extrabold text-3xl mb-4 drop-shadow-lg">Lovable BUIDL Demo</div>
             <div className="mb-6 text-white text-lg font-medium opacity-85 max-w-xl">
@@ -52,4 +61,3 @@ const Index = () => {
 };
 
 export default Index;
-
