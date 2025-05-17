@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import PageLayout from "@/components/PageLayout";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 // GitHub project/board constants for NautilusOSS Board 2
 const GITHUB_OWNER = "NautilusOSS";
@@ -79,6 +79,38 @@ const Bounties: React.FC = () => {
     fetchBountyIssues();
   }, []);
 
+  // Sync bounties from GitHub (Edge function)
+  const handleSyncBounties = useCallback(async () => {
+    toast({ title: "Syncing bounties…", description: "Fetching data from GitHub project board." });
+    try {
+      const res = await fetch(
+        "https://yeyhgvpnhhqrkolypxdw.functions.supabase.co/sync-github-bounties",
+        { method: "POST" }
+      );
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({
+          title: "Bounties Synchronized!",
+          description: `Imported or updated ${data.inserted} bounties from GitHub.`,
+        });
+        // Optionally refetch bounties:
+        window.location.reload();
+      } else {
+        toast({
+          title: "Sync failed",
+          description: data.error || "Unknown error occurred",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: "Network error",
+        description: e.message,
+        variant: "destructive",
+      });
+    }
+  }, []);
+
   // Filter bounties by search input in title/tags
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -101,7 +133,7 @@ const Bounties: React.FC = () => {
               Find and claim unassigned bounties.
             </p>
           </div>
-          <div className="flex w-full sm:w-72 items-center relative">
+          <div className="flex flex-row w-full sm:w-72 items-center relative gap-2">
             <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
             <Input
               className="pl-10 bg-[#23263a] border border-[#393952] text-white rounded-full shadow focus:ring-2 focus:ring-[#8B5CF6]/60"
@@ -110,6 +142,13 @@ const Bounties: React.FC = () => {
               onChange={(e) => setSearch(e.target.value)}
               data-testid="bounties-search"
             />
+            <button
+              onClick={handleSyncBounties}
+              className="bg-[#8B5CF6] hover:bg-[#A78BFA] text-white font-semibold px-4 py-2 rounded-full shadow transition focus:outline-none ml-2"
+              title="Import bounties from GitHub"
+            >
+              Sync Bounties
+            </button>
           </div>
         </div>
         <div className="overflow-x-auto rounded-3xl shadow-2xl glass-morphism border-0 p-2 min-h-[120px]">
@@ -189,4 +228,3 @@ const Bounties: React.FC = () => {
 };
 
 export default Bounties;
-
