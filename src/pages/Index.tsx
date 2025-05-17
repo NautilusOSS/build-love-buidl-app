@@ -1,12 +1,48 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React, { useState } from "react";
+import OnboardingBanner from "@/components/OnboardingBanner";
+import ProgressBar from "@/components/ProgressBar";
+import BuidlButton from "@/components/BuidlButton";
+import ConfettiPop from "@/components/ConfettiPop";
+import MentorTooltip from "@/components/MentorTooltip";
 
 const Index = () => {
+  const [progress, setProgress] = useState(42); // demo static
+  const [confetti, setConfetti] = useState<null | string>(null);
+
+  const handlePayout = () => {
+    setProgress(Math.min(100, progress + 18));
+    // choose a badge randomly
+    const badges = ["💡 Innovator", "🐛 Bug Smasher", "🚀 BUIDL Hero", "🎉 Community Star"];
+    setConfetti(badges[Math.floor(Math.random() * badges.length)]);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
+    <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#131522] to-[#0c0c13] flex flex-col items-center justify-center pt-12 relative">
+      <OnboardingBanner />
+      <div className="max-w-2xl w-full flex flex-col items-center justify-center">
+        <div className="glass-morphism rounded-3xl p-10 md:p-14 mb-8 shadow-2xl bg-[#221F26cc]">
+          <div className="text-gradient-primary font-extrabold text-3xl mb-4 drop-shadow-lg">Lovable BUIDL Demo</div>
+          <div className="mb-6 text-white text-lg font-medium opacity-85 max-w-xl">
+            {"You've locked 1.2 bVOI for 12 weeks. That’s worth "}
+            <span className="text-[#1EAEDB] font-bold">4x</span>
+            {" voting power!"}
+          </div>
+          <ProgressBar progress={progress} />
+          <div className="mt-7 mb-2">
+            <MentorTooltip tip="Locking for longer = more voting power. Want to earn faster? Try extending your lock.">
+              <span className="bg-[#222333]/60 px-3 py-1 rounded-xl text-sm text-white font-semibold cursor-help border border-white/10 hover:shadow-[0_0_12px_#9b87f588] transition-shadow">
+                Voting Power Help
+              </span>
+            </MentorTooltip>
+          </div>
+          <BuidlButton onPayout={handlePayout} />
+          <div className="mt-6 text-[#9b87f5] text-base font-medium animate-fade-in">
+            {"BUIDL progress resets on distribution day."}
+          </div>
+        </div>
       </div>
+      {confetti && <ConfettiPop badge={confetti} onDone={() => setConfetti(null)} />}
     </div>
   );
 };
