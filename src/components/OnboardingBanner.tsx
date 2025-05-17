@@ -14,7 +14,7 @@ const OnboardingBanner = () => (
         size={28}
         className="text-[#D946EF] animate-bounce transition-colors group-hover:text-[#1EAEDB]"
       />
-      <div className="text-lg text-white font-semibold tracking-tight underline underline-offset-2 decoration-[#1EAEDB]/70 group-hover:text-[#1EAEDB]">
+      <div className="text-lg text-white font-semibold tracking-tight group-hover:text-[#1EAEDB]">
         Your first 100 BUIDL are within reach{" "}
         <span role="img" aria-label="eyes">
           👀
