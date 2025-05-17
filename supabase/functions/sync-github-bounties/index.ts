@@ -314,6 +314,9 @@ serve(async (req) => {
       })
       .filter(Boolean);
 
+    // Collect all open github_ids to keep
+    const openGithubIds = inserts.map((b: any) => b.github_id);
+
     // Upsert via Supabase
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -344,6 +347,28 @@ serve(async (req) => {
         status: 500,
         headers: corsHeaders,
       });
+    }
+
+    // ---- New: Remove bounties not in Open ----
+    // DELETE bounties where github_id is not among the open ones, but only for rows with a github_id
+    if (openGithubIds.length > 0) {
+      // Build a PostgREST filter
+      const notInIds = openGithubIds.map((id) => `"${id}"`).join(",");
+      const deleteRes = await fetch(
+        `${supabaseUrl}/rest/v1/bounties?github_id=not.in.(${notInIds})`,
+        {
+          method: "DELETE",
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+          },
+        }
+      );
+      if (!deleteRes.ok) {
+        const text = await deleteRes.text();
+        console.error("Supabase cleanup (delete) failed:", text);
+        // Don't fail all, just log
+      }
     }
 
     return new Response(
