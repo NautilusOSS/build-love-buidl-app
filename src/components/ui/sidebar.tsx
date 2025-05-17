@@ -321,7 +321,7 @@ const SidebarInset = React.forwardRef<
       ref={ref}
       className={cn(
         "relative flex min-h-svh flex-1 flex-col bg-background",
-        "peer-data-[variant=inset]:min-h-[calc(100svh-theme(spacing.4))] md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
+        "peer-data-[variant=inset]:min-h-[calc(100svh-theme(spacing.4))] md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
         className
       )}
       {...props}
@@ -397,18 +397,43 @@ const SidebarContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div">
 >(({ className, ...props }, ref) => {
+  // Track if the scroll is at the very top
+  const [isAtTop, setIsAtTop] = React.useState(true);
+  const contentRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Forward ref usage
+  React.useImperativeHandle(ref, () => contentRef.current as HTMLDivElement);
+
+  React.useEffect(() => {
+    const node = contentRef.current;
+    if (!node) return;
+
+    const handleScroll = () => {
+      setIsAtTop(node.scrollTop === 0);
+    };
+
+    node.addEventListener("scroll", handleScroll, { passive: true });
+    // Initial check in case of default scroll offset
+    handleScroll();
+
+    return () => {
+      node.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
   return (
     <div
-      ref={ref}
+      ref={contentRef}
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden transition-colors duration-200", // smooth transition
+        isAtTop ? "bg-transparent" : "bg-[#1a1f2cee]/70", // transparent at top, else slightly colored
         className
       )}
       {...props}
     />
-  )
-})
+  );
+});
 SidebarContent.displayName = "SidebarContent"
 
 const SidebarGroup = React.forwardRef<
