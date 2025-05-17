@@ -168,7 +168,11 @@ const Bounties: React.FC = () => {
                             <Info size={17} aria-label="Reward info" />
                           </span>
                         </TooltipTrigger>
-                        <TooltipContent side="right" className="text-sm max-w-xs font-normal">
+                        <TooltipContent
+                          side="right"
+                          sideOffset={12}
+                          className="text-sm max-w-xs font-normal rounded-xl border-2 border-[#1A1F2C]/80 bg-[#23263a] shadow-lg"
+                        >
                           $ rewards amounts are approximate at time of posting.<br />
                           Rewards are in fixed amount of <span className="font-semibold text-[#1EAEDB]">BUIDL</span>.
                         </TooltipContent>
