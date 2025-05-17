@@ -1,3 +1,4 @@
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
@@ -36,10 +37,11 @@ const CardTitle = React.forwardRef<
   <h3
     ref={ref}
     className={cn(
-      "text-2xl font-semibold leading-none tracking-tight",
+      "text-2xl font-extrabold leading-none tracking-tight text-white drop-shadow-[0_2px_8px_rgba(155,135,245,0.25)]",
       className
     )}
     {...props}
+    ref={ref}
   />
 ))
 CardTitle.displayName = "CardTitle"
@@ -77,3 +79,4 @@ const CardFooter = React.forwardRef<
 CardFooter.displayName = "CardFooter"
 
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
+
