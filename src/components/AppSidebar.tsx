@@ -18,6 +18,7 @@ import {
   Gavel, 
   Banknote 
 } from "lucide-react";
+import WalletConnectButton from "./WalletConnectButton";
 
 const navItems = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard },
@@ -49,6 +50,8 @@ const AppSidebar: React.FC = () => {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {/* Add WalletConnect button after nav */}
+        <WalletConnectButton />
       </SidebarContent>
     </Sidebar>
   );
