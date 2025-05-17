@@ -16,126 +16,197 @@ serve(async (req) => {
   }
 
   try {
-    // IDs from your board: https://github.com/orgs/NautilusOSS/projects/2/settings
-    const projectId = "PVT_kwDOBvG7Jc4Acg"; // Project ID for NautilusOSS/Board 2 (update if needed)
+    const projectId = "PVT_kwDOBvG7Jc4Acg"; // NautilusOSS/Board 2
     const openColumnName = "Open";
     const apiUrl = "https://api.github.com/graphql";
 
-    const query = `
-      query {
-        node(id: "${projectId}") {
-          ... on ProjectV2 {
-            id
-            title
-            fields(first: 30) {
-              nodes {
-                ... on ProjectV2Field {
-                  id
-                  name
-                }
-                ... on ProjectV2SingleSelectField {
-                  id
-                  name
-                  options {
-                    id
-                    name
-                  }
-                }
-              }
-            }
-            items(first: 50) {
-              nodes {
+    // GraphQL query with pagination
+    const fetchAllItems = async () => {
+      let items: any[] = [];
+      let hasNextPage = true;
+      let endCursor: string | null = null;
+      const first = 50;
+
+      while (hasNextPage) {
+        const query = `
+          query {
+            node(id: "${projectId}") {
+              ... on ProjectV2 {
                 id
-                content {
-                  ... on Issue {
-                    id
-                    title
-                    url
-                    body
-                    state
-                    labels(first: 10) {
-                      nodes {
-                        name
-                      }
+                title
+                fields(first: 30) {
+                  nodes {
+                    ... on ProjectV2Field {
+                      id
+                      name
                     }
-                  }
-                  ... on PullRequest {
-                    id
-                    title
-                    url
-                    body
-                    state
-                    labels(first: 10) {
-                      nodes {
+                    ... on ProjectV2SingleSelectField {
+                      id
+                      name
+                      options {
+                        id
                         name
                       }
                     }
                   }
                 }
-                fieldValues(first: 10) {
+                items(first: ${first}${endCursor ? `, after: "${endCursor}"` : ""}) {
+                  pageInfo {
+                    hasNextPage
+                    endCursor
+                  }
                   nodes {
-                    ... on ProjectV2ItemFieldSingleSelectValue {
-                      name
-                      optionId
+                    id
+                    content {
+                      ... on Issue {
+                        id
+                        title
+                        url
+                        body
+                        state
+                        labels(first: 10) {
+                          nodes {
+                            name
+                          }
+                        }
+                      }
+                      ... on PullRequest {
+                        id
+                        title
+                        url
+                        body
+                        state
+                        labels(first: 10) {
+                          nodes {
+                            name
+                          }
+                        }
+                      }
+                    }
+                    fieldValues(first: 10) {
+                      nodes {
+                        ... on ProjectV2ItemFieldSingleSelectValue {
+                          name
+                          optionId
+                        }
+                      }
                     }
                   }
                 }
               }
             }
           }
+        `;
+
+        const ghRes = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${GITHUB_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query }),
+        });
+
+        if (!ghRes.ok) {
+          const text = await ghRes.text();
+          console.error("GitHub API error:", text);
+          throw new Error(text);
         }
+        const ghData = await ghRes.json();
+
+        const node = ghData?.data?.node;
+        if (!node) break;
+        const project = node;
+        if (items.length === 0 && project.fields && !project.items) {
+          // project empty!
+          break;
+        }
+        // On first fetch, grab fields for later use
+        if (typeof fetchAllItems.statusField === "undefined") {
+          fetchAllItems.statusField = project.fields?.nodes?.find(
+            (f: any) => f.name?.toLowerCase() === "status" ||
+                        f.name?.toLowerCase() === "column"
+          );
+          fetchAllItems.openStatusOptions = fetchAllItems.statusField?.options?.find(
+            (o: any) => o.name?.toLowerCase() === openColumnName.toLowerCase()
+          )?.id;
+        }
+
+        const pageItems = project.items?.nodes ?? [];
+        items = items.concat(pageItems);
+
+        hasNextPage = project.items?.pageInfo?.hasNextPage ?? false;
+        endCursor = project.items?.pageInfo?.endCursor ?? null;
       }
-    `;
+      return items;
+    };
 
-    // Make GitHub GraphQL API request
-    const ghRes = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query }),
-    });
+    // Fetch all items in all pages
+    const allItems = await fetchAllItems();
 
-    if (!ghRes.ok) {
-      const text = await ghRes.text();
-      console.error("GitHub API error:", text);
-      return new Response(JSON.stringify({ error: text }), {
-        status: 500,
-        headers: corsHeaders,
-      });
-    }
-    const ghData = await ghRes.json();
-    const items = ghData?.data?.node?.items?.nodes || [];
-
-    // Get the status field info
-    const fields = ghData?.data?.node?.fields?.nodes;
-    const statusField = fields?.find(
+    // Get field info for status
+    const fieldsRes = await fetch(
+      apiUrl,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: `
+            query {
+              node(id: "${projectId}") {
+                ... on ProjectV2 {
+                  fields(first: 30) {
+                    nodes {
+                      ... on ProjectV2Field {
+                        id
+                        name
+                      }
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                        options {
+                          id
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          `
+        }),
+      }
+    );
+    const fieldsData = await fieldsRes.json();
+    const fieldsNode = fieldsData?.data?.node?.fields?.nodes;
+    const statusField = fieldsNode?.find(
       (f: any) =>
         f.name?.toLowerCase() === "status" ||
-        f.name?.toLowerCase() === "column" // alternate name
+        f.name?.toLowerCase() === "column"
     );
     const openStatusOptions =
       statusField?.options?.find(
         (o: any) => o.name?.toLowerCase() === openColumnName.toLowerCase()
       )?.id;
 
-    // Filter to only "Open" status cards
-    const openItems = items.filter((item: any) => {
+    // Filter "Open" status cards
+    const openItems = allItems.filter((item: any) => {
+      if (!item.fieldValues) return false;
       const fieldValue = item.fieldValues.nodes.find(
         (fv: any) => fv?.optionId === openStatusOptions
       );
       return !!fieldValue && item.content;
     });
 
-    // Prepare upserts to bounties table
+    // Prepare upserts
     const inserts = openItems
       .map((item: any) => {
         const content = item.content;
         if (!content) return null;
-        const isIssue = !!content.state; // Only import Issues & PRs
-
-        // Extract tags (all non-bounty, non-$xxx labels)
         const labels =
           content.labels?.nodes
             ?.map((l: any) => l.name)
@@ -196,3 +267,4 @@ serve(async (req) => {
     );
   }
 });
+
