@@ -379,41 +379,6 @@ serve(async (req) => {
       });
     }
 
-    // ---- Remove bounties not in Open ----
-    let deleteUrl;
-    // We must delete all bounties not in openStatus. If openGithubIds is empty, delete ALL with github_id
-    if (openGithubIds.length > 0) {
-      // No quotes needed for text uuids/ids: id1,id2,id3
-      const notInIds = openGithubIds.join(",");
-      deleteUrl = `${supabaseUrl}/rest/v1/bounties?github_id=not.in.(${notInIds})`;
-    } else {
-      // All are closed. Remove every row with a github_id present (cannot filter for not.in nothing)
-      // `not.is.null` filter will remove all rows where github_id is present.
-      deleteUrl = `${supabaseUrl}/rest/v1/bounties?github_id=not.is.null`;
-    }
-    // Add diagnostic logging for debugging!
-    console.log("Open Github IDs for retention:", openGithubIds);
-    console.log(
-      "Supabase DELETE bounties api URL (will remove all not Open):",
-      deleteUrl
-    );
-
-    const deleteRes = await fetch(deleteUrl, {
-      method: "DELETE",
-      headers: {
-        apikey: supabaseKey,
-        Authorization: `Bearer ${supabaseKey}`,
-      },
-    });
-
-    if (!deleteRes.ok) {
-      const text = await deleteRes.text();
-      console.error("Supabase cleanup (delete) failed:", text);
-      // Don't fail all, just log
-    } else {
-      console.log("Supabase cleanup (delete) success!");
-    }
-
     return new Response(
       JSON.stringify({ success: true, inserted: inserts.length }),
       { status: 200, headers: corsHeaders }
