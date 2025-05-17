@@ -38,7 +38,7 @@ const Index = () => {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink
-                href="/"
+                href="/home"
                 className="text-[#1EAEDB] font-bold tracking-tight hover:text-[#42c6f5] transition"
               >
                 [BUIDL]
