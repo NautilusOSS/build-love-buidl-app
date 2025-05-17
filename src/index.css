@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -23,6 +24,12 @@
       transform: translateY(-70px) scale(1.12) rotate(40deg);
     }
   }
+
+  /* === MAIN DOCUMENT BACKGROUND OVERRIDE === */
+  body {
+    background-color: #1a1f2c !important;
+    @apply text-white antialiased;
+  }
 }
 
 /* Neon button hover highlights (override if needed) */
@@ -36,3 +43,4 @@ button:focus-visible {
     @apply bg-gradient-to-br from-[#9b87f5]/80 via-[#1EAEDB]/80 to-[#D946EF]/90 bg-opacity-80 shadow-[0_4px_24px_-2px_#9b87f655] backdrop-blur-xl border border-white/20;
   }
 }
+
