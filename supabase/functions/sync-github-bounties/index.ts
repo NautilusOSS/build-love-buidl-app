@@ -156,6 +156,7 @@ serve(async (req) => {
           );
           bountyFieldId = bountyField?.id ?? null;
           fetchAllItems.bountyFieldId = bountyFieldId;
+          console.log("Bounty field ID:", bountyFieldId);
         }
 
         const pageItems = project.items?.nodes ?? [];
@@ -259,6 +260,8 @@ serve(async (req) => {
             }
           }
         }
+        console.log(`Item Title: ${content.title}`);
+        console.log(`  Bounty field value: ${bountyFieldValue}`);
 
         // If no bounty field, fallback to $label
         const reward =
@@ -267,6 +270,7 @@ serve(async (req) => {
             content.labels?.nodes
               ?.find((l: any) => l.name.startsWith("$"))?.name || null
           );
+        console.log(`  Reward to upsert: ${reward}`);
 
         return {
           github_id: content.id,
@@ -279,6 +283,8 @@ serve(async (req) => {
         };
       })
       .filter(Boolean);
+
+    console.log("Inserts prepared:", inserts);
 
     // Delete all rows in bounties first
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
