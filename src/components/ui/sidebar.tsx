@@ -393,7 +393,7 @@ const SidebarSeparator = React.forwardRef<
 })
 SidebarSeparator.displayName = "SidebarSeparator"
 
-const SidebarContent = React.forwardRef<
+const SidebarContentRefactored = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div">
 >(({ className, ...props }, ref) => {
@@ -435,7 +435,7 @@ const SidebarContent = React.forwardRef<
     />
   );
 });
-SidebarContent.displayName = "SidebarContent"
+SidebarContentRefactored.displayName = "SidebarContent"
 
 const SidebarGroup = React.forwardRef<
   HTMLDivElement,
@@ -765,7 +765,7 @@ SidebarMenuSubButton.displayName = "SidebarMenuSubButton"
 
 export {
   Sidebar,
-  SidebarContent,
+  SidebarContentRefactored as SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupAction,
