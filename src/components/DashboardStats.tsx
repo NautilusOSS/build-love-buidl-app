@@ -64,7 +64,7 @@ const DashboardStats: React.FC = () => (
             <stat.icon className={`w-7 h-7 ${stat.color}`} />
           </div>
           <div>
-            <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider mb-1">
+            <div className="text-white/90 text-xs font-semibold uppercase tracking-wider mb-1">
               {stat.label}
             </div>
             <div className="text-white text-2xl font-extrabold leading-tight flex items-end gap-1">
@@ -83,3 +83,4 @@ const DashboardStats: React.FC = () => (
 );
 
 export default DashboardStats;
+
