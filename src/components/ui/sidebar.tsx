@@ -191,15 +191,17 @@ const Sidebar = React.forwardRef<
     }
 
     if (isMobile) {
+      // On mobile, make sidebar take full screen width!
       return (
         <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            className="w-screen max-w-full bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden m-0 fixed top-0 left-0 h-screen z-[100]"
+            // w-screen max-w-full ensures overlay covers viewport
             style={
               {
-                "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+                "--sidebar-width": "100vw",
               } as React.CSSProperties
             }
             side={side}
