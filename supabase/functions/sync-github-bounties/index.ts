@@ -381,21 +381,7 @@ serve(async (req) => {
 
     // ---- Remove bounties not in Open ----
     let deleteUrl;
-    // DEFENSIVE: If we have any items from GitHub, but found "0 Open," do NOT bulk delete (unless there are truly no items at all).
-    if (allItems.length > 0 && openItems.length === 0) {
-      console.warn(
-        "Refusing to delete all bounties: GitHub returned items, but none detected as Open. Possible parsing/filter bug! No delete will be issued this sync."
-      );
-      // Optionally return early
-      return new Response(
-        JSON.stringify({
-          error:
-            "No Open items detected in board, so no bounties were deleted this sync (possible field mapping issue).",
-          diagnostic: { openGithubIds, allItems: allItems.length },
-        }),
-        { status: 200, headers: corsHeaders }
-      );
-    }
+    // We must delete all bounties not in openStatus. If openGithubIds is empty, delete ALL with github_id
     if (openGithubIds.length > 0) {
       // No quotes needed for text uuids/ids: id1,id2,id3
       const notInIds = openGithubIds.join(",");
