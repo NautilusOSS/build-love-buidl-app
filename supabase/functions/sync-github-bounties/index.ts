@@ -209,10 +209,10 @@ serve(async (req) => {
         const labels =
           content.labels?.nodes
             ?.map((l: any) => l.name)
-            ?.filter((n: string) => n !== "bounty" && !n.endsWith("$BUIDL")) || [];
+            ?.filter((n: string) => n !== "bounty" && !n.startsWith("$")) || [];
         const reward =
           content.labels?.nodes
-            ?.find((l: any) => l.name.endsWith("$BUIDL"))?.name || null;
+            ?.find((l: any) => l.name.startsWith("$"))?.name || null;
 
         return {
           github_id: content.id,
