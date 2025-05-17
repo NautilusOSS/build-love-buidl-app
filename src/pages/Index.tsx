@@ -27,11 +27,19 @@ const Index = () => {
       <div className="max-w-6xl w-full flex flex-col items-center justify-center px-2">
         <DashboardStats />
         <div className="max-w-2xl w-full flex flex-col items-center justify-center">
-          {/* Add new dashboard sections here */}
-          <MyContributions />
-          <PayoutForecast />
-          <WeeklySummary />
-          <Bounties />
+          {/* Responsive dashboard layout */}
+          <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* Left Column (3 stacked cards) */}
+            <div className="flex flex-col gap-6 lg:col-span-2">
+              <MyContributions />
+              <PayoutForecast />
+              <WeeklySummary />
+            </div>
+            {/* Right Column (Bounties) */}
+            <div className="flex flex-col gap-6">
+              <Bounties />
+            </div>
+          </div>
           {/* ... keep existing code (glass-morphism card, etc.) the same ... */}
           <div className="glass-morphism rounded-3xl p-10 md:p-14 mb-8 shadow-2xl bg-[#221F26cc]">
             <div className="text-gradient-primary font-extrabold text-3xl mb-4 drop-shadow-lg">Lovable BUIDL Demo</div>
