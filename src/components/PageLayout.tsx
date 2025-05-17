@@ -22,11 +22,11 @@ interface PageLayoutProps {
 }
 
 const PageLayout: React.FC<PageLayoutProps> = ({ breadcrumb, children }) => (
-  <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#131522] to-[#0c0c13] flex flex-col items-center pt-12 relative">
+  <div className="min-h-screen w-full bg-gradient-to-br from-[#1A1F2C] via-[#131522] to-[#0c0c13] flex flex-col items-center pt-12 relative">
     <OnboardingBanner />
     {/* Breadcrumb */}
     {breadcrumb && (
-      <div className="w-full max-w-6xl pt-2 px-2">
+      <div className="w-full max-w-6xl pt-2 px-2 sm:px-6">
         <Breadcrumb>
           <BreadcrumbList>
             {breadcrumb.map((item, idx) => (
@@ -75,7 +75,9 @@ const PageLayout: React.FC<PageLayoutProps> = ({ breadcrumb, children }) => (
         </Breadcrumb>
       </div>
     )}
-    <div className="max-w-6xl w-full flex flex-col items-center justify-start px-2">{children}</div>
+    <div className="w-full max-w-6xl flex flex-col items-center justify-start px-2 sm:px-6">
+      {children}
+    </div>
   </div>
 );
 
