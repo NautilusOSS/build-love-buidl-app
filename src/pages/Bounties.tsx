@@ -12,6 +12,8 @@ import {
 import { Search } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { supabase, SUPABASE_ANON_KEY } from "@/integrations/supabase/client";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 // Types for bounties (matches table)
 interface BountyItem {
@@ -157,7 +159,22 @@ const Bounties: React.FC = () => {
               <TableHeader>
                 <TableRow className="bg-[#212540]/80 rounded-2xl [th]:first:rounded-l-2xl [th]:last:rounded-r-2xl">
                   <TableHead className="w-2/5 text-white/90 text-base px-6 py-4 rounded-l-2xl">Title</TableHead>
-                  <TableHead className="w-1/6 text-white/90 text-base px-6 py-4">Reward</TableHead>
+                  <TableHead className="w-1/6 text-white/90 text-base px-6 py-4">
+                    <div className="flex items-center gap-1">
+                      Reward
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span tabIndex={0} className="ml-1 cursor-pointer align-middle text-[#9b87f5] hover:text-[#8B5CF6] focus:outline-none">
+                            <Info size={17} aria-label="Reward info" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-sm max-w-xs font-normal">
+                          $ rewards amounts are approximate at time of posting.<br />
+                          Rewards are in fixed amount of <span className="font-semibold text-[#1EAEDB]">BUIDL</span>.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TableHead>
                   <TableHead className="w-1/4 text-white/90 text-base px-6 py-4">Tags</TableHead>
                   <TableHead className="w-1/6 text-white/90 px-6 py-4 rounded-r-2xl"></TableHead>
                 </TableRow>
