@@ -250,11 +250,42 @@ serve(async (req) => {
     // Filter "Open" status cards
     const openItems = allItems.filter((item: any) => {
       if (!item.fieldValues) return false;
+      // DEBUG: Log item fieldValues for investigation if empty
+      if (!item.fieldValues || !item.fieldValues.nodes) {
+        console.log("Item missing fieldValues or fieldValues.nodes", { item });
+        return false;
+      }
       const fieldValue = item.fieldValues.nodes.find(
         (fv: any) => fv?.optionId === openStatusOptions
       );
       return !!fieldValue && item.content;
     });
+
+    // DEBUG: Log the Open items right before processing
+    console.log(
+      `Fetched ${allItems.length} items from GitHub, filtered Open items: ${openItems.length}`
+    );
+    if (openItems.length === 0 && allItems.length > 0) {
+      // If no items are detected as Open, dump some diagnostic info for debugging
+      for (let i = 0; i < Math.min(3, allItems.length); i++) {
+        const item = allItems[i];
+        console.log(
+          `Item #${i + 1} fieldValues:`,
+          JSON.stringify(item.fieldValues, null, 2)
+        );
+      }
+      console.warn(
+        "No items found in Open status! This will cause ALL bounties to be removed. Check fieldValues/optionId matching."
+      );
+    } else {
+      openItems.forEach((item: any, idx: number) => {
+        if (item.content) {
+          console.log(
+            `[Open #${idx + 1}] title: "${item.content.title}", github_id: ${item.content.id}`
+          );
+        }
+      });
+    }
 
     // Prepare upserts using "Bounty" field as reward if available
     const inserts = openItems
@@ -317,7 +348,7 @@ serve(async (req) => {
     // Collect all open github_ids to keep
     const openGithubIds = inserts.map((b: any) => b.github_id);
 
-    // Upsert via Supabase
+    // ---- Upsert via Supabase ----
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -349,20 +380,34 @@ serve(async (req) => {
     }
 
     // ---- Remove bounties not in Open ----
-    // We must delete all bounties not in openStatus. If openGithubIds is empty, delete ALL with github_id
     let deleteUrl;
+    // DEFENSIVE: If we have any items from GitHub, but found "0 Open," do NOT bulk delete (unless there are truly no items at all).
+    if (allItems.length > 0 && openItems.length === 0) {
+      console.warn(
+        "Refusing to delete all bounties: GitHub returned items, but none detected as Open. Possible parsing/filter bug! No delete will be issued this sync."
+      );
+      // Optionally return early
+      return new Response(
+        JSON.stringify({
+          error:
+            "No Open items detected in board, so no bounties were deleted this sync (possible field mapping issue).",
+          diagnostic: { openGithubIds, allItems: allItems.length },
+        }),
+        { status: 200, headers: corsHeaders }
+      );
+    }
     if (openGithubIds.length > 0) {
-      // No quotes needed for text uuids/ids: id1,id2,id3
       const notInIds = openGithubIds.join(",");
       deleteUrl = `${supabaseUrl}/rest/v1/bounties?github_id=not.in.(${notInIds})`;
     } else {
-      // All are closed. Remove every row with a github_id present (cannot filter for not.in nothing)
-      // `not.is.null` filter will remove all rows where github_id is present.
       deleteUrl = `${supabaseUrl}/rest/v1/bounties?github_id=not.is.null`;
     }
     // Add diagnostic logging for debugging!
-    console.log("Open Github IDs:", openGithubIds);
-    console.log("DELETE bounties with url:", deleteUrl);
+    console.log("Open Github IDs for retention:", openGithubIds);
+    console.log(
+      "Supabase DELETE bounties api URL (will remove all not Open):",
+      deleteUrl
+    );
 
     const deleteRes = await fetch(deleteUrl, {
       method: "DELETE",
