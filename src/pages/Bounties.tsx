@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Search } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client"; // Added for anon key
 
 // GitHub project/board constants for NautilusOSS Board 2
 const GITHUB_OWNER = "NautilusOSS";
@@ -83,9 +84,17 @@ const Bounties: React.FC = () => {
   const handleSyncBounties = useCallback(async () => {
     toast({ title: "Syncing bounties…", description: "Fetching data from GitHub project board." });
     try {
+      const anonKey = (supabase as any)._anonKey as string; // supabase-js exposes anon key here
       const res = await fetch(
         "https://yeyhgvpnhhqrkolypxdw.functions.supabase.co/sync-github-bounties",
-        { method: "POST" }
+        {
+          method: "POST",
+          headers: {
+            "apikey": anonKey,
+            "Authorization": `Bearer ${anonKey}`,
+            "Content-Type": "application/json"
+          }
+        }
       );
       const data = await res.json();
       if (res.ok && data.success) {
