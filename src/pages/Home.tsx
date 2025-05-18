@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 const breadCrumb = [
   {
-    to: "/home",
+    to: "/bounties",
     label: "[BUIDL]",
     // First [BUIDL] always links home
   },

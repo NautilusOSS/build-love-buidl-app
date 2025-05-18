@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import PageLayout from "@/components/PageLayout";
 import ProgressBar from "@/components/ProgressBar";
@@ -7,10 +6,13 @@ import ConfettiPop from "@/components/ConfettiPop";
 import MentorTooltip from "@/components/MentorTooltip";
 import DashboardStats from "@/components/DashboardStats";
 import WeeklySummary from "@/components/WeeklySummary";
+import { Buffer } from "buffer";
+
+window.Buffer = Buffer;
 
 const breadCrumb = [
   {
-    to: "/home",
+    to: "/bounties",
     label: "[BUIDL]",
   },
   {
@@ -26,24 +28,24 @@ const Index = () => {
   const handlePayout = () => {
     setProgress(Math.min(100, progress + 18));
     // choose a badge randomly
-    const badges = ["💡 Innovator", "🐛 Bug Smasher", "🚀 BUIDL Hero", "🎉 Community Star"];
+    const badges = [
+      "💡 Innovator",
+      "🐛 Bug Smasher",
+      "🚀 BUIDL Hero",
+      "🎉 Community Star",
+    ];
     setConfetti(badges[Math.floor(Math.random() * badges.length)]);
   };
 
   return (
     <PageLayout breadcrumb={breadCrumb}>
       <DashboardStats />
-      <div className="max-w-2xl w-full flex flex-col items-center justify-center">
-        {/* Simplified dashboard layout: only Weekly Summary remains */}
-        <div className="w-full flex flex-col gap-6 mb-8">
-          <WeeklySummary />
-        </div>
-        {/* Removed Lovable BUIDL Demo card */}
-      </div>
-      {confetti && <ConfettiPop badge={confetti} onDone={() => setConfetti(null)} />}
+      <div className="max-w-2xl w-full flex flex-col items-center justify-center"></div>
+      {confetti && (
+        <ConfettiPop badge={confetti} onDone={() => setConfetti(null)} />
+      )}
     </PageLayout>
   );
 };
 
 export default Index;
-

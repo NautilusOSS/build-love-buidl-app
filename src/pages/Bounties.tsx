@@ -27,7 +27,7 @@ interface BountyItem {
 
 const breadcrumb = [
   {
-    to: "/home",
+    to: "/bounties",
     label: "[BUIDL]",
   },
   {

@@ -1,4 +1,3 @@
-
 import React from "react";
 import OnboardingBanner from "@/components/OnboardingBanner";
 import {
@@ -35,9 +34,11 @@ const PageLayout: React.FC<PageLayoutProps> = ({ breadcrumb, children }) => (
                   {item.to && !item.isCurrentPage ? (
                     <BreadcrumbLink
                       href={item.to}
-                      className={item.label === "[BUIDL]"
-                        ? "text-[#1EAEDB] font-bold tracking-tight hover:text-[#42c6f5] transition"
-                        : "font-semibold text-lg text-white"}
+                      className={
+                        item.label === "[BUIDL]"
+                          ? "text-[#1EAEDB] font-bold tracking-tight hover:text-[#42c6f5] transition"
+                          : "font-semibold text-lg text-white"
+                      }
                     >
                       {item.label}
                     </BreadcrumbLink>
@@ -84,4 +85,3 @@ const PageLayout: React.FC<PageLayoutProps> = ({ breadcrumb, children }) => (
 );
 
 export default PageLayout;
-
