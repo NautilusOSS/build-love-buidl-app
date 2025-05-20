@@ -1,7 +1,12 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Wallet, Power } from "lucide-react";
-import { useWallet } from "@txnlab/use-wallet-react";
+import {
+  useWallet,
+  useNetwork,
+  NetworkId,
+  WalletId,
+} from "@txnlab/use-wallet-react";
 import {
   Select,
   SelectContent,
@@ -14,10 +19,45 @@ const WalletConnectButton: React.FC = () => {
   const [connected, setConnected] = useState(false);
   const [showWallets, setShowWallets] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
-  const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const { activeAccount, wallets, activeWallet, activeWalletAccounts } =
-    useWallet();
+  const {
+    activeAccount,
+    wallets,
+    activeWallet,
+    activeWalletAccounts,
+    activeNetwork,
+    setActiveNetwork,
+  } = useWallet();
+
+  // Add networks array
+  const networks = [
+    { id: NetworkId.MAINNET, name: "Algorand" },
+    { id: NetworkId.VOIMAIN, name: "Voi" },
+  ];
+
+  const networkWallets = {
+    [NetworkId.MAINNET]: [
+      { id: WalletId.PERA, name: "Pera" },
+      { id: WalletId.DEFLY, name: "Defly" },
+      { id: WalletId.KIBISIS, name: "Kibisis" },
+      { id: WalletId.LUTE, name: "Lute" },
+      { id: WalletId.BIATEC, name: "Biatec" },
+      { id: WalletId.WALLETCONNECT, name: "WalletConnect" },
+    ],
+    [NetworkId.VOIMAIN]: [
+      { id: WalletId.KIBISIS, name: "Kibisis" },
+      { id: WalletId.LUTE, name: "Lute" },
+      //{ id: WalletId.BIATEC, name: "Biatec" },
+      { id: WalletId.WALLETCONNECT, name: "WalletConnect" },
+    ],
+  };
+
+  // Filter wallets based on active network
+  const availableWallets = wallets.filter((wallet) =>
+    networkWallets[activeNetwork as NetworkId].some(
+      (networkWallet) => networkWallet.id === wallet.id
+    )
+  );
 
   const handleConnect = () => {
     setShowWallets(!showWallets);
@@ -44,76 +84,105 @@ const WalletConnectButton: React.FC = () => {
       </span>
       {showWallets && (
         <div className="mt-2 w-full">
-          {wallets.map((wallet) => (
-            <div key={wallet.id}>
-              <Button
-                onClick={async () => {
-                  setConnecting(wallet.id);
-                  if (wallet.id === activeWallet?.id) {
-                    activeWallet?.disconnect();
-                    setConnecting(null);
-                    return;
-                  }
-                  await wallet.connect().then(() => {
-                    setConnecting(null);
-                  });
-                }}
-                disabled={!!connecting}
-                className="w-full flex justify-between items-center"
-              >
-                <div className="flex items-center gap-2">
-                  {wallet.metadata.name}
-                  {wallet.id === activeWallet?.id && (
-                    <span className="text-xs text-[#9b87f5] select-none">
-                      Active
-                    </span>
-                  )}
-                  {connecting === wallet.id && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {wallet.id === activeWallet?.id && <Power />}
-                </div>
-              </Button>
-              {wallet.id === activeWallet?.id && activeWalletAccounts && (
-                <div className="ml-4 mt-2">
-                  <Select
-                    value={activeAccount?.address}
-                    onValueChange={(address) => {
-                      activeWallet?.setActiveAccount(address);
-                    }}
-                  >
-                    <SelectTrigger className="w-full bg-[#2e2642] border-[#613db7] text-[#9b87f5]">
-                      <SelectValue placeholder="Select account" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#2e2642] border-[#613db7] z-50 backdrop-blur-none">
-                      <input
-                        className="flex w-full rounded-sm h-8 px-2 py-1 mb-2 bg-[#3b3060] text-[#9b87f5] border border-[#613db7] focus:outline-none focus:ring-2 focus:ring-[#a188fa]"
-                        placeholder="Search addresses..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      />
-                      {activeWalletAccounts
-                        .filter((account) => 
-                          account.address.toLowerCase().includes(searchQuery.toLowerCase())
-                        )
-                        .map((account) => (
-                          <SelectItem
-                            key={account.address}
-                            value={account.address}
-                            className="text-[#9b87f5] hover:bg-[#3b3060] focus:bg-[#3b3060]"
-                          >
-                            {account.address.slice(0, 5)}...{account.address.slice(-4)}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-          ))}
+          {/* Network Selector moved above wallets */}
+          <Select
+            value={activeNetwork}
+            onValueChange={(networkId) => {
+              setActiveNetwork(networkId as NetworkId);
+            }}
+          >
+            <SelectTrigger className="w-full bg-[#2e2642] border-[#613db7] text-[#9b87f5]">
+              <SelectValue placeholder="Select network" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#2e2642] border-[#613db7] z-50">
+              {networks.map((network) => (
+                <SelectItem
+                  key={network.id}
+                  value={network.id}
+                  className="text-[#9b87f5] hover:bg-[#3b3060] focus:bg-[#3b3060]"
+                >
+                  {network.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Add margin below network selector */}
+          <div className="mt-2">
+            {availableWallets.map((wallet) => (
+              <div key={wallet.id}>
+                <Button
+                  onClick={async () => {
+                    setConnecting(wallet.id);
+                    if (wallet.id === activeWallet?.id) {
+                      activeWallet?.disconnect();
+                      setConnecting(null);
+                      return;
+                    }
+                    await wallet.connect().then(() => {
+                      setConnecting(null);
+                    });
+                  }}
+                  disabled={!!connecting}
+                  className="w-full flex justify-between items-center"
+                >
+                  <div className="flex items-center gap-2">
+                    {wallet.metadata.name}
+                    {wallet.id === activeWallet?.id && (
+                      <span className="text-xs text-[#9b87f5] select-none">
+                        Active
+                      </span>
+                    )}
+                    {connecting === wallet.id && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {wallet.id === activeWallet?.id && <Power />}
+                  </div>
+                </Button>
+                {wallet.id === activeWallet?.id && activeWalletAccounts && (
+                  <div className="ml-4 mt-2 space-y-2">
+                    <Select
+                      value={activeAccount?.address}
+                      onValueChange={(address) => {
+                        activeWallet?.setActiveAccount(address);
+                      }}
+                    >
+                      <SelectTrigger className="w-full bg-[#2e2642] border-[#613db7] text-[#9b87f5]">
+                        <SelectValue placeholder="Select account" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#2e2642] border-[#613db7] z-50 backdrop-blur-none">
+                        <input
+                          className="flex w-full rounded-sm h-8 px-2 py-1 mb-2 bg-[#3b3060] text-[#9b87f5] border border-[#613db7] focus:outline-none focus:ring-2 focus:ring-[#a188fa]"
+                          placeholder="Search addresses..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        />
+                        {activeWalletAccounts
+                          .filter((account) =>
+                            account.address
+                              .toLowerCase()
+                              .includes(searchQuery.toLowerCase())
+                          )
+                          .map((account) => (
+                            <SelectItem
+                              key={account.address}
+                              value={account.address}
+                              className="text-[#9b87f5] hover:bg-[#3b3060] focus:bg-[#3b3060]"
+                            >
+                              {account.address.slice(0, 5)}...
+                              {account.address.slice(-4)}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

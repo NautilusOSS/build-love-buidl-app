@@ -19,7 +19,8 @@ import {
   WalletManager,
   WalletProvider,
 } from "@txnlab/use-wallet-react";
-import Wallet from "./pages/Wallet";
+//import Wallet from "./pages/Wallet";
+import Airdrop from "./pages/Airdrop";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,8 @@ const App = () => {
   }
   const walletManager = new WalletManager({
     wallets: [
+      WalletId.PERA,
+      WalletId.DEFLY,
       WalletId.KIBISIS,
       {
         id: WalletId.LUTE,
@@ -85,10 +88,15 @@ const App = () => {
                   {/* Make main content scrollable and fill all available vertical space */}
                   <div className="flex-1 overflow-auto">
                     <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/home" element={<Home />} />
-                      <Route path="/bounties" element={<Bounties />} />
-                      <Route path="/wallet/:address" element={<Wallet />} />
+                      <Route path="/" element={<Airdrop />} />
+                      {/* <Route path="/home" element={<Home />} /> */}
+                      {/*<Route path="/bounties" element={<Bounties />} />*/}
+                      {/*<Route path="/wallet/:address" element={<Wallet />} />*/}
+                      <Route path="/airdrop" element={<Airdrop />} />
+                      <Route
+                        path="/airdrop/:recipients"
+                        element={<Airdrop />}
+                      />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>

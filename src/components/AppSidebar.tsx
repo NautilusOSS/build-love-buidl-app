@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -18,36 +18,51 @@ import {
   Gavel,
   Banknote,
   X,
+  Gift,
 } from "lucide-react";
 import WalletConnectButton from "./WalletConnectButton";
 import { useWallet } from "@txnlab/use-wallet-react";
 
 const baseNavItems = [
   //{ label: "Home", to: "/home", icon: LayoutDashboard },
-  { label: "Dashboard", to: "/", icon: LayoutDashboard },
-  { label: "Bounties", to: "/bounties", icon: Award },
+  //{ label: "Dashboard", to: "/", icon: LayoutDashboard },
+  //{ label: "Bounties", to: "/bounties", icon: Award },
   //{ label: "bVOI", to: "/bvoi", icon: Wallet },
   //{ label: "Governance", to: "/governance", icon: Gavel },
   //{ label: "Treasury", to: "/treasury", icon: Banknote },
 ];
 
 const AppSidebar: React.FC = () => {
-  const { activeAccount } = useWallet();
+  const { activeAccount, activeWalletAddresses } = useWallet();
   const location = useLocation();
   const { toggleSidebar } = useSidebar();
 
-  const navItems = [
-    ...baseNavItems,
-    ...(activeAccount
-      ? [
-          {
-            label: "Wallet",
-            to: `/wallet/${activeAccount.address}`,
-            icon: Wallet,
-          },
-        ]
-      : []),
-  ];
+  const navItems = useMemo(
+    () => [
+      ...baseNavItems,
+      ...(activeAccount
+        ? [
+            // {
+            //   label: "Wallet",
+            //   to: `/wallet/${activeAccount.address}`,
+            //   icon: Wallet,
+            // },
+            {
+              label: "Airdrop",
+              to: `/airdrop/${activeWalletAddresses.join(",")}`,
+              icon: Gift,
+            },
+          ]
+        : [
+            {
+              label: "Airdrop",
+              to: "/airdrop",
+              icon: Gift,
+            },
+          ]),
+    ],
+    [activeAccount]
+  );
 
   return (
     <Sidebar>

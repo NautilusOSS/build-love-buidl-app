@@ -104,10 +104,10 @@ const Bounties: React.FC = () => {
   // Filter bounties by search input in title/tags
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return bounties;
+    // Only show HumbleSwap bounties
     return bounties.filter((bounty) =>
-      bounty.title.toLowerCase().includes(term) ||
-      (bounty.tags || []).some((tag) => tag.toLowerCase().includes(term))
+      bounty.title.toLowerCase().includes('humbleswap') ||
+      (bounty.tags || []).some((tag) => tag.toLowerCase().includes('humbleswap'))
     );
   }, [search, bounties]);
 

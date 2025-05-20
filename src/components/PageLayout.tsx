@@ -35,9 +35,10 @@ const PageLayout: React.FC<PageLayoutProps> = ({ breadcrumb, children }) => (
                     <BreadcrumbLink
                       href={item.to}
                       className={
-                        item.label === "[BUIDL]"
-                          ? "text-[#1EAEDB] font-bold tracking-tight hover:text-[#42c6f5] transition"
-                          : "font-semibold text-lg text-white"
+                        //item.label === "[POW]"
+                          //? 
+                          "text-[#1EAEDB] font-bold tracking-tight hover:text-[#42c6f5] transition"
+                          //: "font-semibold text-lg text-white"
                       }
                     >
                       {item.label}

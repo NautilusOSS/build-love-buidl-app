@@ -1,9 +1,10 @@
-
 import React from "react";
 import { MessageCircleHeart } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const OnboardingBanner = () => (
+const OnboardingBanner = () =>
+  null;
+  /*
   <div className="w-full max-w-xl mx-auto mb-8">
     <Link
       to="/bounties"
@@ -22,6 +23,6 @@ const OnboardingBanner = () => (
       </div>
     </Link>
   </div>
-);
+  */
 
 export default OnboardingBanner;
