@@ -25,7 +25,7 @@ const PageLayout: React.FC<PageLayoutProps> = ({ breadcrumb, children }) => (
     <OnboardingBanner />
     {/* Breadcrumb */}
     {breadcrumb && (
-      <div className="w-full max-w-6xl pt-2 px-2 sm:px-6">
+      <div className="w-full max-w-6xl py-8 px-2 sm:px-6">
         <Breadcrumb>
           <BreadcrumbList>
             {breadcrumb.map((item, idx) => (
@@ -75,8 +75,6 @@ const PageLayout: React.FC<PageLayoutProps> = ({ breadcrumb, children }) => (
             ))}
           </BreadcrumbList>
         </Breadcrumb>
-        {/* Add spacing after breadcrumb */}
-        <div className="mb-8" />
       </div>
     )}
     <div className="w-full max-w-6xl flex flex-col items-center justify-start px-2 sm:px-6">

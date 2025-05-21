@@ -273,8 +273,10 @@ Sidebar.displayName = "Sidebar";
 
 const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
-  React.ComponentProps<typeof Button>
->(({ className, onClick, ...props }, ref) => {
+  React.ComponentProps<typeof Button> & {
+    breadcrumb?: React.ReactNode;
+  }
+>(({ className, onClick, breadcrumb, ...props }, ref) => {
   const { toggleSidebar } = useSidebar();
 
   return (
@@ -294,7 +296,13 @@ const SidebarTrigger = React.forwardRef<
       {...props}
     >
       <Menu size={32} />
-      <span className="font-semibold">POW</span>
+      {breadcrumb ? (
+        <div className="flex items-center gap-2 font-medium">
+          {breadcrumb}
+        </div>
+      ) : (
+        <span className="font-semibold">POW</span>
+      )}
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   );

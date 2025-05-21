@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AppSidebar from "@/components/AppSidebar";
@@ -20,6 +20,12 @@ import {
 } from "@txnlab/use-wallet-react";
 //import Wallet from "./pages/Wallet";
 import Airdrop from "./pages/Airdrop";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +34,30 @@ const App = () => {
   if (!walletConnectProjectId) {
     walletConnectProjectId = "cd7fe0125d88d239da79fa286e6de2a8";
   }
+
+  // Create a BreadcrumbContent component to use useLocation
+  const BreadcrumbContent = () => {
+    const location = useLocation();
+    const pathSegments = location.pathname.split("/").filter(Boolean);
+
+    return (
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbPage className="text-[#1EAEDB] font-bold tracking-tight">
+              POW
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+          {pathSegments.map((segment, index) => (
+            <BreadcrumbItem key={index}>
+              <BreadcrumbPage className="capitalize">{segment}</BreadcrumbPage>
+            </BreadcrumbItem>
+          ))}
+        </BreadcrumbList>
+      </Breadcrumb>
+    );
+  };
+
   const walletManager = new WalletManager({
     wallets: [
       WalletId.PERA,
