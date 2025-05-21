@@ -1,0 +1,192 @@
+/* Lightning bolt keyframes */
+@keyframes lightning {
+  0% {
+    background-position: 0% 50%;
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+  }
+  2% {
+    opacity: 0.6;
+  }
+  3% {
+    opacity: 1;
+  }
+  4% {
+    opacity: 0;
+  }
+  100% {
+    background-position: 100% 50%;
+    opacity: 0;
+  }
+}
+
+/* Electric grid pattern */
+@keyframes electricGrid {
+  0% {
+    background-size: 50px 50px;
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    background-size: 52px 52px;
+    opacity: 0.2;
+  }
+}
+
+/* Voltage pulse effect */
+@keyframes voltagePulse {
+  0%, 100% {
+    box-shadow: 0 0 15px #0066FF33;
+  }
+  50% {
+    box-shadow: 0 0 30px #0066FF66;
+  }
+}
+
+/* Electric text glow effect */
+@keyframes textPulse {
+  0%, 100% {
+    text-shadow: 0 0 4px #0066FF33;
+  }
+  50% {
+    text-shadow: 0 0 8px #0066FF66;
+  }
+}
+
+/* Lightning bolt animation for the connect icon */
+@keyframes boltFlash {
+  0% {
+    filter: drop-shadow(0 0 2px #0066FF);
+  }
+  50% {
+    filter: drop-shadow(0 0 8px #0066FF);
+  }
+  100% {
+    filter: drop-shadow(0 0 2px #0066FF);
+  }
+}
+
+.electrical-background {
+  position: relative;
+  overflow: hidden;
+}
+
+.electrical-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(45deg, #0066FF11 25%, transparent 25%),
+    linear-gradient(-45deg, #0066FF11 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #0066FF11 75%),
+    linear-gradient(-45deg, transparent 75%, #0066FF11 75%);
+  animation: electricGrid 3s infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.electrical-background::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, #0066FF00, #0066FF33, #0066FF00);
+  animation: lightning 8s infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.voltage-container {
+  animation: voltagePulse 2s infinite;
+  position: relative;
+}
+
+/* Electric border effect */
+.electric-border {
+  position: relative;
+  border: 1px solid #0066FF33;
+}
+
+.electric-border::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(90deg, #0066FF, transparent, #0066FF);
+  animation: voltagePulse 2s infinite;
+  z-index: -1;
+  border-radius: inherit;
+}
+
+/* Special effect for wallet button */
+.wallet-button-effect {
+  position: relative;
+}
+
+.wallet-button-effect::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #0066FF22,
+    #0066FF44,
+    #0066FF22,
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Add electric spark effect */
+.electric-spark {
+  position: relative;
+}
+
+.electric-spark::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-image: radial-gradient(
+    circle at center,
+    #0066FF33 0%,
+    transparent 50%
+  );
+  filter: blur(8px);
+  opacity: 0;
+  animation: sparkle 2s infinite;
+}
+
+@keyframes sparkle {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+} 

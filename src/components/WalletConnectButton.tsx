@@ -67,7 +67,7 @@ const WalletConnectButton: React.FC = () => {
     <div className="mb-3 mt-10 px-4 flex flex-col items-start">
       <Button
         variant="secondary"
-        className="w-full flex items-center gap-2 border border-[#613db7] shadow-glow text-white bg-[#2e2642] hover:bg-[#3b3060] focus:ring-2 focus:ring-[#a188fa] focus:ring-offset-2 transition"
+        className="w-full flex items-center gap-2 border border-[#1eaedb] shadow-glow text-white bg-[#0a4d62] hover:bg-[#0d6179] focus:ring-2 focus:ring-[#1eaedb] focus:ring-offset-2 transition rounded-xl"
         onClick={handleConnect}
         aria-label={connected ? "Disconnect wallet" : "Connect wallet"}
       >
@@ -79,8 +79,10 @@ const WalletConnectButton: React.FC = () => {
             )}...${activeAccount.address.slice(-4)}`
           : "Connect Wallet"}
       </Button>
-      <span className="text-xs mt-1 text-[#9b87f5] select-none">
-        {activeAccount ? "Wallet connected" : "No wallet connected"}
+      <span className="text-xs mt-1 text-[#1eaedb] select-none">
+        {activeAccount
+          ? `Wallet connected to ${networks.find(n => n.id === activeNetwork)?.name || activeNetwork}`
+          : "No wallet connected"}
       </span>
       {showWallets && (
         <div className="mt-2 w-full">
@@ -91,15 +93,15 @@ const WalletConnectButton: React.FC = () => {
               setActiveNetwork(networkId as NetworkId);
             }}
           >
-            <SelectTrigger className="w-full bg-[#2e2642] border-[#613db7] text-[#9b87f5]">
+            <SelectTrigger className="w-full bg-[#0a4d62] border-[#1eaedb] text-[#1eaedb] rounded-xl">
               <SelectValue placeholder="Select network" />
             </SelectTrigger>
-            <SelectContent className="bg-[#2e2642] border-[#613db7] z-50">
+            <SelectContent className="bg-[#0a4d62] border-[#1eaedb] z-50 rounded-xl">
               {networks.map((network) => (
                 <SelectItem
                   key={network.id}
                   value={network.id}
-                  className="text-[#9b87f5] hover:bg-[#3b3060] focus:bg-[#3b3060]"
+                  className="text-[#1eaedb] hover:bg-[#0d6179] focus:bg-[#0d6179]"
                 >
                   {network.name}
                 </SelectItem>
@@ -124,12 +126,12 @@ const WalletConnectButton: React.FC = () => {
                     });
                   }}
                   disabled={!!connecting}
-                  className="w-full flex justify-between items-center"
+                  className="w-full flex justify-between items-center rounded-xl"
                 >
                   <div className="flex items-center gap-2">
                     {wallet.metadata.name}
                     {wallet.id === activeWallet?.id && (
-                      <span className="text-xs text-[#9b87f5] select-none">
+                      <span className="text-xs text-[#1eaedb] select-none">
                         Active
                       </span>
                     )}
@@ -149,12 +151,12 @@ const WalletConnectButton: React.FC = () => {
                         activeWallet?.setActiveAccount(address);
                       }}
                     >
-                      <SelectTrigger className="w-full bg-[#2e2642] border-[#613db7] text-[#9b87f5]">
+                      <SelectTrigger className="w-full bg-[#0a4d62] border-[#1eaedb] text-[#1eaedb] rounded-xl">
                         <SelectValue placeholder="Select account" />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#2e2642] border-[#613db7] z-50 backdrop-blur-none">
+                      <SelectContent className="bg-[#0a4d62] border-[#1eaedb] z-50 backdrop-blur-none rounded-xl">
                         <input
-                          className="flex w-full rounded-sm h-8 px-2 py-1 mb-2 bg-[#3b3060] text-[#9b87f5] border border-[#613db7] focus:outline-none focus:ring-2 focus:ring-[#a188fa]"
+                          className="flex w-full rounded-xl h-8 px-2 py-1 mb-2 bg-[#0d6179] text-[#1eaedb] border border-[#1eaedb] focus:outline-none focus:ring-2 focus:ring-[#1eaedb]"
                           placeholder="Search addresses..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
@@ -170,7 +172,7 @@ const WalletConnectButton: React.FC = () => {
                             <SelectItem
                               key={account.address}
                               value={account.address}
-                              className="text-[#9b87f5] hover:bg-[#3b3060] focus:bg-[#3b3060]"
+                              className="text-[#1eaedb] hover:bg-[#0d6179] focus:bg-[#0d6179]"
                             >
                               {account.address.slice(0, 5)}...
                               {account.address.slice(-4)}

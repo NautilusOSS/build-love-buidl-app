@@ -12,7 +12,6 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 import Home from "./pages/Home";
-import Bounties from "./pages/Bounties";
 import {
   NetworkId,
   WalletId,
@@ -90,7 +89,6 @@ const App = () => {
                     <Routes>
                       <Route path="/" element={<Airdrop />} />
                       {/* <Route path="/home" element={<Home />} /> */}
-                      {/*<Route path="/bounties" element={<Bounties />} />*/}
                       {/*<Route path="/wallet/:address" element={<Wallet />} />*/}
                       <Route path="/airdrop" element={<Airdrop />} />
                       <Route

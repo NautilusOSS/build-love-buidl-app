@@ -15,8 +15,13 @@ interface AirdropEntry {
 }
 
 const Airdrop: React.FC = () => {
-  const { activeNetwork, activeAccount, algodClient, signTransactions } =
-    useWallet();
+  const {
+    activeNetwork,
+    activeAccount,
+    algodClient,
+    signTransactions,
+    activeWalletAddresses,
+  } = useWallet();
   const [airdropData, setAirdropData] = useState<AirdropEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,12 +31,8 @@ const Airdrop: React.FC = () => {
   const recipientAddresses = recipients?.split(",");
   const { toast } = useToast();
   const [isClaimLoading, setIsClaimLoading] = useState<{
-    voi: boolean;
-    algo: boolean;
-  }>({
-    voi: false,
-    algo: false,
-  });
+    [key: string]: { voi: boolean; algo: boolean };
+  }>({});
 
   const breadCrumb = [
     {
@@ -69,7 +70,7 @@ const Airdrop: React.FC = () => {
   const isAlgoNetwork = () => activeNetwork.toLowerCase().includes("mainnet");
 
   const isAddressInWallet = (address: string) => {
-    return activeAccount?.address?.toLowerCase() === address.toLowerCase();
+    return activeWalletAddresses?.includes(address);
   };
 
   useEffect(() => {
@@ -166,7 +167,13 @@ const Airdrop: React.FC = () => {
       return;
     }
 
-    setIsClaimLoading(prev => ({ ...prev, [network]: true }));
+    setIsClaimLoading((prev) => ({
+      ...prev,
+      [recipientAddress]: {
+        ...prev[recipientAddress],
+        [network]: true,
+      },
+    }));
     try {
       // TODO: Implement actual claim logic here
       console.log(
@@ -194,7 +201,13 @@ const Airdrop: React.FC = () => {
         duration: 3000,
       });
     } finally {
-      setIsClaimLoading(prev => ({ ...prev, [network]: false }));
+      setIsClaimLoading((prev) => ({
+        ...prev,
+        [recipientAddress]: {
+          ...prev[recipientAddress],
+          [network]: false,
+        },
+      }));
     }
   };
 
@@ -204,17 +217,18 @@ const Airdrop: React.FC = () => {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4">POW Airdrop</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto text-left">
-            Welcome to the POW token airdrop. POW is the governance token for Pact Protocol, 
-            enabling community participation in protocol governance. Eligible participants 
-            can claim their tokens on both the Voi and Algorand networks. Check your 
-            allocation below to get started.
+            Welcome to the POW token airdrop. POW is the governance token for
+            Pact Protocol, enabling community participation in protocol
+            governance. Eligible participants can claim their tokens on both the
+            Voi and Algorand networks. Check your allocation below to get
+            started.
           </p>
         </div>
 
         <div className="min-h-[50vh] flex items-center justify-center flex-col gap-6">
           {isLoading && (
             <div className="text-center p-8">
-              <div className="animate-spin h-8 w-8 border-4 border-[#8B5CF6] border-t-transparent rounded-full mx-auto mb-4"></div>
+              <div className="animate-spin h-8 w-8 border-4 border-[#1EAEDB] border-t-transparent rounded-full mx-auto mb-4"></div>
               <p className="text-lg">Loading airdrop data...</p>
             </div>
           )}
@@ -229,7 +243,7 @@ const Airdrop: React.FC = () => {
             <>
               <div className="w-full max-w-6xl mb-8">
                 <h1 className="text-3xl font-bold mb-6">Summary</h1>
-                <div className="bg-card rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(139,92,246,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(139,92,246,0.2)] transition-shadow mb-12">
+                <div className="bg-card rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-shadow mb-12">
                   <h2 className="text-xl font-semibold mb-4">Total Rewards</h2>
                   <div className="flex flex-col gap-2">
                     {recipientsData.reduce(
@@ -302,20 +316,35 @@ const Airdrop: React.FC = () => {
                     </h1>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {recipient.Voi > 0 && (
-                        <div className="bg-card rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(139,92,246,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(139,92,246,0.2)] transition-all hover:border-[#8B5CF6]/20 flex flex-col">
+                        <div className="bg-card rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-all hover:border-[#1EAEDB]/20 flex flex-col">
                           <h2 className="text-2xl font-semibold mb-3">
                             Voi Network
                           </h2>
-                          <p className="text-3xl font-bold text-[#8B5CF6] mb-6">
+                          <p className="text-3xl font-bold text-[#1EAEDB] mb-6">
                             {recipient.Voi.toFixed(6)} POW
                           </p>
                           <Button
-                            className="mt-auto text-lg px-6 py-3 rounded-xl shadow-lg font-bold bg-[#8B5CF6] hover:bg-[#9b87f5] text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={isLoading || isClaimLoading.voi || !isAddressInWallet(recipient.Address) || !isVoiNetwork()}
-                            onClick={() => handleClaim('voi', recipient.Voi, recipient.Address)}
-                            title={!isAddressInWallet(recipient.Address) ? "Please connect the recipient wallet" : ""}
+                            className="mt-auto text-lg px-6 py-3 rounded-xl shadow-lg font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={
+                              isLoading ||
+                              (isClaimLoading[recipient.Address]?.voi ?? false) ||
+                              !isAddressInWallet(recipient.Address) ||
+                              !isVoiNetwork()
+                            }
+                            onClick={() =>
+                              handleClaim(
+                                "voi",
+                                recipient.Voi,
+                                recipient.Address
+                              )
+                            }
+                            title={
+                              !isAddressInWallet(recipient.Address)
+                                ? "Please connect the recipient wallet"
+                                : ""
+                            }
                           >
-                            {isClaimLoading.voi 
+                            {isClaimLoading[recipient.Address]?.voi
                               ? "Claiming..."
                               : !isAddressInWallet(recipient.Address)
                               ? "Connect Wallet"
@@ -330,16 +359,31 @@ const Airdrop: React.FC = () => {
                           <h2 className="text-2xl font-semibold mb-3">
                             Algorand Network
                           </h2>
-                          <p className="text-3xl font-bold text-[#8B5CF6] mb-6">
+                          <p className="text-3xl font-bold text-[#1EAEDB] mb-6">
                             {recipient.Algo.toFixed(6)} POW
                           </p>
                           <Button
-                            className="mt-auto text-lg px-6 py-3 rounded-xl shadow-lg font-bold bg-[#8B5CF6] hover:bg-[#9b87f5] text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={isLoading || isClaimLoading.algo || !isAddressInWallet(recipient.Address) || !isAlgoNetwork()}
-                            onClick={() => handleClaim('algo', recipient.Algo, recipient.Address)}
-                            title={!isAddressInWallet(recipient.Address) ? "Please connect the recipient wallet" : ""}
+                            className="mt-auto text-lg px-6 py-3 rounded-xl shadow-lg font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={
+                              isLoading ||
+                              (isClaimLoading[recipient.Address]?.algo ?? false) ||
+                              !isAddressInWallet(recipient.Address) ||
+                              !isAlgoNetwork()
+                            }
+                            onClick={() =>
+                              handleClaim(
+                                "algo",
+                                recipient.Algo,
+                                recipient.Address
+                              )
+                            }
+                            title={
+                              !isAddressInWallet(recipient.Address)
+                                ? "Please connect the recipient wallet"
+                                : ""
+                            }
                           >
-                            {isClaimLoading.algo 
+                            {isClaimLoading[recipient.Address]?.algo
                               ? "Claiming..."
                               : !isAddressInWallet(recipient.Address)
                               ? "Connect Wallet"
@@ -361,23 +405,23 @@ const Airdrop: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="bg-card rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(139,92,246,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(139,92,246,0.2)] transition-all hover:border-[#8B5CF6]/20 max-w-md w-full">
-              <h2 className="text-2xl font-semibold mb-4 text-center">
+            <div className="bg-card rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-all hover:border-[#1EAEDB]/20 max-w-xl w-full">
+              <h2 className="text-3xl font-bold mb-6 text-center">
                 Check Your Airdrop
               </h2>
-              <p className="text-center mb-6 text-gray-600">
+              <p className="text-center mb-8 text-gray-600 text-lg">
                 Enter your wallet address to check your eligible airdrop rewards
               </p>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <input
                   type="text"
                   value={addressInput}
                   onChange={(e) => setAddressInput(e.target.value)}
                   placeholder="Enter wallet address"
-                  className="w-full px-6 py-3 border-2 border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] text-lg text-gray-900 placeholder:text-gray-400"
+                  className="w-full px-6 py-4 border border-border/50 rounded-xl bg-background shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1EAEDB] focus:border-[#1EAEDB] text-lg text-foreground placeholder:text-muted-foreground transition-all"
                 />
                 <Button
-                  className="text-lg px-8 py-4 rounded-xl shadow-lg font-bold bg-[#8B5CF6] hover:bg-[#9b87f5] text-white transition w-full"
+                  className="text-lg px-8 py-6 rounded-xl shadow-lg font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white transition-all w-full disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => {
                     if (addressInput) {
                       window.location.href = `/airdrop/${addressInput}`;
