@@ -268,12 +268,25 @@ const Airdrop: React.FC = () => {
         console.log({ transferFromR });
         throw new Error("Failed to transfer from");
       }
-      const stxns = await signTransactions(
-        transferFromR.txns.map(
-          (txn: string) => new Uint8Array(Buffer.from(txn, "base64"))
-        )
-      );
-      const { txId } = await algodClient.sendRawTransaction(stxns).do();
+
+      // Convert base64 strings to Uint8Arrays using browser APIs
+      const txnUint8Arrays = transferFromR.txns.map((txn: string) => {
+        const binaryString = atob(txn);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+      });
+
+      // Sign the transactions
+      const signedTxns = await signTransactions(txnUint8Arrays);
+
+      // Send the signed transactions
+      const { txId } = await algodClient
+        .sendRawTransaction(signedTxns)
+        .do();
+      
       console.log({ txId });
 
       // Reset approval data for the recipient after successful claim
@@ -328,13 +341,13 @@ const Airdrop: React.FC = () => {
   }) => (
     <Button
       className={className}
-      disabled={
-        isLoading ||
-        (isClaimLoading[address]?.[network] ?? false) ||
-        !isAddressInWallet(address) ||
-        !isAirdropOpen ||
-        (network === "voi" ? !isVoiNetwork() : !isAlgoNetwork())
-      }
+      // disabled={
+      //   isLoading ||
+      //   (isClaimLoading[address]?.[network] ?? false) ||
+      //   !isAddressInWallet(address) ||
+      //   !isAirdropOpen ||
+      //   (network === "voi" ? !isVoiNetwork() : !isAlgoNetwork())
+      // }
       onClick={() => handleClaim(network, amount, address)}
       title={
         !isAirdropOpen
@@ -589,7 +602,9 @@ const Airdrop: React.FC = () => {
                       className="relative bg-black/30 rounded-2xl p-8 border border-border/50 transition-all duration-300"
                     >
                       <div className="absolute inset-0 rounded-2xl shadow-[0_4px_20px_-4px_rgba(255,105,180,0.1)] hover:shadow-[0_8px_30px_-4px_rgba(255,105,180,0.2)] hover:border hover:border-[#FF69B4]/20 pointer-events-none transition-all duration-300" />
-                      <h2 className="text-2xl font-semibold mb-3">Voi Network</h2>
+                      <h2 className="text-2xl font-semibold mb-3">
+                        Voi Network
+                      </h2>
                       <p className="text-3xl font-bold text-[#FF69B4] mb-6">
                         {approvalAmount.toFixed(6)} PXD
                       </p>
