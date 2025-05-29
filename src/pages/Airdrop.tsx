@@ -54,36 +54,36 @@ const Airdrop: React.FC = () => {
 
   const AIRDROP_START_TIME = new Date("2025-06-01T00:00:00Z").getTime(); // Adjust this timestamp
 
-  const breadCrumb = [
-    {
-      to: "/",
-      label: "[POW]",
-      // First [POW] always links home
-    },
-    ...(recipientAddresses
-      ? [
-          {
-            to: "/airdrop",
-            label: "Airdrop",
-          },
-          {
-            label:
-              recipientAddresses.length > 1
-                ? `Recipients (${recipientAddresses.length})`
-                : `${recipientAddresses[0].slice(
-                    0,
-                    5
-                  )}...${recipientAddresses[0].slice(-5)}`,
-            isCurrentPage: true,
-          },
-        ]
-      : [
-          {
-            label: "Airdrop",
-            isCurrentPage: true,
-          },
-        ]),
-  ];
+  // const breadCrumb = [
+  //   {
+  //     to: "/",
+  //     label: "[POW]",
+  //     // First [POW] always links home
+  //   },
+  //   ...(recipientAddresses
+  //     ? [
+  //         {
+  //           to: "/airdrop",
+  //           label: "Airdrop",
+  //         },
+  //         {
+  //           label:
+  //             recipientAddresses.length > 1
+  //               ? `Recipients (${recipientAddresses.length})`
+  //               : `${recipientAddresses[0].slice(
+  //                   0,
+  //                   5
+  //                 )}...${recipientAddresses[0].slice(-5)}`,
+  //           isCurrentPage: true,
+  //         },
+  //       ]
+  //     : [
+  //         {
+  //           label: "Airdrop",
+  //           isCurrentPage: true,
+  //         },
+  //       ]),
+  // ];
 
   // Add network checking functions
   const isVoiNetwork = () => activeNetwork.toLowerCase().includes("voimain");
@@ -427,7 +427,7 @@ const Airdrop: React.FC = () => {
 
         {/* Add new CTA section */}
         {recipientAddresses && (
-          <div className="w-full max-w-4xl mb-8 text-center my-24">
+          <div className="w-full mx-auto mb-8 text-center my-0">
             <div className="bg-gradient-to-r from-[#1EAEDB]/10 to-[#31BFEC]/10 rounded-xl p-6 border border-[#1EAEDB]/20">
               <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] bg-clip-text text-transparent">
                 Check Your Eligibility
@@ -466,129 +466,114 @@ const Airdrop: React.FC = () => {
 
           {recipientsData.length > 0 ? (
             <>
-              {!isAirdropOpen && (
-                <div className="w-full max-w-6xl mb-8">
-                  <h1 className="text-3xl font-bold mb-6">Summary</h1>
-                  <div className="bg-card rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-shadow mb-12">
-                    <h2 className="text-xl font-semibold mb-4">
-                      Total Rewards
-                    </h2>
-                    <div className="flex flex-col gap-2">
-                      {recipientsData.reduce(
-                        (sum, recipient) => sum + recipient.Voi,
-                        0
-                      ) > 0 && (
-                        <div className="flex justify-between mb-2">
-                          <span className="text-gray-600">VOI Network</span>
-                          <span className="font-semibold">
-                            {recipientsData
-                              .reduce(
-                                (sum, recipient) => sum + recipient.Voi,
-                                0
-                              )
-                              .toFixed(6)}{" "}
-                            POW
-                          </span>
-                        </div>
-                      )}
-                      {recipientsData.reduce(
-                        (sum, recipient) => sum + recipient.Algo,
-                        0
-                      ) > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">
-                            Algorand Network
-                          </span>
-                          <span className="font-semibold">
-                            {recipientsData
-                              .reduce(
-                                (sum, recipient) => sum + recipient.Algo,
-                                0
-                              )
-                              .toFixed(6)}{" "}
-                            POW
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex justify-between pt-2 border-t border-border/50">
-                        <span className="text-gray-600">Total Rewards</span>
+              <div className="w-full max-w-6xl mb-8">
+                <h1 className="text-3xl font-bold mb-6">Summary</h1>
+                <div className="bg-card rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-shadow mb-12">
+                  <h2 className="text-xl font-semibold mb-4">Total Rewards</h2>
+                  <div className="flex flex-col gap-2">
+                    {recipientsData.reduce(
+                      (sum, recipient) => sum + recipient.Voi,
+                      0
+                    ) > 0 && (
+                      <div className="flex justify-between mb-2">
+                        <span className="text-gray-600">VOI Network</span>
                         <span className="font-semibold">
                           {recipientsData
-                            .reduce(
-                              (sum, recipient) => sum + recipient.Total,
-                              0
-                            )
+                            .reduce((sum, recipient) => sum + recipient.Voi, 0)
                             .toFixed(6)}{" "}
                           POW
                         </span>
                       </div>
+                    )}
+                    {recipientsData.reduce(
+                      (sum, recipient) => sum + recipient.Algo,
+                      0
+                    ) > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Algorand Network</span>
+                        <span className="font-semibold">
+                          {recipientsData
+                            .reduce((sum, recipient) => sum + recipient.Algo, 0)
+                            .toFixed(6)}{" "}
+                          POW
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between pt-2 border-t border-border/50">
+                      <span className="text-gray-600">Total Rewards</span>
+                      <span className="font-semibold">
+                        {recipientsData
+                          .reduce((sum, recipient) => sum + recipient.Total, 0)
+                          .toFixed(6)}{" "}
+                        POW
+                      </span>
                     </div>
                   </div>
-                  {recipientsData.map((recipient, index) => (
-                    <div
-                      key={recipient.Address}
-                      className="w-full max-w-3xl mb-24"
-                    >
-                      <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
-                        Airdrop for {recipient.Address.slice(0, 5)}...
-                        {recipient.Address.slice(-5)}
-                        <button
-                          onClick={() => copyToClipboard(recipient.Address)}
-                          className="p-2 rounded-lg transition-colors"
-                          title="Copy address"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth={1.5}
-                            stroke="currentColor"
-                            className="w-5 h-5"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75"
-                            />
-                          </svg>
-                        </button>
-                      </h1>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {recipient.Voi > 0 && (
-                          <div className="bg-card rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-all hover:border-[#1EAEDB]/20 flex flex-col">
-                            <h2 className="text-2xl font-semibold mb-3">
-                              Voi Network
-                            </h2>
-                            <p className="text-3xl font-bold text-[#1EAEDB] mb-6">
-                              {recipient.Voi.toFixed(6)} POW
-                            </p>
-                            <ClaimButton
-                              network="voi"
-                              amount={recipient.Voi}
-                              address={recipient.Address}
-                            />
-                          </div>
-                        )}
-                        {recipient.Algo > 0 && (
-                          <div className="bg-card rounded-xl p-8 shadow-md border border-border flex flex-col">
-                            <h2 className="text-2xl font-semibold mb-3">
-                              Algorand Network
-                            </h2>
-                            <p className="text-3xl font-bold text-[#1EAEDB] mb-6">
-                              {recipient.Algo.toFixed(6)} POW
-                            </p>
-                            <ClaimButton
-                              network="algo"
-                              amount={recipient.Algo}
-                              address={recipient.Address}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
                 </div>
-              )}
+                {recipientsData.map((recipient, index) => (
+                  <div
+                    key={recipient.Address}
+                    className="w-full max-w-3xl mb-24"
+                  >
+                    <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
+                      Airdrop for {recipient.Address.slice(0, 5)}...
+                      {recipient.Address.slice(-5)}
+                      <button
+                        onClick={() => copyToClipboard(recipient.Address)}
+                        className="p-2 rounded-lg transition-colors"
+                        title="Copy address"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-5 h-5"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75"
+                          />
+                        </svg>
+                      </button>
+                    </h1>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {recipient.Voi > 0 && (
+                        <div className="bg-card rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-all hover:border-[#1EAEDB]/20 flex flex-col">
+                          <h2 className="text-2xl font-semibold mb-3">
+                            Voi Network
+                          </h2>
+                          <p className="text-3xl font-bold text-[#1EAEDB] mb-6">
+                            {recipient.Voi.toFixed(6)} POW
+                          </p>
+                          <ClaimButton
+                            network="voi"
+                            amount={recipient.Voi}
+                            address={recipient.Address}
+                          />
+                        </div>
+                      )}
+                      {recipient.Algo > 0 && (
+                        <div className="bg-card rounded-xl p-8 shadow-md border border-border flex flex-col">
+                          <h2 className="text-2xl font-semibold mb-3">
+                            Algorand Network
+                          </h2>
+                          <p className="text-3xl font-bold text-[#1EAEDB] mb-6">
+                            {recipient.Algo.toFixed(6)} POW
+                          </p>
+                          <ClaimButton
+                            network="algo"
+                            amount={recipient.Algo}
+                            address={recipient.Address}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </>
           ) : recipientAddresses ? (
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center max-w-md w-full">
@@ -597,7 +582,7 @@ const Airdrop: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="bg-card/30 backdrop-blur-sm rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-[#1EAEDB]/20 max-w-xl w-full mx-auto">
+            <div className="bg-card/30 backdrop-blur-sm rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-[#1EAEDB]/20 max-w-xl w-full mx-auto my-0">
               <h2 className="text-3xl font-bold mb-2 text-center">
                 Check Your Airdrop
               </h2>
