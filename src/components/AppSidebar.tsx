@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import WalletConnectButton from "./WalletConnectButton";
 import { useWallet } from "@txnlab/use-wallet-react";
+import { cn } from "@/lib/utils";
 
 const baseNavItems = [
   //{ label: "Home", to: "/home", icon: LayoutDashboard },
@@ -66,9 +67,9 @@ const AppSidebar: React.FC = () => {
 
   return (
     <Sidebar>
-      <SidebarContent>
+      <SidebarContent className="bg-card/30 backdrop-blur-sm border-r border-[#FF69B4]/20">
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[#FF69B4] font-semibold">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
@@ -76,6 +77,10 @@ const AppSidebar: React.FC = () => {
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.to}
+                    className={cn(
+                      "transition-all duration-200 hover:bg-[#FF69B4]/20 hover:text-[#FF69B4]",
+                      location.pathname === item.to && "bg-[#FF69B4]/20 text-[#FF69B4]"
+                    )}
                   >
                     <Link to={item.to}>
                       <item.icon className="mr-2" />
@@ -88,7 +93,7 @@ const AppSidebar: React.FC = () => {
                 <SidebarMenuButton
                   onClick={toggleSidebar}
                   isActive={false}
-                  className="border-0"
+                  className="border-0 hover:bg-[#FF69B4]/20 hover:text-[#FF69B4] transition-all duration-200"
                 >
                   <X className="mr-2" />
                   <span>Close</span>

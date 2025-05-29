@@ -52,13 +52,13 @@ const Airdrop: React.FC = () => {
     height: window.innerHeight,
   });
 
-  const AIRDROP_START_TIME = new Date("2025-06-01T00:00:00Z").getTime(); // Adjust this timestamp
+  const AIRDROP_START_TIME = new Date("2025-06-07T00:00:00Z").getTime(); // Adjust this timestamp
 
   // const breadCrumb = [
   //   {
   //     to: "/",
-  //     label: "[POW]",
-  //     // First [POW] always links home
+  //     label: "[PXD]",
+  //     // First [PXD] always links home
   //   },
   //   ...(recipientAddresses
   //     ? [
@@ -104,7 +104,7 @@ const Airdrop: React.FC = () => {
       setError(null);
       try {
         const response = await fetch(
-          "https://nautilusoss.github.io/airdrop/data/000-pow.json"
+          "https://nautilusoss.github.io/airdrop/data/001-pxd.json"
         );
         console.log("Fetch response received:", response.ok); // Debug log
         if (!response.ok) {
@@ -245,7 +245,7 @@ const Airdrop: React.FC = () => {
     try {
       // TODO: Implement actual claim logic here
       console.log(
-        `Claiming ${amount} POW on ${network} network for ${recipientAddress}`
+        `Claiming ${amount} PXD on ${network} network for ${recipientAddress}`
       );
       // TODO: Implement actual claim logic here
       const params = await algodClient.getTransactionParams().do();
@@ -257,7 +257,7 @@ const Airdrop: React.FC = () => {
       });
       const signedTxn = await signTransactions([txn]);
       toast({
-        description: `Successfully claimed ${amount} POW on ${network} network`,
+        description: `Successfully claimed ${amount} PXD on ${network} network`,
         duration: 3000,
       });
     } catch (error) {
@@ -265,7 +265,7 @@ const Airdrop: React.FC = () => {
       toast({
         variant: "destructive",
         description:
-          error instanceof Error ? error.message : "Failed to claim POW",
+          error instanceof Error ? error.message : "Failed to claim PXD",
         duration: 3000,
       });
     } finally {
@@ -289,7 +289,7 @@ const Airdrop: React.FC = () => {
     address: string;
   }) => (
     <Button
-      className="mt-auto text-lg px-6 py-3 rounded-xl shadow-lg font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+      className="mt-auto text-lg px-6 py-3 rounded-xl shadow-lg font-bold bg-[#FF69B4] hover:bg-[#FF8AC7] text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
       disabled={
         isLoading ||
         (isClaimLoading[address]?.[network] ?? false) ||
@@ -314,7 +314,7 @@ const Airdrop: React.FC = () => {
         ? "Switch to VOI Network"
         : network === "algo" && !isAlgoNetwork()
         ? "Switch to Algorand Network"
-        : "Claim POW"}
+        : "Claim PXD"}
     </Button>
   );
 
@@ -340,8 +340,8 @@ const Airdrop: React.FC = () => {
           isEligible: !!matchingEntry,
           amount: matchingEntry?.Total || 0,
           message: matchingEntry
-            ? `You are eligible for ${matchingEntry.Total} POW`
-            : "This address is not eligible for the POW airdrop",
+            ? `You are eligible for ${matchingEntry.Total} PXD`
+            : "This address is not eligible for the PXD airdrop",
         });
       }, 3000);
 
@@ -362,8 +362,8 @@ const Airdrop: React.FC = () => {
 
   // Update the countdown timer section
   const CountdownBox = ({ value, label }: { value: string; label: string }) => (
-    <div className="bg-card/30 backdrop-blur-sm rounded-xl p-4 border border-[#1EAEDB]/20 shadow-[0_0_15px_rgba(30,174,219,0.1)] hover:shadow-[0_0_20px_rgba(30,174,219,0.2)] transition-all">
-      <div className="text-4xl md:text-6xl font-bold text-[#1EAEDB] animate-pulse">
+    <div className="bg-card/30 backdrop-blur-sm rounded-xl p-4 border border-[#FF69B4]/20 shadow-[0_0_15px_rgba(255,105,180,0.1)] hover:shadow-[0_0_20px_rgba(255,105,180,0.2)] transition-all">
+      <div className="text-4xl md:text-6xl font-bold text-[#FF69B4] animate-pulse">
         {value}
       </div>
       <div className="text-sm text-gray-400 uppercase tracking-wider">
@@ -388,12 +388,11 @@ const Airdrop: React.FC = () => {
       )}
       <div className="container mx-auto px-4 py-8 max-w-[1400px]">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">POW Airdrop</h1>
+          <h1 className="text-4xl font-bold mb-4">PXD Airdrop</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto text-left">
-            Welcome to the POW token airdrop. POW is the governance token for
-            Pact Protocol, enabling community participation in protocol
-            governance. Eligible participants can claim their tokens on both the
-            Voi and Algorand networks. Check your allocation below to get
+            Welcome to the PXD token airdrop. PXD is the rewards token for
+            Nautilus NFT Marketplace. Eligible participants can claim their
+            tokens on both the Voi Network. Check your allocation below to get
             started.
           </p>
         </div>
@@ -405,9 +404,9 @@ const Airdrop: React.FC = () => {
               {timeUntilOpen.split(" ").map((unit, index) => (
                 <div
                   key={index}
-                  className="bg-card rounded-xl p-2 md:p-4 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-all"
+                  className="bg-card rounded-xl p-2 md:p-4 shadow-[0_4px_20px_-4px_rgba(255,105,180,0.1)] hover:shadow-[0_8px_30px_-4px_rgba(255,105,180,0.2)] transition-all"
                 >
-                  <div className="text-2xl sm:text-4xl md:text-6xl font-bold bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] bg-clip-text text-transparent animate-pulse mb-1 md:mb-2">
+                  <div className="text-2xl sm:text-4xl md:text-6xl font-bold bg-gradient-to-r from-[#FF69B4] to-[#FF8AC7] bg-clip-text text-transparent animate-pulse mb-1 md:mb-2">
                     {unit.replace(/[a-zA-Z]/g, "")}
                   </div>
                   <div className="text-[10px] sm:text-xs md:text-sm text-gray-600 uppercase tracking-wider font-medium">
@@ -428,15 +427,15 @@ const Airdrop: React.FC = () => {
         {/* Add new CTA section */}
         {recipientAddresses && (
           <div className="w-full mx-auto mb-8 text-center my-0">
-            <div className="bg-gradient-to-r from-[#1EAEDB]/10 to-[#31BFEC]/10 rounded-xl p-6 border border-[#1EAEDB]/20">
-              <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] bg-clip-text text-transparent">
+            <div className="bg-gradient-to-r from-[#FF69B4]/10 to-[#FF8AC7]/10 rounded-xl p-6 border border-[#FF69B4]/20">
+              <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-[#FF69B4] to-[#FF8AC7] bg-clip-text text-transparent">
                 Check Your Eligibility
               </h2>
               <p className="text-gray-600 mb-4">
-                See if you qualify for the POW token airdrop
+                See if you qualify for the PXD token airdrop
               </p>
               <Button
-                className="px-6 py-3 rounded-full shadow font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white transition"
+                className="px-6 py-3 rounded-full shadow font-bold bg-[#FF69B4] hover:bg-[#FF8AC7] text-white transition"
                 onClick={() => {
                   navigate("/airdrop");
                   const element = document.getElementById("wallet-address");
@@ -453,7 +452,7 @@ const Airdrop: React.FC = () => {
         <div className="min-h-[50vh] flex items-center justify-center flex-col gap-6">
           {isLoading && (
             <div className="text-center p-8">
-              <div className="animate-spin h-8 w-8 border-4 border-[#1EAEDB] border-t-transparent rounded-full mx-auto mb-4"></div>
+              <div className="animate-spin h-8 w-8 border-4 border-[#FF69B4] border-t-transparent rounded-full mx-auto mb-4"></div>
               <p className="text-lg">Loading airdrop data...</p>
             </div>
           )}
@@ -468,7 +467,7 @@ const Airdrop: React.FC = () => {
             <>
               <div className="w-full max-w-6xl mb-8">
                 <h1 className="text-3xl font-bold mb-6">Summary</h1>
-                <div className="bg-card rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-shadow mb-12">
+                <div className="bg-card rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(255,105,180,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(255,105,180,0.2)] transition-shadow mb-12">
                   <h2 className="text-xl font-semibold mb-4">Total Rewards</h2>
                   <div className="flex flex-col gap-2">
                     {recipientsData.reduce(
@@ -481,7 +480,7 @@ const Airdrop: React.FC = () => {
                           {recipientsData
                             .reduce((sum, recipient) => sum + recipient.Voi, 0)
                             .toFixed(6)}{" "}
-                          POW
+                          PXD
                         </span>
                       </div>
                     )}
@@ -495,7 +494,7 @@ const Airdrop: React.FC = () => {
                           {recipientsData
                             .reduce((sum, recipient) => sum + recipient.Algo, 0)
                             .toFixed(6)}{" "}
-                          POW
+                          PXD
                         </span>
                       </div>
                     )}
@@ -505,7 +504,7 @@ const Airdrop: React.FC = () => {
                         {recipientsData
                           .reduce((sum, recipient) => sum + recipient.Total, 0)
                           .toFixed(6)}{" "}
-                        POW
+                        PXD
                       </span>
                     </div>
                   </div>
@@ -541,12 +540,12 @@ const Airdrop: React.FC = () => {
                     </h1>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {recipient.Voi > 0 && (
-                        <div className="bg-card rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-all hover:border-[#1EAEDB]/20 flex flex-col">
+                        <div className="bg-card rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(255,105,180,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(255,105,180,0.2)] transition-all hover:border-[#FF69B4]/20 flex flex-col">
                           <h2 className="text-2xl font-semibold mb-3">
                             Voi Network
                           </h2>
-                          <p className="text-3xl font-bold text-[#1EAEDB] mb-6">
-                            {recipient.Voi.toFixed(6)} POW
+                          <p className="text-3xl font-bold text-[#FF69B4] mb-6">
+                            {recipient.Voi.toFixed(6)} PXD
                           </p>
                           <ClaimButton
                             network="voi"
@@ -560,8 +559,8 @@ const Airdrop: React.FC = () => {
                           <h2 className="text-2xl font-semibold mb-3">
                             Algorand Network
                           </h2>
-                          <p className="text-3xl font-bold text-[#1EAEDB] mb-6">
-                            {recipient.Algo.toFixed(6)} POW
+                          <p className="text-3xl font-bold text-[#FF69B4] mb-6">
+                            {recipient.Algo.toFixed(6)} PXD
                           </p>
                           <ClaimButton
                             network="algo"
@@ -582,7 +581,7 @@ const Airdrop: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="bg-card/30 backdrop-blur-sm rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-[#1EAEDB]/20 max-w-xl w-full mx-auto my-0">
+            <div className="bg-card/30 backdrop-blur-sm rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(255,105,180,0.1)] border border-[#FF69B4]/20 max-w-xl w-full mx-auto my-0">
               <h2 className="text-3xl font-bold mb-2 text-center">
                 Check Your Airdrop
               </h2>
@@ -621,7 +620,7 @@ const Airdrop: React.FC = () => {
                     />
                     <Button
                       className={cn(
-                        "h-12 text-base font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] disabled:opacity-50 rounded-full px-6",
+                        "h-12 text-base font-bold bg-[#FF69B4] hover:bg-[#FF8AC7] disabled:opacity-50 rounded-full px-6",
                         "sm:absolute sm:right-1 sm:top-1"
                       )}
                       onClick={handleEligibilityCheck}
@@ -647,28 +646,28 @@ const Airdrop: React.FC = () => {
                 {eligibilityStatus.message && (
                   <div
                     className={cn(
-                      "p-6 rounded-2xl text-center shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border transition-all duration-500",
+                      "p-6 rounded-2xl text-center shadow-[0_4px_20px_-4px_rgba(255,105,180,0.1)] border transition-all duration-500",
                       "animate-in fade-in duration-500",
                       eligibilityStatus.isEligible
-                        ? "bg-card/30 backdrop-blur-sm border-[#1EAEDB]/20 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)]"
+                        ? "bg-card/30 backdrop-blur-sm border-[#FF69B4]/20 hover:shadow-[0_8px_30px_-4px_rgba(255,105,180,0.2)]"
                         : "bg-card/30 backdrop-blur-sm border-border/50"
                     )}
                   >
                     {eligibilityStatus.isEligible ? (
                       <div className="animate-in slide-in-from-bottom duration-500 delay-200">
-                        <h3 className="text-2xl font-bold text-[#1EAEDB] mb-2">
+                        <h3 className="text-2xl font-bold text-[#FF69B4] mb-2">
                           Congratulations!
                         </h3>
                         <p className="text-gray-600 mb-4">
                           {eligibilityStatus.message}
                         </p>
                         <Button
-                          className="w-full text-lg px-6 py-3 rounded-xl shadow-lg font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white transition"
+                          className="w-full text-lg px-6 py-3 rounded-xl shadow-lg font-bold bg-[#FF69B4] hover:bg-[#FF8AC7] text-white transition"
                           onClick={() =>
                             (window.location.href = `/airdrop/${addressInput}`)
                           }
                         >
-                          Claim Your POW Tokens
+                          Claim Your PXD Tokens
                         </Button>
                       </div>
                     ) : (

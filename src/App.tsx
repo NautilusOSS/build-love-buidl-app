@@ -26,6 +26,7 @@ import {
   BreadcrumbItem,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
+import { ThemeProvider } from './components/ThemeProvider';
 
 const queryClient = new QueryClient();
 
@@ -44,13 +45,13 @@ const App = () => {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbPage className="text-[#1EAEDB] font-bold tracking-tight">
-              POW
+            <BreadcrumbPage className="text-[#FF69B4] font-bold tracking-tight">
+              PXD
             </BreadcrumbPage>
           </BreadcrumbItem>
           {pathSegments.map((segment, index) => (
             <BreadcrumbItem key={index}>
-              <BreadcrumbPage className="capitalize">{segment}</BreadcrumbPage>
+              <BreadcrumbPage className="capitalize text-pink-600">{segment}</BreadcrumbPage>
             </BreadcrumbItem>
           ))}
         </BreadcrumbList>
@@ -65,17 +66,17 @@ const App = () => {
       WalletId.KIBISIS,
       {
         id: WalletId.LUTE,
-        options: { siteName: "Nautilus" },
+        options: { siteName: "Pixel Dust" },
       },
       {
         id: WalletId.BIATEC,
         options: {
           projectId: walletConnectProjectId,
           metadata: {
-            name: "Nautilus",
-            url: "https://nautilus.sh",
-            description: "Nautilus NFT Marketplace",
-            icons: ["https://nautilus.sh/favicon.ico"],
+            name: "Pixel Dust",
+            url: "https://pixeldust.sh",
+            description: "Pixel Dust NFT Marketplace",
+            icons: ["https://pixeldust.sh/favicon.ico"],
           },
           themeMode: "light",
         },
@@ -85,10 +86,10 @@ const App = () => {
         options: {
           projectId: walletConnectProjectId,
           metadata: {
-            name: "Nautilus",
-            url: "https://nautilus.sh",
-            description: "Nautilus NFT Marketplace",
-            icons: ["https://nautilus.sh/favicon.ico"],
+            name: "Pixel Dust",
+            url: "https://pixeldust.sh",
+            description: "Pixel Dust NFT Marketplace",
+            icons: ["https://pixeldust.sh/favicon.ico"],
           },
           themeMode: "light",
         },
@@ -103,39 +104,41 @@ const App = () => {
     network: NetworkId.VOIMAIN,
   });
   return (
-    <WalletProvider manager={walletManager}>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <SidebarProvider>
-              <div className="min-h-screen flex w-full">
-                <AppSidebar />
-                <SidebarInset className="flex-1 flex flex-col max-h-screen">
-                  <SidebarTrigger />
-                  {/* Make main content scrollable and fill all available vertical space */}
-                  <div className="flex-1 overflow-auto">
-                    <Routes>
-                      <Route path="/" element={<Airdrop />} />
-                      {/* <Route path="/home" element={<Home />} /> */}
-                      {/*<Route path="/wallet/:address" element={<Wallet />} />*/}
-                      <Route path="/airdrop" element={<Airdrop />} />
-                      <Route
-                        path="/airdrop/:recipients"
-                        element={<Airdrop />}
-                      />
-                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </div>
-                </SidebarInset>
-              </div>
-            </SidebarProvider>
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </WalletProvider>
+    <ThemeProvider>
+      <WalletProvider manager={walletManager}>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <SidebarProvider>
+                <div className="min-h-screen flex w-full">
+                  <AppSidebar />
+                  <SidebarInset className="flex-1 flex flex-col max-h-screen">
+                    <SidebarTrigger />
+                    {/* Make main content scrollable and fill all available vertical space */}
+                    <div className="flex-1 overflow-auto">
+                      <Routes>
+                        <Route path="/" element={<Airdrop />} />
+                        {/* <Route path="/home" element={<Home />} /> */}
+                        {/*<Route path="/wallet/:address" element={<Wallet />} />*/}
+                        <Route path="/airdrop" element={<Airdrop />} />
+                        <Route
+                          path="/airdrop/:recipients"
+                          element={<Airdrop />}
+                        />
+                        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </div>
+                  </SidebarInset>
+                </div>
+              </SidebarProvider>
+            </BrowserRouter>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </WalletProvider>
+    </ThemeProvider>
   );
 };
 
