@@ -26,7 +26,10 @@ import {
   BreadcrumbItem,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
-import { ThemeProvider } from './components/ThemeProvider';
+import { ThemeProvider } from "./components/ThemeProvider";
+import { Buffer } from "buffer";
+
+window.Buffer = Buffer;
 
 const queryClient = new QueryClient();
 
@@ -51,7 +54,9 @@ const App = () => {
           </BreadcrumbItem>
           {pathSegments.map((segment, index) => (
             <BreadcrumbItem key={index}>
-              <BreadcrumbPage className="capitalize text-pink-600">{segment}</BreadcrumbPage>
+              <BreadcrumbPage className="capitalize text-pink-600">
+                {segment}
+              </BreadcrumbPage>
             </BreadcrumbItem>
           ))}
         </BreadcrumbList>
