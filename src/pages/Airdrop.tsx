@@ -341,13 +341,13 @@ const Airdrop: React.FC = () => {
   }) => (
     <Button
       className={className}
-      // disabled={
-      //   isLoading ||
-      //   (isClaimLoading[address]?.[network] ?? false) ||
-      //   !isAddressInWallet(address) ||
-      //   !isAirdropOpen ||
-      //   (network === "voi" ? !isVoiNetwork() : !isAlgoNetwork())
-      // }
+      disabled={
+        isLoading ||
+        (isClaimLoading[address]?.[network] ?? false) ||
+        !isAddressInWallet(address) ||
+        !isAirdropOpen ||
+        (network === "voi" ? !isVoiNetwork() : !isAlgoNetwork())
+      }
       onClick={() => handleClaim(network, amount, address)}
       title={
         !isAirdropOpen
