@@ -224,25 +224,71 @@ const Airdrop: React.FC = () => {
     amount: number,
     recipientAddress: string
   ) => {
-    if (!isAirdropOpen) {
+    try {
+      if (!isAirdropOpen) {
+        toast({
+          variant: "destructive",
+          description: "Airdrop has not started yet",
+          duration: 3000,
+        });
+        return;
+      }
+      if (!activeAccount) {
+        toast({
+          variant: "destructive",
+          description: "Please connect your wallet first",
+          duration: 3000,
+        });
+        return;
+      }
+
+      const accInfo = await algodClient
+        .accountInformation(recipientAddress)
+        .do();
+      const balance = accInfo.amount;
+      const minBalance = accInfo["min-balance"];
+      const requiredBalance = minBalance + 0.01 * 10 ** 6;
+      const availableBalance = balance - minBalance;
+
+      if (availableBalance < requiredBalance) {
+        toast({
+          variant: "destructive",
+          description: (
+            <div>
+              <p>Insufficient balance</p>
+              <p>
+                Please send at least {requiredBalance / 10 ** 6} ALGO to the
+                address before claiming.
+              </p>
+              <p>
+                The minimum balance is {minBalance / 10 ** 6} ALGO to keep the
+                account active.
+              </p>
+              <p>
+                Need VOI?{" "}
+                <a
+                  href="https://faucet.voirewards.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#FF69B4" }}
+                >
+                  Get VOI
+                </a>
+              </p>
+            </div>
+          ),
+          duration: 3000,
+        });
+        return;
+      }
+    } catch (error) {
+      console.error("Error in claim operation:", error);
       toast({
         variant: "destructive",
-        description: "Airdrop has not started yet",
+        description: "Failed to claim PXD",
         duration: 3000,
       });
-      return;
     }
-    if (!activeAccount) {
-      toast({
-        variant: "destructive",
-        description: "Please connect your wallet first",
-        duration: 3000,
-      });
-      return;
-    }
-
-    console.log({ approvals });
-
     setIsClaimLoading((prev) => ({
       ...prev,
       [recipientAddress]: {
@@ -283,10 +329,8 @@ const Airdrop: React.FC = () => {
       const signedTxns = await signTransactions(txnUint8Arrays);
 
       // Send the signed transactions
-      const { txId } = await algodClient
-        .sendRawTransaction(signedTxns)
-        .do();
-      
+      const { txId } = await algodClient.sendRawTransaction(signedTxns).do();
+
       console.log({ txId });
 
       // Reset approval data for the recipient after successful claim
@@ -304,6 +348,10 @@ const Airdrop: React.FC = () => {
 
       // Refetch claim progress after successful claim
       await fetchClaimProgress();
+
+      // After successful claim, show confetti
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 10000); // Hide confetti after 10 seconds
 
       toast({
         description: `Successfully claimed ${amount} PXD on ${network} network`,
