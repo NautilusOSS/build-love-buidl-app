@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import PageLayout from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import ReactConfetti from "react-confetti";
 import { ExternalLink, Play } from "lucide-react";
 import VideoModal from "@/components/VideoModal";
+import ReactDOM from "react-dom";
 
 // Define the type for airdrop data
 interface AirdropEntry {
@@ -19,6 +20,32 @@ interface AirdropEntry {
   Algo: number;
   Total: number;
 }
+
+// DropdownPortal: renders children in a portal at the document body
+const DropdownPortal: React.FC<{
+  anchorRef: React.RefObject<HTMLElement>;
+  children: React.ReactNode;
+}> = ({ anchorRef, children }) => {
+  const [style, setStyle] = React.useState<React.CSSProperties>({});
+
+  React.useLayoutEffect(() => {
+    if (anchorRef.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setStyle({
+        position: "absolute",
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+        zIndex: 9999,
+      });
+    }
+  }, [anchorRef.current]);
+
+  return ReactDOM.createPortal(
+    <div style={style}>{children}</div>,
+    document.body
+  );
+};
 
 const Airdrop: React.FC = () => {
   const {
@@ -90,6 +117,8 @@ const Airdrop: React.FC = () => {
   const [resolvedAlgoAddress, setResolvedAlgoAddress] = useState<string | null>(
     null
   );
+  const envoiInputRef = useRef<HTMLInputElement>(null);
+  const algoInputRef = useRef<HTMLInputElement>(null);
 
   const AIRDROP_START_TIME = new Date("2025-06-23T00:00:00Z").getTime(); // Adjust this timestamp
   const AIRDROP_END_TIME = new Date("2025-09-23T00:00:00Z").getTime(); // Adjust this timestamp
@@ -1186,6 +1215,164 @@ const Airdrop: React.FC = () => {
         </div>
       </div>
 
+      {/* Launch Humble and Pact Section */}
+      <div className="bg-gradient-to-b from-gray-900 to-gray-800 py-12 md:py-16 w-full">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
+              Launch Applications
+            </h2>
+            <p className="text-lg text-gray-300 max-w-2xl mx-auto">
+              Launch applications on Voi and Algorand networks and start using
+              your tokens.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+            {/* Humble Card */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.4)] transition-all duration-300 hover:transform hover:-translate-y-1">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl mx-auto mb-4 flex items-center justify-center shadow-lg">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="w-8 h-8 text-white"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Humble</h3>
+                <p className="text-gray-300 mb-4 text-sm">
+                  Decentralized exchange on Voi with advanced features with
+                  competitive liquidity provision incentives to earn VOI.
+                </p>
+                <Button
+                  onClick={() => window.open("https://voi.humble.sh", "_blank")}
+                  className="w-full text-base px-4 py-2 rounded-lg shadow-lg font-semibold bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white transition-all duration-300"
+                >
+                  Launch Humble
+                  <ExternalLink className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Pact Card */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.4)] transition-all duration-300 hover:transform hover:-translate-y-1">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-xl mx-auto mb-4 flex items-center justify-center shadow-lg">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="w-8 h-8 text-white"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Pact</h3>
+                <p className="text-gray-300 mb-4 text-sm">
+                  Decentralized exchange on Algorand with farming, consensus
+                  ready liquidity pools, multi-tier swap fees, smart routing.
+                </p>
+                <Button
+                  onClick={() => window.open("https://app.pact.fi", "_blank")}
+                  className="w-full text-base px-4 py-2 rounded-lg shadow-lg font-semibold bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] hover:from-[#31BFEC] hover:to-[#1EAEDB] text-white transition-all duration-300"
+                >
+                  Launch Pact
+                  <ExternalLink className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Vestige Card */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.4)] transition-all duration-300 hover:transform hover:-translate-y-1">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl mx-auto mb-4 flex items-center justify-center shadow-lg">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="w-8 h-8 text-white"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Vestige</h3>
+                <p className="text-gray-300 mb-4 text-sm">
+                  Get the best rates across all Algorand DEXs with intelligent
+                  route optimization when swapping on Algorand.
+                </p>
+                <Button
+                  onClick={() => window.open("https://vestige.fi", "_blank")}
+                  className="w-full text-base px-4 py-2 rounded-lg shadow-lg font-semibold bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white transition-all duration-300"
+                >
+                  Launch Vestige
+                  <ExternalLink className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Aramid Finance Card */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.4)] transition-all duration-300 hover:transform hover:-translate-y-1">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl mx-auto mb-4 flex items-center justify-center shadow-lg">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="w-8 h-8 text-white"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M8.25 18.75a1.5 1.5 0 0 1-3 0V5.25a1.5 1.5 0 0 1 3 0v13.5Zm6-13.5a1.5 1.5 0 0 1 3 0v13.5a1.5 1.5 0 0 1-3 0V5.25Z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">
+                  Aramid Finance
+                </h3>
+                <p className="text-gray-300 mb-4 text-sm">
+                  Bridge assets securely between Voi, Algorand, and Ethereum
+                  networks with secure cross-chain transfers and low transaction
+                  fees.
+                </p>
+                <Button
+                  onClick={() =>
+                    window.open("https://app.aramid.finance", "_blank")
+                  }
+                  className="w-full text-base px-4 py-2 rounded-lg shadow-lg font-semibold bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white transition-all duration-300"
+                >
+                  Launch Aramid
+                  <ExternalLink className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="container mx-auto px-4 py-8 max-w-[1400px]">
         <div className="min-h-[50vh] flex items-center justify-center flex-col gap-6">
           {isLoading && (
@@ -1319,20 +1506,48 @@ const Airdrop: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="bg-card/30 backdrop-blur-sm rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-[#1EAEDB]/20 max-w-xl w-full mx-auto my-0">
-              <h2 className="text-3xl font-bold mb-2 text-center">
-                Check Your Airdrop
-              </h2>
-              <p className="text-gray-600 text-center mb-6">
-                Enter your wallet address or connect your wallet to check your
-                eligibility
-              </p>
+            <div className="w-full max-w-4xl mx-auto">
+              {/* Header Section */}
+              <div className="text-center mb-12">
+                <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] bg-clip-text text-transparent">
+                  Check Your Airdrop
+                </h2>
+                <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                  Enter your wallet address or connect your wallet to check your
+                  eligibility for the POW token airdrop
+                </p>
+              </div>
 
-              <div className="space-y-6">
-                {/* Wallet Connect Option */}
-                <div className="text-center">
+              {/* Eligibility Check Cards */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                {/* Wallet Connect Card */}
+                <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-[#1EAEDB]/20 hover:shadow-[0_12px_48px_rgba(30,174,219,0.15)] transition-all duration-300">
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-8 h-8 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-2xl font-bold mb-2">Connect Wallet</h3>
+                    <p className="text-gray-600 mb-6">
+                      Quick and secure way to check eligibility with your
+                      connected wallet
+                    </p>
+                  </div>
+
                   <Button
-                    className="w-full text-lg px-6 py-4 rounded-xl shadow-lg font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white transition-all duration-300 transform hover:-translate-y-1 mb-4"
+                    className="w-full text-lg px-6 py-4 rounded-xl shadow-lg font-bold bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] hover:from-[#31BFEC] hover:to-[#1EAEDB] text-white transition-all duration-300 transform hover:-translate-y-1"
                     onClick={handleWalletEligibilityCheck}
                     disabled={isChecking}
                   >
@@ -1381,481 +1596,564 @@ const Airdrop: React.FC = () => {
                   </Button>
 
                   {activeAccount && (
-                    <p className="text-sm text-gray-500">
-                      Connected: {activeAccount.address.slice(0, 6)}...
-                      {activeAccount.address.slice(-4)}
-                    </p>
+                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-700 text-center mb-2">
+                        Connected: {activeAccount.address.slice(0, 6)}...
+                        {activeAccount.address.slice(-4)}
+                      </p>
+                      <Button
+                        onClick={() => {
+                          // Disconnect the active wallet
+                          if (activeAccount) {
+                            // Find the wallet that's currently connected and disconnect it
+                            const connectedWallet = wallets.find((wallet) =>
+                              wallet.accounts?.some(
+                                (account) =>
+                                  account.address === activeAccount.address
+                              )
+                            );
+                            if (connectedWallet) {
+                              connectedWallet.disconnect();
+                            }
+                          }
+                        }}
+                        className="w-full text-sm px-3 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
+                      >
+                        Disconnect Wallet
+                      </Button>
+                    </div>
                   )}
                 </div>
 
-                <div className="relative">
-                  <div className="text-center mb-4">
-                    <span className="text-gray-500 text-sm">
-                      — or enter manually —
-                    </span>
-                  </div>
-                  <Label
-                    htmlFor="wallet-address"
-                    className={cn(
-                      "absolute left-3 transition-all duration-200 z-10",
-                      addressInput ? "opacity-0" : "top-4"
-                    )}
-                  >
-                    Enter wallet address
-                  </Label>
-                  <div className="relative flex flex-col sm:flex-row gap-2 sm:gap-0">
-                    <Input
-                      id="wallet-address"
-                      type="text"
-                      placeholder=""
-                      value={addressInput}
-                      onChange={(e) => {
-                        setAddressInput(e.target.value);
-                        validateAddress(e.target.value);
-                      }}
-                      className={cn(
-                        "px-6 py-4 h-14 text-lg rounded-full",
-                        "sm:pr-[180px]",
-                        !isAddressValid &&
-                          addressInput &&
-                          "border-red-500 focus:ring-red-500"
-                      )}
-                    />
-                    <Button
-                      className={cn(
-                        "h-12 text-base font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] disabled:opacity-50 rounded-full px-6",
-                        "sm:absolute sm:right-1 sm:top-1"
-                      )}
-                      onClick={handleAddressEligibilityCheck}
-                      disabled={
-                        !addressInput ||
-                        !isAddressValid ||
-                        isChecking ||
-                        isResolvingEnvoi ||
-                        isResolvingAlgo
-                      }
-                    >
-                      {isChecking || isResolvingEnvoi || isResolvingAlgo ? (
-                        <div className="flex items-center gap-2">
-                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                          <span>
-                            {isResolvingEnvoi || isResolvingAlgo
-                              ? "Resolving..."
-                              : "Checking"}
-                          </span>
-                        </div>
-                      ) : (
-                        "Check Eligibility"
-                      )}
-                    </Button>
-                  </div>
-                  {!isAddressValid && addressInput && (
-                    <p className="text-red-500 text-sm mt-1">
-                      Please enter a valid wallet address
+                {/* Manual Address Card */}
+                <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-[#1EAEDB]/20 hover:shadow-[0_12px_48px_rgba(30,174,219,0.15)] transition-all duration-300">
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-gradient-to-br from-gray-600 to-gray-700 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-8 h-8 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-2xl font-bold mb-2">Enter Address</h3>
+                    <p className="text-gray-600 mb-6">
+                      Manually enter any wallet address to check eligibility
                     </p>
-                  )}
-                </div>
+                  </div>
 
-                {/* enVoi Name Input - Only show for Voi network */}
-                {activeNetwork.toLowerCase().includes("voi") && (
-                  <div className="relative">
-                    <div className="text-center mb-4">
-                      <span className="text-gray-500 text-sm">— or —</span>
-                    </div>
-                    <Label
-                      htmlFor="envoi-name"
-                      className={cn(
-                        "absolute left-3 transition-all duration-200 z-10",
-                        envoiNameInput ? "opacity-0" : "top-4"
-                      )}
-                    >
-                      Enter .voi name
-                    </Label>
-                    <div className="relative flex flex-col sm:flex-row gap-2 sm:gap-0">
-                      <div className="relative flex-1">
-                        {selectedAvatar && (
-                          <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
-                            <img
-                              src={selectedAvatar}
-                              alt="Avatar"
-                              className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
-                              onError={(e) => {
-                                // Show fallback avatar when image fails to load
-                                const fallback =
-                                  e.currentTarget.parentElement?.querySelector(
-                                    ".fallback-avatar"
-                                  );
-                                if (fallback) {
-                                  fallback.classList.remove("hidden");
-                                }
-                                e.currentTarget.style.display = "none";
-                              }}
-                            />
-                            <div className="fallback-avatar hidden w-12 h-12 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
-                              {envoiNameInput.charAt(0).toUpperCase()}
-                            </div>
-                          </div>
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <Label
+                        htmlFor="wallet-address"
+                        className={cn(
+                          "absolute left-3 transition-all duration-200 z-10 text-sm",
+                          addressInput ? "opacity-0" : "top-4"
                         )}
-                        {!selectedAvatar && envoiNameInput && (
-                          <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
-                            <div className="w-12 h-12 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
-                              {envoiNameInput.charAt(0).toUpperCase()}
-                            </div>
-                          </div>
-                        )}
+                      >
+                        Enter wallet address
+                      </Label>
+                      <div className="relative flex flex-col sm:flex-row gap-2 sm:gap-0">
                         <Input
-                          id="envoi-name"
+                          id="wallet-address"
                           type="text"
                           placeholder=""
-                          value={envoiNameInput}
+                          value={addressInput}
                           onChange={(e) => {
-                            setEnvoiNameInput(e.target.value);
-                            if (!e.target.value) {
-                              setSelectedAvatar(null);
-                            }
-                          }}
-                          onFocus={() => {
-                            if (searchResults.length > 0) {
-                              setShowDropdown(true);
-                            }
-                          }}
-                          onBlur={() => {
-                            // Delay hiding dropdown to allow for clicks
-                            setTimeout(() => setShowDropdown(false), 200);
+                            setAddressInput(e.target.value);
+                            validateAddress(e.target.value);
                           }}
                           className={cn(
-                            "px-6 py-4 h-14 text-lg rounded-full sm:pr-[180px]",
-                            envoiNameInput && "bg-white text-gray-900",
-                            (selectedAvatar || envoiNameInput) && "pl-16"
+                            "px-6 py-4 h-14 text-lg rounded-xl",
+                            "sm:pr-[140px]",
+                            !isAddressValid &&
+                              addressInput &&
+                              "border-red-500 focus:ring-red-500"
                           )}
                         />
-                      </div>
-                      <Button
-                        className={cn(
-                          "h-12 text-base font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] disabled:opacity-50 rounded-full px-6",
-                          "sm:absolute sm:right-1 sm:top-1"
-                        )}
-                        onClick={handleEnvoiEligibilityCheck}
-                        disabled={
-                          !envoiNameInput || isChecking || isResolvingEnvoi
-                        }
-                      >
-                        {isChecking || isResolvingEnvoi ? (
-                          <div className="flex items-center gap-2">
-                            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                            <span>
-                              {isResolvingEnvoi ? "Resolving..." : "Checking"}
-                            </span>
-                          </div>
-                        ) : (
-                          "Check Eligibility"
-                        )}
-                      </Button>
-                    </div>
-
-                    {/* Search Results Dropdown */}
-                    {showDropdown && (
-                      <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {isSearching ? (
-                          <div className="p-4 text-center text-gray-500">
-                            <div className="animate-spin h-4 w-4 border-2 border-[#1EAEDB] border-t-transparent rounded-full mx-auto mb-2"></div>
-                            Searching...
-                          </div>
-                        ) : searchResults.length > 0 ? (
-                          <div>
-                            {searchResults.map((result, index) => (
-                              <button
-                                key={index}
-                                onClick={() =>
-                                  handleNameSelect(result.name, result.avatar)
-                                }
-                                className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors flex items-center gap-3"
-                              >
-                                {result.metadata?.avatar && (
-                                  <img
-                                    src={
-                                      result.metadata?.avatar || result.avatar
-                                    }
-                                    alt={`${result.name} avatar`}
-                                    className="w-12 h-12 rounded-full flex-shrink-0"
-                                    onError={(e) => {
-                                      // Show fallback avatar when image fails to load
-                                      const fallback =
-                                        e.currentTarget.parentElement?.querySelector(
-                                          ".fallback-avatar"
-                                        );
-                                      if (fallback) {
-                                        fallback.classList.remove("hidden");
-                                      }
-                                      e.currentTarget.style.display = "none";
-                                    }}
-                                  />
-                                )}
-                                {!result.avatar && !result.metadata?.avatar && (
-                                  <div className="w-12 h-12 rounded-full flex-shrink-0 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
-                                    {result.name.charAt(0).toUpperCase()}
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-gray-900">
-                                    {result.name}
-                                  </div>
-                                  <div className="text-sm text-gray-500 truncate">
-                                    {result.address}
-                                  </div>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        ) : envoiNameInput.length >= 2 ? (
-                          <div className="p-4 text-center text-gray-500">
-                            No enVoi names found
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* algo Name Input - Only show for algo network */}
-                {isAlgoNetwork() && (
-                  <div className="relative">
-                    <div className="text-center mb-4">
-                      <span className="text-gray-500 text-sm">— or —</span>
-                    </div>
-                    <Label
-                      htmlFor="algo-name"
-                      className={cn(
-                        "absolute left-3 transition-all duration-200 z-10",
-                        algoNameInput ? "opacity-0" : "top-4"
-                      )}
-                    >
-                      Enter .algo name
-                    </Label>
-                    <div className="relative flex flex-col sm:flex-row gap-2 sm:gap-0">
-                      <div className="relative flex-1">
-                        {selectedAlgoAvatar && (
-                          <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
-                            <img
-                              src={selectedAlgoAvatar}
-                              alt="Avatar"
-                              className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
-                              onError={(e) => {
-                                // Show fallback avatar when image fails to load
-                                const fallback =
-                                  e.currentTarget.parentElement?.querySelector(
-                                    ".fallback-avatar"
-                                  );
-                                if (fallback) {
-                                  fallback.classList.remove("hidden");
-                                }
-                                e.currentTarget.style.display = "none";
-                              }}
-                            />
-                            <div className="fallback-avatar hidden w-12 h-12 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
-                              {algoNameInput.charAt(0).toUpperCase()}
-                            </div>
-                          </div>
-                        )}
-                        {!selectedAlgoAvatar && algoNameInput && (
-                          <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
-                            <div className="w-12 h-12 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
-                              {algoNameInput.charAt(0).toUpperCase()}
-                            </div>
-                          </div>
-                        )}
-                        <Input
-                          id="algo-name"
-                          type="text"
-                          placeholder=""
-                          value={algoNameInput}
-                          onChange={(e) => {
-                            setAlgoNameInput(e.target.value);
-                            if (!e.target.value) {
-                              setSelectedAlgoAvatar(null);
-                            }
-                          }}
-                          onFocus={() => {
-                            if (algoSearchResults.length > 0) {
-                              setShowAlgoDropdown(true);
-                            }
-                          }}
-                          onBlur={() => {
-                            // Delay hiding dropdown to allow for clicks
-                            setTimeout(() => setShowAlgoDropdown(false), 200);
-                          }}
-                          className={cn(
-                            "px-6 py-4 h-14 text-lg rounded-full sm:pr-[180px]",
-                            algoNameInput && "bg-white text-gray-900",
-                            (selectedAlgoAvatar || algoNameInput) && "pl-16"
-                          )}
-                        />
-                      </div>
-                      <Button
-                        className={cn(
-                          "h-12 text-base font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] disabled:opacity-50 rounded-full px-6",
-                          "sm:absolute sm:right-1 sm:top-1"
-                        )}
-                        onClick={handleAlgoEligibilityCheck}
-                        disabled={
-                          !algoNameInput || isChecking || isResolvingAlgo
-                        }
-                      >
-                        {isChecking || isResolvingAlgo ? (
-                          <div className="flex items-center gap-2">
-                            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                            <span>
-                              {isResolvingAlgo ? "Resolving..." : "Checking"}
-                            </span>
-                          </div>
-                        ) : (
-                          "Check Eligibility"
-                        )}
-                      </Button>
-                    </div>
-
-                    {/* Search Results Dropdown */}
-                    {showAlgoDropdown && (
-                      <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {isAlgoSearching ? (
-                          <div className="p-4 text-center text-gray-500">
-                            <div className="animate-spin h-4 w-4 border-2 border-[#1EAEDB] border-t-transparent rounded-full mx-auto mb-2"></div>
-                            Searching...
-                          </div>
-                        ) : algoSearchResults.length > 0 ? (
-                          <div>
-                            {algoSearchResults.map((result, index) => (
-                              <button
-                                key={index}
-                                onClick={() =>
-                                  handleAlgoNameSelect(
-                                    result.name,
-                                    result.avatar
-                                  )
-                                }
-                                className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors flex items-center gap-3"
-                              >
-                                {result.metadata?.avatar && (
-                                  <img
-                                    src={
-                                      result.metadata?.avatar || result.avatar
-                                    }
-                                    alt={`${result.name} avatar`}
-                                    className="w-12 h-12 rounded-full flex-shrink-0"
-                                    onError={(e) => {
-                                      // Show fallback avatar when image fails to load
-                                      const fallback =
-                                        e.currentTarget.parentElement?.querySelector(
-                                          ".fallback-avatar"
-                                        );
-                                      if (fallback) {
-                                        fallback.classList.remove("hidden");
-                                      }
-                                      e.currentTarget.style.display = "none";
-                                    }}
-                                  />
-                                )}
-                                {!result.avatar && !result.metadata?.avatar && (
-                                  <div className="w-12 h-12 rounded-full flex-shrink-0 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
-                                    {result.name.charAt(0).toUpperCase()}
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-gray-900">
-                                    {result.name}
-                                  </div>
-                                  <div className="text-sm text-gray-500 truncate">
-                                    {result.address}
-                                  </div>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        ) : algoNameInput.length >= 2 ? (
-                          <div className="p-4 text-center text-gray-500">
-                            No algo names found
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {eligibilityStatus.message && (
-                  <div
-                    className={cn(
-                      "p-6 rounded-2xl text-center shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border transition-all duration-500",
-                      "animate-in fade-in duration-500",
-                      eligibilityStatus.isEligible
-                        ? "bg-card/30 backdrop-blur-sm border-[#1EAEDB]/20 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)]"
-                        : "bg-card/30 backdrop-blur-sm border-border/50"
-                    )}
-                  >
-                    {eligibilityStatus.isEligible ? (
-                      <div className="animate-in slide-in-from-bottom duration-500 delay-200">
-                        <h3 className="text-2xl font-bold text-[#1EAEDB] mb-2">
-                          Congratulations!
-                        </h3>
-                        <p className="text-gray-600 mb-4">
-                          {eligibilityStatus.message}
-                        </p>
                         <Button
-                          className="w-full text-lg px-6 py-3 rounded-xl shadow-lg font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white transition"
-                          onClick={() => {
-                            // Determine the correct address based on which method was used
-                            let claimAddress = addressInput;
-
-                            // If wallet was used, use the active account address
-                            if (activeAccount && eligibilityStatus.isEligible) {
-                              const walletEntry = airdropData.find(
-                                (entry) =>
-                                  entry.Address.toLowerCase() ===
-                                  activeAccount.address.toLowerCase()
-                              );
-                              if (walletEntry) {
-                                claimAddress = activeAccount.address;
-                              }
-                            }
-
-                            // If enVoi was used, use the stored resolved address
-                            if (
-                              resolvedAddress &&
-                              envoiNameInput &&
-                              !addressInput
-                            ) {
-                              claimAddress = resolvedAddress;
-                            }
-
-                            // If Algorand NFD was used, use the stored resolved address
-                            if (
-                              resolvedAlgoAddress &&
-                              algoNameInput &&
-                              !addressInput &&
-                              !envoiNameInput
-                            ) {
-                              claimAddress = resolvedAlgoAddress;
-                            }
-
-                            // Navigate to the claim page with the correct address
-                            window.location.href = `/airdrop/${claimAddress}`;
-                          }}
+                          className={cn(
+                            "h-12 text-base font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] disabled:opacity-50 rounded-xl px-4",
+                            "sm:absolute sm:right-1 sm:top-1"
+                          )}
+                          onClick={handleAddressEligibilityCheck}
+                          disabled={
+                            !addressInput ||
+                            !isAddressValid ||
+                            isChecking ||
+                            isResolvingEnvoi ||
+                            isResolvingAlgo
+                          }
                         >
-                          Claim Your POW Tokens
+                          {isChecking || isResolvingEnvoi || isResolvingAlgo ? (
+                            <div className="flex items-center gap-2">
+                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                              <span>
+                                {isResolvingEnvoi || isResolvingAlgo
+                                  ? "Resolving..."
+                                  : "Checking"}
+                              </span>
+                            </div>
+                          ) : (
+                            "Check"
+                          )}
                         </Button>
                       </div>
-                    ) : (
-                      <div className="animate-in slide-in-from-bottom duration-500 delay-200">
-                        <h3 className="text-2xl font-bold text-gray-700 mb-2">
-                          Not Eligible
-                        </h3>
-                        <p className="text-gray-600">
-                          {eligibilityStatus.message}
+                      {!isAddressValid && addressInput && (
+                        <p className="text-red-500 text-sm mt-1">
+                          Please enter a valid wallet address
                         </p>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
+
+              {/* Name Resolution Section */}
+              <div className="bg-card/30 backdrop-blur-sm rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-[#1EAEDB]/20">
+                <div className="text-center mb-8">
+                  <h3 className="text-2xl font-bold mb-2">Name Resolution</h3>
+                  <p className="text-gray-600">
+                    Check eligibility using human-readable names
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* enVoi Name Input - Only show for Voi network */}
+                  {activeNetwork.toLowerCase().includes("voi") && (
+                    <div className="relative">
+                      {/*<div className="text-center mb-4">
+                        <span className="text-gray-500 text-sm font-medium">
+                          enVoi Names (.voi)/
+                        </span>
+                      </div>*/}
+                      <Label
+                        htmlFor="envoi-name"
+                        className={cn(
+                          "absolute left-3 transition-all duration-200 z-10 text-sm",
+                          envoiNameInput ? "opacity-0" : "top-4"
+                        )}
+                      >
+                        Enter .voi name
+                      </Label>
+                      <div className="relative flex flex-col sm:flex-row gap-2 sm:gap-0">
+                        <div className="relative flex-1">
+                          {selectedAvatar && (
+                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
+                              <img
+                                src={selectedAvatar}
+                                alt="Avatar"
+                                className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
+                                onError={(e) => {
+                                  // Show fallback avatar when image fails to load
+                                  const fallback =
+                                    e.currentTarget.parentElement?.querySelector(
+                                      ".fallback-avatar"
+                                    );
+                                  if (fallback) {
+                                    fallback.classList.remove("hidden");
+                                  }
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                              <div className="fallback-avatar hidden w-12 h-12 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
+                                {envoiNameInput.charAt(0).toUpperCase()}
+                              </div>
+                            </div>
+                          )}
+                          {!selectedAvatar && envoiNameInput && (
+                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
+                              <div className="w-12 h-12 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
+                                {envoiNameInput.charAt(0).toUpperCase()}
+                              </div>
+                            </div>
+                          )}
+                          <Input
+                            id="envoi-name"
+                            type="text"
+                            placeholder=""
+                            value={envoiNameInput}
+                            onChange={(e) => {
+                              setEnvoiNameInput(e.target.value);
+                              if (!e.target.value) {
+                                setSelectedAvatar(null);
+                              }
+                            }}
+                            onFocus={() => {
+                              if (searchResults.length > 0) {
+                                setShowDropdown(true);
+                              }
+                            }}
+                            onBlur={() => {
+                              // Delay hiding dropdown to allow for clicks
+                              setTimeout(() => setShowDropdown(false), 200);
+                            }}
+                            ref={envoiInputRef}
+                            className={cn(
+                              "px-6 py-4 h-14 text-lg rounded-xl sm:pr-[140px]",
+                              envoiNameInput && "bg-white text-gray-900",
+                              (selectedAvatar || envoiNameInput) && "pl-16"
+                            )}
+                          />
+                        </div>
+                        <Button
+                          className={cn(
+                            "h-12 text-base font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] disabled:opacity-50 rounded-xl px-4",
+                            "sm:absolute sm:right-1 sm:top-1"
+                          )}
+                          onClick={handleEnvoiEligibilityCheck}
+                          disabled={
+                            !envoiNameInput || isChecking || isResolvingEnvoi
+                          }
+                        >
+                          {isChecking || isResolvingEnvoi ? (
+                            <div className="flex items-center gap-2">
+                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                              <span>
+                                {isResolvingEnvoi ? "Resolving..." : "Checking"}
+                              </span>
+                            </div>
+                          ) : (
+                            "Check"
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* Search Results Dropdown */}
+                      {showDropdown && (
+                        <DropdownPortal anchorRef={envoiInputRef}>
+                          <div className="bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                            {isSearching ? (
+                              <div className="p-4 text-center text-gray-500">
+                                <div className="animate-spin h-4 w-4 border-2 border-[#1EAEDB] border-t-transparent rounded-full mx-auto mb-2"></div>
+                                Searching...
+                              </div>
+                            ) : searchResults.length > 0 ? (
+                              <div>
+                                {searchResults.map((result, index) => (
+                                  <button
+                                    key={index}
+                                    onClick={() =>
+                                      handleNameSelect(
+                                        result.name,
+                                        result.avatar
+                                      )
+                                    }
+                                    className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors flex items-center gap-3"
+                                  >
+                                    {result.metadata?.avatar && (
+                                      <img
+                                        src={
+                                          result.metadata?.avatar ||
+                                          result.avatar
+                                        }
+                                        alt={`${result.name} avatar`}
+                                        className="w-12 h-12 rounded-full flex-shrink-0"
+                                        onError={(e) => {
+                                          // Show fallback avatar when image fails to load
+                                          const fallback =
+                                            e.currentTarget.parentElement?.querySelector(
+                                              ".fallback-avatar"
+                                            );
+                                          if (fallback) {
+                                            fallback.classList.remove("hidden");
+                                          }
+                                          e.currentTarget.style.display =
+                                            "none";
+                                        }}
+                                      />
+                                    )}
+                                    {!result.avatar &&
+                                      !result.metadata?.avatar && (
+                                        <div className="w-12 h-12 rounded-full flex-shrink-0 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
+                                          {result.name.charAt(0).toUpperCase()}
+                                        </div>
+                                      )}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium text-gray-900">
+                                        {result.name}
+                                      </div>
+                                      <div className="text-sm text-gray-500 truncate">
+                                        {result.address}
+                                      </div>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : envoiNameInput.length >= 2 ? (
+                              <div className="p-4 text-center text-gray-500">
+                                No enVoi names found
+                              </div>
+                            ) : null}
+                          </div>
+                        </DropdownPortal>
+                      )}
+                    </div>
+                  )}
+
+                  {/* algo Name Input - Only show for algo network */}
+                  {isAlgoNetwork() && (
+                    <div className="relative">
+                      {/*<div className="text-center mb-4">
+                        <span className="text-gray-500 text-sm font-medium">
+                          Algorand NFDs (.algo)
+                        </span>
+                      </div>*/}
+                      <Label
+                        htmlFor="algo-name"
+                        className={cn(
+                          "absolute left-3 transition-all duration-200 z-10 text-sm",
+                          algoNameInput ? "opacity-0" : "top-4"
+                        )}
+                      >
+                        Enter .algo name
+                      </Label>
+                      <div className="relative flex flex-col sm:flex-row gap-2 sm:gap-0">
+                        <div className="relative flex-1">
+                          {selectedAlgoAvatar && (
+                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
+                              <img
+                                src={selectedAlgoAvatar}
+                                alt="Avatar"
+                                className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
+                                onError={(e) => {
+                                  // Show fallback avatar when image fails to load
+                                  const fallback =
+                                    e.currentTarget.parentElement?.querySelector(
+                                      ".fallback-avatar"
+                                    );
+                                  if (fallback) {
+                                    fallback.classList.remove("hidden");
+                                  }
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                              <div className="fallback-avatar hidden w-12 h-12 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
+                                {algoNameInput.charAt(0).toUpperCase()}
+                              </div>
+                            </div>
+                          )}
+                          {!selectedAlgoAvatar && algoNameInput && (
+                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
+                              <div className="w-12 h-12 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
+                                {algoNameInput.charAt(0).toUpperCase()}
+                              </div>
+                            </div>
+                          )}
+                          <Input
+                            id="algo-name"
+                            type="text"
+                            placeholder=""
+                            value={algoNameInput}
+                            onChange={(e) => {
+                              setAlgoNameInput(e.target.value);
+                              if (!e.target.value) {
+                                setSelectedAlgoAvatar(null);
+                              }
+                            }}
+                            onFocus={() => {
+                              if (algoSearchResults.length > 0) {
+                                setShowAlgoDropdown(true);
+                              }
+                            }}
+                            onBlur={() => {
+                              // Delay hiding dropdown to allow for clicks
+                              setTimeout(() => setShowAlgoDropdown(false), 200);
+                            }}
+                            ref={algoInputRef}
+                            className={cn(
+                              "px-6 py-4 h-14 text-lg rounded-xl sm:pr-[140px]",
+                              algoNameInput && "bg-white text-gray-900",
+                              (selectedAlgoAvatar || algoNameInput) && "pl-16"
+                            )}
+                          />
+                        </div>
+                        <Button
+                          className={cn(
+                            "h-12 text-base font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] disabled:opacity-50 rounded-xl px-4",
+                            "sm:absolute sm:right-1 sm:top-1"
+                          )}
+                          onClick={handleAlgoEligibilityCheck}
+                          disabled={
+                            !algoNameInput || isChecking || isResolvingAlgo
+                          }
+                        >
+                          {isChecking || isResolvingAlgo ? (
+                            <div className="flex items-center gap-2">
+                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                              <span>
+                                {isResolvingAlgo ? "Resolving..." : "Checking"}
+                              </span>
+                            </div>
+                          ) : (
+                            "Check"
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* Search Results Dropdown */}
+                      {showAlgoDropdown && (
+                        <DropdownPortal anchorRef={algoInputRef}>
+                          <div className="bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                            {isAlgoSearching ? (
+                              <div className="p-4 text-center text-gray-500">
+                                <div className="animate-spin h-4 w-4 border-2 border-[#1EAEDB] border-t-transparent rounded-full mx-auto mb-2"></div>
+                                Searching...
+                              </div>
+                            ) : algoSearchResults.length > 0 ? (
+                              <div>
+                                {algoSearchResults.map((result, index) => (
+                                  <button
+                                    key={index}
+                                    onClick={() =>
+                                      handleAlgoNameSelect(
+                                        result.name,
+                                        result.avatar
+                                      )
+                                    }
+                                    className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors flex items-center gap-3"
+                                  >
+                                    {result.metadata?.avatar && (
+                                      <img
+                                        src={
+                                          result.metadata?.avatar ||
+                                          result.avatar
+                                        }
+                                        alt={`${result.name} avatar`}
+                                        className="w-12 h-12 rounded-full flex-shrink-0"
+                                        onError={(e) => {
+                                          // Show fallback avatar when image fails to load
+                                          const fallback =
+                                            e.currentTarget.parentElement?.querySelector(
+                                              ".fallback-avatar"
+                                            );
+                                          if (fallback) {
+                                            fallback.classList.remove("hidden");
+                                          }
+                                          e.currentTarget.style.display =
+                                            "none";
+                                        }}
+                                      />
+                                    )}
+                                    {!result.avatar &&
+                                      !result.metadata?.avatar && (
+                                        <div className="w-12 h-12 rounded-full flex-shrink-0 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
+                                          {result.name.charAt(0).toUpperCase()}
+                                        </div>
+                                      )}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium text-gray-900">
+                                        {result.name}
+                                      </div>
+                                      <div className="text-sm text-gray-500 truncate">
+                                        {result.address}
+                                      </div>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : algoNameInput.length >= 2 ? (
+                              <div className="p-4 text-center text-gray-500">
+                                No algo names found
+                              </div>
+                            ) : null}
+                          </div>
+                        </DropdownPortal>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Eligibility Status */}
+              {eligibilityStatus.message ? (
+                <div
+                  className={cn(
+                    "mt-8 p-8 rounded-2xl text-center shadow-[0_8px_32px_rgba(0,0,0,0.1)] border transition-all duration-500",
+                    "animate-in fade-in duration-500",
+                    eligibilityStatus.isEligible
+                      ? "bg-card/50 backdrop-blur-sm border-[#1EAEDB]/20 hover:shadow-[0_12px_48px_rgba(30,174,219,0.15)]"
+                      : "bg-card/50 backdrop-blur-sm border-border/50"
+                  )}
+                >
+                  {eligibilityStatus.isEligible ? (
+                    <div className="animate-in slide-in-from-bottom duration-500 delay-200">
+                      <h3 className="text-3xl font-bold text-[#1EAEDB] mb-4">
+                        🎉 Congratulations!
+                      </h3>
+                      <p className="text-xl text-gray-600 mb-6">
+                        {eligibilityStatus.message}
+                      </p>
+                      <Button
+                        className="text-xl px-8 py-4 rounded-xl shadow-lg font-bold bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] hover:from-[#31BFEC] hover:to-[#1EAEDB] text-white transition-all duration-300 transform hover:-translate-y-1"
+                        onClick={() => {
+                          // Determine the correct address based on which method was used
+                          let claimAddress = addressInput;
+
+                          // If wallet was used, use the active account address
+                          if (activeAccount && eligibilityStatus.isEligible) {
+                            const walletEntry = airdropData.find(
+                              (entry) =>
+                                entry.Address.toLowerCase() ===
+                                activeAccount.address.toLowerCase()
+                            );
+                            if (walletEntry) {
+                              claimAddress = activeAccount.address;
+                            }
+                          }
+
+                          // If enVoi was used, use the stored resolved address
+                          if (
+                            resolvedAddress &&
+                            envoiNameInput &&
+                            !addressInput
+                          ) {
+                            claimAddress = resolvedAddress;
+                          }
+
+                          // If Algorand NFD was used, use the stored resolved address
+                          if (
+                            resolvedAlgoAddress &&
+                            algoNameInput &&
+                            !addressInput &&
+                            !envoiNameInput
+                          ) {
+                            claimAddress = resolvedAlgoAddress;
+                          }
+
+                          // Navigate to the claim page with the correct address
+                          window.location.href = `/airdrop/${claimAddress}`;
+                        }}
+                      >
+                        Claim Your POW Tokens
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="animate-in slide-in-from-bottom duration-500 delay-200">
+                      <h3 className="text-3xl font-bold text-gray-700 mb-4">
+                        Not Eligible
+                      </h3>
+                      <p className="text-xl text-gray-600">
+                        {eligibilityStatus.message}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div
+                  className="mt-8"
+                  style={{ height: 220 }}
+                  aria-hidden="true"
+                />
+              )}
             </div>
           )}
         </div>

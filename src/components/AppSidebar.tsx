@@ -11,25 +11,13 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import {
-  LayoutDashboard,
-  Award,
-  Wallet,
-  Gavel,
-  Banknote,
-  X,
-  Gift,
-} from "lucide-react";
+import { Gift, X, Home, HeartHandshake } from "lucide-react";
 import WalletConnectButton from "./WalletConnectButton";
 import { useWallet } from "@txnlab/use-wallet-react";
 
 const baseNavItems = [
-  //{ label: "Home", to: "/home", icon: LayoutDashboard },
-  //{ label: "Dashboard", to: "/", icon: LayoutDashboard },
-  //{ label: "Bounties", to: "/bounties", icon: Award },
-  //{ label: "bVOI", to: "/bvoi", icon: Wallet },
-  //{ label: "Governance", to: "/governance", icon: Gavel },
-  //{ label: "Treasury", to: "/treasury", icon: Banknote },
+  { label: "Home", to: "/airdrop", icon: Home },
+  { label: "About", to: "/about", icon: HeartHandshake },
 ];
 
 const AppSidebar: React.FC = () => {
@@ -53,13 +41,7 @@ const AppSidebar: React.FC = () => {
               icon: Gift,
             },
           ]
-        : [
-            {
-              label: "Airdrop",
-              to: "/airdrop",
-              icon: Gift,
-            },
-          ]),
+        : []),
     ],
     [activeAccount]
   );

@@ -20,6 +20,7 @@ import {
 } from "@txnlab/use-wallet-react";
 //import Wallet from "./pages/Wallet";
 import Airdrop from "./pages/Airdrop";
+import About from "./pages/About";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -119,6 +120,7 @@ const App = () => {
                         path="/airdrop/:recipients"
                         element={<Airdrop />}
                       />
+                      <Route path="/about" element={<About />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
