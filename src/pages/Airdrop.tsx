@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import ReactConfetti from "react-confetti";
-import { Play } from "lucide-react";
+import { ExternalLink, Play } from "lucide-react";
 import VideoModal from "@/components/VideoModal";
 
 // Define the type for airdrop data
