@@ -39,6 +39,7 @@ const Airdrop: React.FC = () => {
   }>({});
   const [isAirdropOpen, setIsAirdropOpen] = useState(false);
   const [timeUntilOpen, setTimeUntilOpen] = useState<string>("");
+  const [timeUntilEnd, setTimeUntilEnd] = useState<string>("");
   const [isAddressValid, setIsAddressValid] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
   const [eligibilityStatus, setEligibilityStatus] = useState<{
@@ -52,7 +53,8 @@ const Airdrop: React.FC = () => {
     height: window.innerHeight,
   });
 
-  const AIRDROP_START_TIME = new Date("2025-06-01T00:00:00Z").getTime(); // Adjust this timestamp
+  const AIRDROP_START_TIME = new Date("2025-06-23T00:00:00Z").getTime(); // Adjust this timestamp
+  const AIRDROP_END_TIME = new Date("2025-09-23T00:00:00Z").getTime(); // Adjust this timestamp
 
   // const breadCrumb = [
   //   {
@@ -142,6 +144,7 @@ const Airdrop: React.FC = () => {
     const updateCountdown = () => {
       const now = new Date().getTime();
       const timeLeft = AIRDROP_START_TIME - now;
+      const timeLeftUntilEnd = AIRDROP_END_TIME - now;
 
       if (timeLeft <= 0) {
         setIsAirdropOpen(true);
@@ -156,6 +159,24 @@ const Airdrop: React.FC = () => {
 
         setTimeUntilOpen(`${days}d ${hours}h ${minutes}m ${seconds}s`);
         setIsAirdropOpen(false);
+      }
+
+      // Calculate time until end
+      if (timeLeftUntilEnd > 0) {
+        const endDays = Math.floor(timeLeftUntilEnd / (1000 * 60 * 60 * 24));
+        const endHours = Math.floor(
+          (timeLeftUntilEnd % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+        );
+        const endMinutes = Math.floor(
+          (timeLeftUntilEnd % (1000 * 60 * 60)) / (1000 * 60)
+        );
+        const endSeconds = Math.floor((timeLeftUntilEnd % (1000 * 60)) / 1000);
+
+        setTimeUntilEnd(
+          `${endDays}d ${endHours}h ${endMinutes}m ${endSeconds}s`
+        );
+      } else {
+        setTimeUntilEnd("Ended");
       }
     };
 
@@ -299,9 +320,7 @@ const Airdrop: React.FC = () => {
       }
       onClick={() => handleClaim(network, amount, address)}
       title={
-        !isAirdropOpen
-          ? `Airdrop opens in ${timeUntilOpen}`
-          : !isAddressInWallet(address)
+        !isAddressInWallet(address)
           ? "Please connect the recipient wallet"
           : ""
       }
@@ -314,6 +333,8 @@ const Airdrop: React.FC = () => {
         ? "Switch to VOI Network"
         : network === "algo" && !isAlgoNetwork()
         ? "Switch to Algorand Network"
+        : !isAirdropOpen
+        ? `Claim in ${timeUntilOpen}`
         : "Claim POW"}
     </Button>
   );
@@ -398,7 +419,8 @@ const Airdrop: React.FC = () => {
           </p>
         </div>
 
-        {!isAirdropOpen && (
+        {/* Airdrop countdown - shows either opens or ends */}
+        {!isAirdropOpen && timeUntilEnd !== "Ended" && (
           <div className="w-full max-w-6xl mb-12 text-center">
             <h2 className="text-2xl font-semibold mb-4">Airdrop Opens In</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 max-w-2xl mx-auto px-2 md:px-0">
@@ -421,6 +443,43 @@ const Airdrop: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {isAirdropOpen && timeUntilEnd !== "Ended" && (
+          <div className="w-full max-w-6xl mb-12 text-center">
+            <h2 className="text-2xl font-semibold mb-4">Airdrop Ends In</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 max-w-2xl mx-auto px-2 md:px-0">
+              {timeUntilEnd.split(" ").map((unit, index) => (
+                <div
+                  key={index}
+                  className="bg-card rounded-xl p-2 md:p-4 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-all"
+                >
+                  <div className="text-2xl sm:text-4xl md:text-6xl font-bold bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] bg-clip-text text-transparent animate-pulse mb-1 md:mb-2">
+                    {unit.replace(/[a-zA-Z]/g, "")}
+                  </div>
+                  <div className="text-[10px] sm:text-xs md:text-sm text-gray-600 uppercase tracking-wider font-medium">
+                    {unit.slice(-1) === "d"
+                      ? "Days"
+                      : unit.slice(-1) === "h"
+                      ? "Hours"
+                      : unit.slice(-1) === "m"
+                      ? "Minutes"
+                      : "Seconds"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {timeUntilEnd === "Ended" && (
+          <div className="w-full max-w-6xl mb-12 text-center">
+            <div className="bg-card/30 backdrop-blur-sm border border-[#1EAEDB]/20 rounded-xl p-6 max-w-2xl mx-auto">
+              <div className="text-2xl font-bold text-[#1EAEDB]">
+                Airdrop Has Ended
+              </div>
             </div>
           </div>
         )}

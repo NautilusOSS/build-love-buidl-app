@@ -47,7 +47,7 @@ const WalletConnectButton: React.FC = () => {
     [NetworkId.VOIMAIN]: [
       { id: WalletId.KIBISIS, name: "Kibisis" },
       { id: WalletId.LUTE, name: "Lute" },
-      //{ id: WalletId.BIATEC, name: "Biatec" },
+      { id: WalletId.BIATEC, name: "Biatec" },
       { id: WalletId.WALLETCONNECT, name: "WalletConnect" },
     ],
   };
@@ -81,7 +81,10 @@ const WalletConnectButton: React.FC = () => {
       </Button>
       <span className="text-xs mt-1 text-[#1eaedb] select-none">
         {activeAccount
-          ? `Wallet connected to ${networks.find(n => n.id === activeNetwork)?.name || activeNetwork}`
+          ? `Wallet connected to ${
+              networks.find((n) => n.id === activeNetwork)?.name ||
+              activeNetwork
+            }`
           : "No wallet connected"}
       </span>
       {showWallets && (
@@ -90,6 +93,7 @@ const WalletConnectButton: React.FC = () => {
           <Select
             value={activeNetwork}
             onValueChange={(networkId) => {
+              activeWallet?.disconnect();
               setActiveNetwork(networkId as NetworkId);
             }}
           >
