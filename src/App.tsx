@@ -93,14 +93,8 @@ const App = () => {
           themeMode: "light",
         },
       },
-      //WalletId.PERA,
     ],
-    // algod: {
-    //   baseServer: ALGO_SERVER,
-    //   port: "",
-    //   token: "",
-    // },
-    network: NetworkId.VOIMAIN,
+    network: NetworkId.MAINNET
   });
   return (
     <WalletProvider manager={walletManager}>

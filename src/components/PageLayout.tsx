@@ -21,7 +21,7 @@ interface PageLayoutProps {
 }
 
 const PageLayout: React.FC<PageLayoutProps> = ({ breadcrumb, children }) => (
-  <div className="min-h-screen w-full bg-gradient-to-br from-[#1A1F2C] via-[#131522] to-[#0c0c13] flex flex-col items-center pt-12 relative">
+  <div className="min-h-screen w-full bg-gradient-to-br from-[#1A1F2C] via-[#131522] to-[#0c0c13] flex flex-col items-center relative">
     <OnboardingBanner />
     {/* Breadcrumb */}
     {breadcrumb && (
@@ -36,9 +36,9 @@ const PageLayout: React.FC<PageLayoutProps> = ({ breadcrumb, children }) => (
                       href={item.to}
                       className={
                         //item.label === "[POW]"
-                          //? 
-                          "text-[#1EAEDB] font-bold tracking-tight hover:text-[#42c6f5] transition"
-                          //: "font-semibold text-lg text-white"
+                        //?
+                        "text-[#1EAEDB] font-bold tracking-tight hover:text-[#42c6f5] transition"
+                        //: "font-semibold text-lg text-white"
                       }
                     >
                       {item.label}
@@ -77,7 +77,7 @@ const PageLayout: React.FC<PageLayoutProps> = ({ breadcrumb, children }) => (
         </Breadcrumb>
       </div>
     )}
-    <div className="w-full max-w-6xl flex flex-col items-center justify-start px-2 sm:px-6">
+    <div className="w-full flex flex-col items-center justify-start">
       {children}
     </div>
   </div>
