@@ -431,8 +431,8 @@ const Airdrop: React.FC = () => {
         const data = await response.json();
         console.log("NFD data:", data);
         // Search returns an array, find exact match
-        const exactMatch = data.nfds.find((item: any) =>
-          item.name.toLowerCase() === name.toLowerCase()
+        const exactMatch = data.nfds.find(
+          (item: any) => item.name.toLowerCase() === name.toLowerCase()
         );
         return exactMatch?.owner || null;
       }
@@ -1165,9 +1165,15 @@ const Airdrop: React.FC = () => {
             <Button
               variant="outline"
               className="px-8 py-4 text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
-              onClick={() => setIsVideoModalOpen(true)}
+              onClick={() => {
+                window.open(
+                  "https://medium.com/@pact.fi/all-you-need-to-know-power-token-pow-the-governance-token-of-pact-dab8aa0503de",
+                  "_blank"
+                );
+              }}
             >
               Learn More
+              <ExternalLink className="w-4 h-4" />
             </Button>
           </div>
         </div>
