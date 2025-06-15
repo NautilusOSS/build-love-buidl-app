@@ -1771,7 +1771,7 @@ const Airdrop: React.FC = () => {
                             placeholder=""
                             value={envoiNameInput}
                             onChange={(e) => {
-                              setEnvoiNameInput(e.target.value);
+                              setEnvoiNameInput(e.target.value.toLowerCase());
                               if (!e.target.value) {
                                 setSelectedAvatar(null);
                               }
@@ -1945,7 +1945,7 @@ const Airdrop: React.FC = () => {
                             placeholder=""
                             value={algoNameInput}
                             onChange={(e) => {
-                              setAlgoNameInput(e.target.value);
+                              setAlgoNameInput(e.target.value.toLowerCase());
                               if (!e.target.value) {
                                 setSelectedAlgoAvatar(null);
                               }
