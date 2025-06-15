@@ -36,7 +36,7 @@ const queryClient = new QueryClient();
 const App = () => {
   let walletConnectProjectId: string | null;
   if (!walletConnectProjectId) {
-    walletConnectProjectId = "cd7fe0125d88d239da79fa286e6de2a8";
+    walletConnectProjectId = "e7b04c22de006e0fc7cef5a00cb7fac9";
   }
 
   // Create a BreadcrumbContent component to use useLocation
