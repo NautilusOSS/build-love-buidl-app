@@ -73,10 +73,10 @@ const App = () => {
         options: {
           projectId: walletConnectProjectId,
           metadata: {
-            name: "Nautilus",
-            url: "https://nautilus.sh",
-            description: "Nautilus NFT Marketplace",
-            icons: ["https://nautilus.sh/favicon.ico"],
+            name: "POW App",
+            url: "https://powapp.xyz",
+            description: "Power ($POW) Airdrop App",
+            icons: ["https://powapp.xyz/favicon.ico"],
           },
           themeMode: "light",
         },
@@ -86,10 +86,10 @@ const App = () => {
         options: {
           projectId: walletConnectProjectId,
           metadata: {
-            name: "Nautilus",
-            url: "https://nautilus.sh",
-            description: "Nautilus NFT Marketplace",
-            icons: ["https://nautilus.sh/favicon.ico"],
+            name: "POW App",
+            url: "https://powapp.xyz",
+            description: "Power ($POW) Airdrop App",
+            icons: ["https://powapp.xyz/favicon.ico"],
           },
           themeMode: "light",
         },
