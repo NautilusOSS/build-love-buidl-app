@@ -105,7 +105,7 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <SidebarProvider>
-              <div className="min-h-screen flex w-full">
+              <div className="min-h-screen flex w-full mobile-app-container">
                 <AppSidebar />
                 <SidebarInset className="flex-1 flex flex-col max-h-screen">
                   <SidebarTrigger />

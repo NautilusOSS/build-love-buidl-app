@@ -123,7 +123,10 @@ const Airdrop: React.FC = () => {
   const [isAddressChecking, setIsAddressChecking] = useState(false);
   const [isEnvoiChecking, setIsEnvoiChecking] = useState(false);
   const [isAlgoChecking, setIsAlgoChecking] = useState(false);
-  const [lastChecker, setLastChecker] = useState<"wallet" | "address" | "envoi" | "algo" | null>(null);
+  const [lastChecker, setLastChecker] = useState<
+    "wallet" | "address" | "envoi" | "algo" | null
+  >(null);
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
 
   const AIRDROP_START_TIME = new Date("2025-06-23T00:00:00Z").getTime(); // Adjust this timestamp
   const AIRDROP_END_TIME = new Date("2025-09-23T00:00:00Z").getTime(); // Adjust this timestamp
@@ -647,6 +650,7 @@ const Airdrop: React.FC = () => {
             ? `You are eligible for ${matchingEntry.Total} POW`
             : "This address is not eligible for the POW airdrop",
         });
+        setIsResultModalOpen(true);
       }, 3000);
 
       // Trigger confetti if eligible
@@ -686,6 +690,7 @@ const Airdrop: React.FC = () => {
             ? `You are eligible for ${matchingEntry.Total} POW`
             : "This address is not eligible for the POW airdrop",
         });
+        setIsResultModalOpen(true);
       }, 3000);
       if (matchingEntry) {
         setShowConfetti(true);
@@ -719,6 +724,7 @@ const Airdrop: React.FC = () => {
             ? `You are eligible for ${matchingEntry.Total} POW`
             : "This address is not eligible for the POW airdrop",
         });
+        setIsResultModalOpen(true);
       }, 3000);
       if (matchingEntry) {
         setShowConfetti(true);
@@ -754,7 +760,8 @@ const Airdrop: React.FC = () => {
       const matchingEntry = airdropData.find(
         (entry) =>
           entry.Address.toLowerCase() === resolvedAddress.toLowerCase() ||
-          entry.Address.toLowerCase() === `${envoiNameInput}.address`.toLowerCase()
+          entry.Address.toLowerCase() ===
+            `${envoiNameInput}.address`.toLowerCase()
       );
       setTimeout(() => {
         setEligibilityStatus({
@@ -764,6 +771,7 @@ const Airdrop: React.FC = () => {
             ? `You are eligible for ${matchingEntry.Total} POW`
             : "This address is not eligible for the POW airdrop",
         });
+        setIsResultModalOpen(true);
       }, 3000);
       if (matchingEntry) {
         setShowConfetti(true);
@@ -801,7 +809,8 @@ const Airdrop: React.FC = () => {
       const matchingEntry = airdropData.find(
         (entry) =>
           entry.Address.toLowerCase() === resolvedAddress.toLowerCase() ||
-          entry.Address.toLowerCase() === `${algoNameInput}.address`.toLowerCase()
+          entry.Address.toLowerCase() ===
+            `${algoNameInput}.address`.toLowerCase()
       );
       setTimeout(() => {
         setEligibilityStatus({
@@ -811,6 +820,7 @@ const Airdrop: React.FC = () => {
             ? `You are eligible for ${matchingEntry.Total} POW`
             : "This address is not eligible for the POW airdrop",
         });
+        setIsResultModalOpen(true);
       }, 3000);
       if (matchingEntry) {
         setShowConfetti(true);
@@ -1670,7 +1680,9 @@ const Airdrop: React.FC = () => {
                             isResolvingAlgo
                           }
                         >
-                          {isAddressChecking || isResolvingEnvoi || isResolvingAlgo ? (
+                          {isAddressChecking ||
+                          isResolvingEnvoi ||
+                          isResolvingAlgo ? (
                             <div className="flex items-center gap-2">
                               <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
                               <span>
@@ -1788,7 +1800,9 @@ const Airdrop: React.FC = () => {
                           )}
                           onClick={handleEnvoiEligibilityCheck}
                           disabled={
-                            !envoiNameInput || isEnvoiChecking || isResolvingEnvoi
+                            !envoiNameInput ||
+                            isEnvoiChecking ||
+                            isResolvingEnvoi
                           }
                         >
                           {isEnvoiChecking || isResolvingEnvoi ? (
@@ -2077,7 +2091,8 @@ const Airdrop: React.FC = () => {
                         </p>
                         {lastChecker === "wallet" && activeAccount && (
                           <p className="text-lg font-semibold text-white tracking-wider">
-                            {activeAccount.address.slice(0, 6)}...{activeAccount.address.slice(-4)}
+                            {activeAccount.address.slice(0, 6)}...
+                            {activeAccount.address.slice(-4)}
                           </p>
                         )}
                         {lastChecker === "envoi" && envoiNameInput && (
@@ -2092,7 +2107,8 @@ const Airdrop: React.FC = () => {
                         )}
                         {lastChecker === "address" && addressInput && (
                           <p className="text-lg font-semibold text-white tracking-wider">
-                            {addressInput.slice(0, 6)}...{addressInput.slice(-4)}
+                            {addressInput.slice(0, 6)}...
+                            {addressInput.slice(-4)}
                           </p>
                         )}
                       </div>
@@ -2172,6 +2188,122 @@ const Airdrop: React.FC = () => {
           )}
         </div>
       </div>
+
+      {isResultModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#181A20] rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-8 py-12 relative animate-in fade-in duration-300 border border-[#1EAEDB]/20 dark:border-[#1EAEDB]/40">
+            <button
+              className="absolute top-4 right-4 p-2 rounded-full z-[9999] hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+              onClick={() => setIsResultModalOpen(false)}
+              aria-label="Close"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-6 h-6 text-gray-700 dark:text-gray-200"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+            <div
+              className={cn(
+                "rounded-2xl text-center shadow-[0_8px_32px_rgba(0,0,0,0.1)] border transition-all duration-500",
+                eligibilityStatus.isEligible
+                  ? "bg-card/50 backdrop-blur-sm border-[#1EAEDB]/20 dark:border-[#1EAEDB]/40 hover:shadow-[0_12px_48px_rgba(30,174,219,0.15)]"
+                  : "bg-card/50 backdrop-blur-sm border-border/50 dark:border-border/70"
+              )}
+            >
+              {eligibilityStatus.isEligible ? (
+                <div className="animate-in slide-in-from-bottom duration-500 delay-200 py-5">
+                  <h3 className="text-3xl font-bold text-[#1EAEDB] dark:text-[#31BFEC] mb-4">
+                    🎉 You're Eligible for POW!
+                  </h3>
+                  <div className="mb-4 p-3 bg-[#1EAEDB]/40 dark:bg-[#1EAEDB]/20 rounded-lg border border-[#1EAEDB]/30 dark:border-[#1EAEDB]/40">
+                    <p className="text-sm text-[#1EAEDB] dark:text-[#31BFEC] font-medium mb-1">
+                      Checked for:
+                    </p>
+                    {lastChecker === "wallet" && activeAccount && (
+                      <p className="text-lg font-semibold text-white tracking-wider">
+                        {activeAccount.address.slice(0, 6)}...
+                        {activeAccount.address.slice(-4)}
+                      </p>
+                    )}
+                    {lastChecker === "envoi" && envoiNameInput && (
+                      <p className="text-lg font-semibold text-white tracking-wider">
+                        {envoiNameInput}
+                      </p>
+                    )}
+                    {lastChecker === "algo" && algoNameInput && (
+                      <p className="text-lg font-semibold text-white tracking-wider">
+                        {algoNameInput}
+                      </p>
+                    )}
+                    {lastChecker === "address" && addressInput && (
+                      <p className="text-lg font-semibold text-white tracking-wider">
+                        {addressInput.slice(0, 6)}...{addressInput.slice(-4)}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-xl text-gray-600 dark:text-gray-200 mb-4">
+                    {eligibilityStatus.message}
+                  </p>
+                  <p className="text-lg text-gray-500 dark:text-gray-300 mb-6">
+                    POW is the governance token for Pact Protocol. You can use
+                    it to participate in protocol decisions, stake for rewards,
+                    and access exclusive features across the ecosystem.
+                  </p>
+                  <Button
+                    className="text-xl px-8 py-4 rounded-xl shadow-lg font-bold bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] hover:from-[#31BFEC] hover:to-[#1EAEDB] text-white transition-all duration-300 transform hover:-translate-y-1"
+                    onClick={() => {
+                      let claimAddress = addressInput;
+                      if (activeAccount && eligibilityStatus.isEligible) {
+                        const walletEntry = airdropData.find(
+                          (entry) =>
+                            entry.Address.toLowerCase() ===
+                            activeAccount.address.toLowerCase()
+                        );
+                        if (walletEntry) {
+                          claimAddress = activeAccount.address;
+                        }
+                      }
+                      if (resolvedAddress && envoiNameInput && !addressInput) {
+                        claimAddress = resolvedAddress;
+                      }
+                      if (
+                        resolvedAlgoAddress &&
+                        algoNameInput &&
+                        !addressInput &&
+                        !envoiNameInput
+                      ) {
+                        claimAddress = resolvedAlgoAddress;
+                      }
+                      window.location.href = `/airdrop/${claimAddress}`;
+                    }}
+                  >
+                    Claim Your POW Tokens
+                  </Button>
+                </div>
+              ) : (
+                <div className="animate-in slide-in-from-bottom duration-500 delay-200">
+                  <h3 className="text-3xl font-bold text-gray-700 dark:text-gray-100 mb-4">
+                    Not Eligible
+                  </h3>
+                  <p className="text-xl text-gray-600 dark:text-gray-200">
+                    {eligibilityStatus.message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   );
 };

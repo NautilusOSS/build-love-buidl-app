@@ -10,8 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
+import { useSidebar } from "./ui/sidebar";
 
 const WalletConnectButton: React.FC = () => {
+  const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
   const [connecting, setConnecting] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -70,6 +72,7 @@ const WalletConnectButton: React.FC = () => {
     }, 5000);
 
     try {
+      toggleSidebar();
       const [activeAccount] = await wallet.connect();
       clearTimeout(connectionTimeout);
       setConnecting(null);
@@ -118,10 +121,10 @@ const WalletConnectButton: React.FC = () => {
             setActiveNetwork(networkId as NetworkId);
           }}
         >
-          <SelectTrigger className="w-full bg-[#0a4d62] border-[#1eaedb] text-[#1eaedb] rounded-xl">
+          <SelectTrigger className="w-full bg-[#0a4d62] border-[#1eaedb] text-[#1eaedb] rounded-xl relative">
             <SelectValue placeholder="Select network" />
           </SelectTrigger>
-          <SelectContent className="bg-[#0a4d62] border-[#1eaedb] z-50 rounded-xl">
+          <SelectContent className="bg-[#0a4d62] border-[#1eaedb] z-[9999] rounded-xl relative">
             {networks.map((network) => (
               <SelectItem
                 key={network.id}
@@ -166,10 +169,10 @@ const WalletConnectButton: React.FC = () => {
                       activeWallet?.setActiveAccount(address);
                     }}
                   >
-                    <SelectTrigger className="w-full bg-[#0a4d62] border-[#1eaedb] text-[#1eaedb] rounded-xl">
+                    <SelectTrigger className="w-full bg-[#0a4d62] border-[#1eaedb] text-[#1eaedb] rounded-xl relative">
                       <SelectValue placeholder="Select account" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#0a4d62] border-[#1eaedb] z-50 backdrop-blur-none rounded-xl">
+                    <SelectContent className="bg-[#0a4d62] border-[#1eaedb] z-[9999] backdrop-blur-none rounded-xl relative">
                       <input
                         className="flex w-full rounded-xl h-8 px-2 py-1 mb-2 bg-[#0d6179] text-[#1eaedb] border border-[#1eaedb] focus:outline-none focus:ring-2 focus:ring-[#1eaedb]"
                         placeholder="Search addresses..."

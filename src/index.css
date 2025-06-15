@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -41,6 +40,103 @@ button:focus-visible {
 @layer components {
   .sidebar-flashy-bg {
     @apply bg-gradient-to-br from-[#9b87f5]/80 via-[#1EAEDB]/80 to-[#D946EF]/90 bg-opacity-80 shadow-[0_4px_24px_-2px_#9b87f655] backdrop-blur-xl border border-white/20;
+  }
+}
+
+/* Add mobile-specific z-index fixes */
+@media (max-width: 768px) {
+  /* Ensure SelectContent components appear above everything on mobile */
+  [data-radix-popper-content-wrapper] {
+    z-index: 9999 !important;
+  }
+  
+  /* Ensure modals appear above sidebar and other components */
+  .MuiModal-root {
+    z-index: 9999 !important;
+  }
+  
+  /* Ensure portal content appears above fixed elements */
+  [data-radix-portal] {
+    z-index: 9999 !important;
+  }
+  
+  /* Fix for mobile viewport issues */
+  body {
+    position: relative;
+  }
+  
+  /* Ensure proper stacking context for sidebar */
+  [data-sidebar] {
+    z-index: 1300;
+  }
+  
+  /* Mobile app container for proper z-index context */
+  .mobile-app-container {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+/* Additional fixes for iOS Safari */
+@supports (-webkit-touch-callout: none) {
+  [data-radix-popper-content-wrapper] {
+    z-index: 9999 !important;
+    position: fixed !important;
+  }
+}
+
+/* Sidebar animations */
+[data-sidebar="sidebar"] {
+  animation: sidebarSlideIn 0.3s ease-out;
+}
+
+@keyframes sidebarSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Sidebar content animations */
+[data-sidebar="sidebar"] > * {
+  animation: contentFadeIn 0.4s ease-out 0.1s both;
+}
+
+@keyframes contentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Staggered animation for sidebar menu items */
+[data-sidebar="sidebar"] [data-sidebar="menu-item"] {
+  animation: menuItemSlideIn 0.3s ease-out;
+  animation-fill-mode: both;
+}
+
+[data-sidebar="sidebar"] [data-sidebar="menu-item"]:nth-child(1) { animation-delay: 0.1s; }
+[data-sidebar="sidebar"] [data-sidebar="menu-item"]:nth-child(2) { animation-delay: 0.15s; }
+[data-sidebar="sidebar"] [data-sidebar="menu-item"]:nth-child(3) { animation-delay: 0.2s; }
+[data-sidebar="sidebar"] [data-sidebar="menu-item"]:nth-child(4) { animation-delay: 0.25s; }
+[data-sidebar="sidebar"] [data-sidebar="menu-item"]:nth-child(5) { animation-delay: 0.3s; }
+
+@keyframes menuItemSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
