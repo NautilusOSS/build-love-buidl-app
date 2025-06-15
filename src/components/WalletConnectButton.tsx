@@ -14,8 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useSidebar } from "./ui/sidebar";
 
 const WalletConnectButton: React.FC = () => {
+  const { toggleSidebar } = useSidebar();
   const [connected, setConnected] = useState(false);
   const [showWallets, setShowWallets] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -123,6 +125,7 @@ const WalletConnectButton: React.FC = () => {
                       setConnecting(null);
                       return;
                     }
+                    toggleSidebar();
                     await wallet.connect().then(() => {
                       setConnecting(null);
                     });
