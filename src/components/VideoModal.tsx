@@ -46,7 +46,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl w-[95vw] sm:w-[95vw] md:w-[90vw] max-h-[95vh] p-0 overflow-hidden">
+      <DialogContent className="max-w-6xl w-[95vw] sm:w-[95vw] md:w-[90vw] max-h-[95vh] p-0 overflow-hidden bg-black backdrop-blur-sm">
         <div className="relative">
           {/* Video Container */}
           <div className="relative w-full h-0 pb-[56.25%] bg-black">

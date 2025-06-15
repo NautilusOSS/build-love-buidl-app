@@ -119,6 +119,11 @@ const Airdrop: React.FC = () => {
   );
   const envoiInputRef = useRef<HTMLInputElement>(null);
   const algoInputRef = useRef<HTMLInputElement>(null);
+  const [isWalletChecking, setIsWalletChecking] = useState(false);
+  const [isAddressChecking, setIsAddressChecking] = useState(false);
+  const [isEnvoiChecking, setIsEnvoiChecking] = useState(false);
+  const [isAlgoChecking, setIsAlgoChecking] = useState(false);
+  const [lastChecker, setLastChecker] = useState<"wallet" | "address" | "envoi" | "algo" | null>(null);
 
   const AIRDROP_START_TIME = new Date("2025-06-23T00:00:00Z").getTime(); // Adjust this timestamp
   const AIRDROP_END_TIME = new Date("2025-09-23T00:00:00Z").getTime(); // Adjust this timestamp
@@ -664,19 +669,15 @@ const Airdrop: React.FC = () => {
       setIsWalletModalOpen(true);
       return;
     }
-
-    // Clear resolved address since we're using wallet
+    setLastChecker("wallet");
+    setIsWalletChecking(true);
     setResolvedAddress(null);
-
-    setIsChecking(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
       const matchingEntry = airdropData.find(
         (entry) =>
           entry.Address.toLowerCase() === activeAccount.address.toLowerCase()
       );
-
       setTimeout(() => {
         setEligibilityStatus({
           isEligible: !!matchingEntry,
@@ -686,8 +687,6 @@ const Airdrop: React.FC = () => {
             : "This address is not eligible for the POW airdrop",
         });
       }, 3000);
-
-      // Trigger confetti if eligible
       if (matchingEntry) {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 10000);
@@ -698,24 +697,20 @@ const Airdrop: React.FC = () => {
         message: "Error checking eligibility",
       });
     } finally {
-      setIsChecking(false);
+      setIsWalletChecking(false);
     }
   };
 
   const handleAddressEligibilityCheck = async () => {
     if (!validateAddress(addressInput)) return;
-
-    // Clear resolved address since we're using manual address
+    setLastChecker("address");
     setResolvedAddress(null);
-
-    setIsChecking(true);
+    setIsAddressChecking(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
       const matchingEntry = airdropData.find(
         (entry) => entry.Address.toLowerCase() === addressInput.toLowerCase()
       );
-
       setTimeout(() => {
         setEligibilityStatus({
           isEligible: !!matchingEntry,
@@ -725,8 +720,6 @@ const Airdrop: React.FC = () => {
             : "This address is not eligible for the POW airdrop",
         });
       }, 3000);
-
-      // Trigger confetti if eligible
       if (matchingEntry) {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 10000);
@@ -737,17 +730,17 @@ const Airdrop: React.FC = () => {
         message: "Error checking eligibility",
       });
     } finally {
-      setIsChecking(false);
+      setIsAddressChecking(false);
     }
   };
 
   const handleEnvoiEligibilityCheck = async () => {
     if (!envoiNameInput) return;
-
+    setLastChecker("envoi");
+    setIsEnvoiChecking(true);
     setIsResolvingEnvoi(true);
     try {
       const resolvedAddress = await resolveEnvoiName(envoiNameInput);
-      console.log("Resolved address:", resolvedAddress);
       if (!resolvedAddress) {
         setEligibilityStatus({
           isEligible: false,
@@ -755,21 +748,14 @@ const Airdrop: React.FC = () => {
         });
         return;
       }
-
-      // Store the resolved address for use in claim button
       setResolvedAddress(resolvedAddress);
-
       setIsChecking(true);
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Check both the resolved address and the name.address format
       const matchingEntry = airdropData.find(
         (entry) =>
           entry.Address.toLowerCase() === resolvedAddress.toLowerCase() ||
-          entry.Address.toLowerCase() ===
-            `${envoiNameInput}.address`.toLowerCase()
+          entry.Address.toLowerCase() === `${envoiNameInput}.address`.toLowerCase()
       );
-
       setTimeout(() => {
         setEligibilityStatus({
           isEligible: !!matchingEntry,
@@ -779,8 +765,6 @@ const Airdrop: React.FC = () => {
             : "This address is not eligible for the POW airdrop",
         });
       }, 3000);
-
-      // Trigger confetti if eligible
       if (matchingEntry) {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 10000);
@@ -791,6 +775,7 @@ const Airdrop: React.FC = () => {
         message: "Error checking eligibility",
       });
     } finally {
+      setIsEnvoiChecking(false);
       setIsResolvingEnvoi(false);
       setIsChecking(false);
     }
@@ -798,11 +783,11 @@ const Airdrop: React.FC = () => {
 
   const handleAlgoEligibilityCheck = async () => {
     if (!algoNameInput) return;
-
+    setLastChecker("algo");
+    setIsAlgoChecking(true);
     setIsResolvingAlgo(true);
     try {
       const resolvedAddress = await resolveAlgoName(algoNameInput);
-      console.log("Resolved address:", resolvedAddress);
       if (!resolvedAddress) {
         setEligibilityStatus({
           isEligible: false,
@@ -810,21 +795,14 @@ const Airdrop: React.FC = () => {
         });
         return;
       }
-
-      // Store the resolved address for use in claim button
       setResolvedAlgoAddress(resolvedAddress);
-
       setIsChecking(true);
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Check both the resolved address and the name.address format
       const matchingEntry = airdropData.find(
         (entry) =>
           entry.Address.toLowerCase() === resolvedAddress.toLowerCase() ||
-          entry.Address.toLowerCase() ===
-            `${algoNameInput}.address`.toLowerCase()
+          entry.Address.toLowerCase() === `${algoNameInput}.address`.toLowerCase()
       );
-
       setTimeout(() => {
         setEligibilityStatus({
           isEligible: !!matchingEntry,
@@ -834,8 +812,6 @@ const Airdrop: React.FC = () => {
             : "This address is not eligible for the POW airdrop",
         });
       }, 3000);
-
-      // Trigger confetti if eligible
       if (matchingEntry) {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 10000);
@@ -846,6 +822,7 @@ const Airdrop: React.FC = () => {
         message: "Error checking eligibility",
       });
     } finally {
+      setIsAlgoChecking(false);
       setIsResolvingAlgo(false);
       setIsChecking(false);
     }
@@ -938,8 +915,8 @@ const Airdrop: React.FC = () => {
         open={isVideoModalOpen}
         onClose={handleVideoModalClose}
         videoUrl="https://nautilusoss.github.io/airdrop/data/000-pow.mp4"
-        title="Welcome to POW App!"
-        description="Welcome! To get started with your wallet and enjoy all features, please ensure cookies and local storage are enabled in your browser. This helps us save your preferences and provide a better experience."
+        title="POW App!"
+        description="To get started with your wallet and enjoy all features, please ensure cookies and local storage are enabled in your browser. This helps us save your preferences and provide a better experience."
         actionText="Get Started"
         onAction={handleVideoModalAction}
       />
@@ -1228,7 +1205,7 @@ const Airdrop: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
             {/* Humble Card */}
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.4)] transition-all duration-300 hover:transform hover:-translate-y-1">
               <div className="text-center">
@@ -1298,7 +1275,7 @@ const Airdrop: React.FC = () => {
             </div>
 
             {/* Vestige Card */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.4)] transition-all duration-300 hover:transform hover:-translate-y-1">
+            {/*<div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.4)] transition-all duration-300 hover:transform hover:-translate-y-1">
               <div className="text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl mx-auto mb-4 flex items-center justify-center shadow-lg">
                   <svg
@@ -1329,7 +1306,7 @@ const Airdrop: React.FC = () => {
                   <ExternalLink className="w-4 h-4 ml-2" />
                 </Button>
               </div>
-            </div>
+            </div>*/}
 
             {/* Aramid Finance Card */}
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.4)] transition-all duration-300 hover:transform hover:-translate-y-1">
@@ -1549,9 +1526,9 @@ const Airdrop: React.FC = () => {
                   <Button
                     className="w-full text-lg px-6 py-4 rounded-xl shadow-lg font-bold bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] hover:from-[#31BFEC] hover:to-[#1EAEDB] text-white transition-all duration-300 transform hover:-translate-y-1"
                     onClick={handleWalletEligibilityCheck}
-                    disabled={isChecking}
+                    disabled={isWalletChecking}
                   >
-                    {isChecking ? (
+                    {isWalletChecking ? (
                       <div className="flex items-center gap-2">
                         <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
                         <span>Checking...</span>
@@ -1688,12 +1665,12 @@ const Airdrop: React.FC = () => {
                           disabled={
                             !addressInput ||
                             !isAddressValid ||
-                            isChecking ||
+                            isAddressChecking ||
                             isResolvingEnvoi ||
                             isResolvingAlgo
                           }
                         >
-                          {isChecking || isResolvingEnvoi || isResolvingAlgo ? (
+                          {isAddressChecking || isResolvingEnvoi || isResolvingAlgo ? (
                             <div className="flex items-center gap-2">
                               <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
                               <span>
@@ -1811,10 +1788,10 @@ const Airdrop: React.FC = () => {
                           )}
                           onClick={handleEnvoiEligibilityCheck}
                           disabled={
-                            !envoiNameInput || isChecking || isResolvingEnvoi
+                            !envoiNameInput || isEnvoiChecking || isResolvingEnvoi
                           }
                         >
-                          {isChecking || isResolvingEnvoi ? (
+                          {isEnvoiChecking || isResolvingEnvoi ? (
                             <div className="flex items-center gap-2">
                               <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
                               <span>
@@ -1983,10 +1960,10 @@ const Airdrop: React.FC = () => {
                           )}
                           onClick={handleAlgoEligibilityCheck}
                           disabled={
-                            !algoNameInput || isChecking || isResolvingAlgo
+                            !algoNameInput || isAlgoChecking || isResolvingAlgo
                           }
                         >
-                          {isChecking || isResolvingAlgo ? (
+                          {isAlgoChecking || isResolvingAlgo ? (
                             <div className="flex items-center gap-2">
                               <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
                               <span>
@@ -2074,7 +2051,10 @@ const Airdrop: React.FC = () => {
               </div>
 
               {/* Eligibility Status */}
-              {eligibilityStatus.message ? (
+              {!isChecking &&
+              !isResolvingEnvoi &&
+              !isResolvingAlgo &&
+              eligibilityStatus.message ? (
                 <div
                   className={cn(
                     "mt-8 p-8 rounded-2xl text-center shadow-[0_8px_32px_rgba(0,0,0,0.1)] border transition-all duration-500",
@@ -2087,10 +2067,44 @@ const Airdrop: React.FC = () => {
                   {eligibilityStatus.isEligible ? (
                     <div className="animate-in slide-in-from-bottom duration-500 delay-200">
                       <h3 className="text-3xl font-bold text-[#1EAEDB] mb-4">
-                        🎉 Congratulations!
+                        🎉 You're Eligible for POW!
                       </h3>
-                      <p className="text-xl text-gray-600 mb-6">
+
+                      {/* Display the identifier that was used */}
+                      <div className="mb-4 p-3 bg-[#1EAEDB]/40 rounded-lg border border-[#1EAEDB]/30">
+                        <p className="text-sm text-[#1EAEDB] font-medium mb-1">
+                          Checked for:
+                        </p>
+                        {lastChecker === "wallet" && activeAccount && (
+                          <p className="text-lg font-semibold text-white tracking-wider">
+                            {activeAccount.address.slice(0, 6)}...{activeAccount.address.slice(-4)}
+                          </p>
+                        )}
+                        {lastChecker === "envoi" && envoiNameInput && (
+                          <p className="text-lg font-semibold text-white tracking-wider">
+                            {envoiNameInput}
+                          </p>
+                        )}
+                        {lastChecker === "algo" && algoNameInput && (
+                          <p className="text-lg font-semibold text-white tracking-wider">
+                            {algoNameInput}
+                          </p>
+                        )}
+                        {lastChecker === "address" && addressInput && (
+                          <p className="text-lg font-semibold text-white tracking-wider">
+                            {addressInput.slice(0, 6)}...{addressInput.slice(-4)}
+                          </p>
+                        )}
+                      </div>
+
+                      <p className="text-xl text-gray-600 mb-4">
                         {eligibilityStatus.message}
+                      </p>
+                      <p className="text-lg text-gray-500 mb-6">
+                        POW is the governance token for Pact Protocol. You can
+                        use it to participate in protocol decisions, stake for
+                        rewards, and access exclusive features across the
+                        ecosystem.
                       </p>
                       <Button
                         className="text-xl px-8 py-4 rounded-xl shadow-lg font-bold bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] hover:from-[#31BFEC] hover:to-[#1EAEDB] text-white transition-all duration-300 transform hover:-translate-y-1"
@@ -2149,7 +2163,7 @@ const Airdrop: React.FC = () => {
                 </div>
               ) : (
                 <div
-                  className="mt-8"
+                  className="mt-8 bg-card/50 backdrop-blur-sm border-none border-[#1EAEDB]/20 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)]"
                   style={{ height: 220 }}
                   aria-hidden="true"
                 />
