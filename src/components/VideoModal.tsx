@@ -7,6 +7,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Play, X } from "lucide-react";
+import { TARGET_AIRDROP_ID } from "./AccountAirdrop";
 
 interface VideoModalProps {
   open: boolean;
@@ -21,10 +23,10 @@ interface VideoModalProps {
 const VideoModal: React.FC<VideoModalProps> = ({
   open,
   onClose,
-  videoUrl = "https://nautilusoss.github.io/airdrop/data/000-pow.mp4",
-  title = "Setup Required",
-  description = "To use this feature, you need to enable cookies and local storage. Please watch this quick setup guide and then enable the required permissions.",
-  actionText = "Enable Permissions",
+  videoUrl = `https://nautilusoss.github.io/airdrop/data/${TARGET_AIRDROP_ID}.mp4`,
+  title = "Welcome to POW!",
+  description = "Learn more about the POW token and how to get started.",
+  actionText = "Get Started",
   onAction,
 }) => {
   const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);

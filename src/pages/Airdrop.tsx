@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, act } from "react";
 import PageLayout from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -12,18 +12,55 @@ import ReactConfetti from "react-confetti";
 import { ExternalLink, Play } from "lucide-react";
 import VideoModal from "@/components/VideoModal";
 import ReactDOM from "react-dom";
+import { CONTRACT, abi } from "ulujs";
+import BigNumber from "bignumber.js";
+import AccountAirdrop from "@/components/AccountAirdrop";
+import { AirdropEntry, AirdropIndexEntry } from "@/types/airdrop";
+import { TARGET_AIRDROP_ID } from "@/components/AccountAirdrop";
 
-// Define the type for airdrop data
-interface AirdropEntry {
-  Address: string;
-  Voi: number;
-  Algo: number;
-  Total: number;
-}
+// Utility function to convert date to Mountain Time
+const convertToMountainTime = (dateString: string): Date => {
+  // Create a date object from the date string at midnight
+  const date = new Date(dateString + "T00:00:00");
+  
+  // Get the timezone offset for Mountain Time
+  // This will automatically handle MST (UTC-7) vs MDT (UTC-6)
+  const mountainTimeZone = "America/Denver";
+  
+  // Format the date in Mountain Time
+  const mountainTimeString = date.toLocaleString("en-US", {
+    timeZone: mountainTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  
+  // Create a new date object from the Mountain Time string
+  const mountainTime = new Date(mountainTimeString);
+  
+  // Add 20 hours to the Mountain Time
+  mountainTime.setHours(mountainTime.getHours() + 20);
+  
+  return mountainTime;
+};
+
+// Utility function to convert base64 to Uint8Array (browser-compatible)
+const base64ToUint8Array = (base64: string): Uint8Array => {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+};
 
 // DropdownPortal: renders children in a portal at the document body
 const DropdownPortal: React.FC<{
-  anchorRef: React.RefObject<HTMLElement>;
+  anchorRef: React.RefObject<HTMLElement> | React.MutableRefObject<HTMLElement>;
   children: React.ReactNode;
 }> = ({ anchorRef, children }) => {
   const [style, setStyle] = React.useState<React.CSSProperties>({});
@@ -127,9 +164,11 @@ const Airdrop: React.FC = () => {
     "wallet" | "address" | "envoi" | "algo" | null
   >(null);
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
-
-  const AIRDROP_START_TIME = new Date("2025-06-23T00:00:00Z").getTime(); // Adjust this timestamp
-  const AIRDROP_END_TIME = new Date("2025-09-23T00:00:00Z").getTime(); // Adjust this timestamp
+  const [airdropIndexData, setAirdropIndexData] = useState<AirdropIndexEntry[]>(
+    []
+  );
+  const [currentAirdropInfo, setCurrentAirdropInfo] =
+    useState<AirdropIndexEntry | null>(null);
 
   // Check for missing localStorage keys and show video modal
   useEffect(() => {
@@ -199,15 +238,37 @@ const Airdrop: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(
-          "https://nautilusoss.github.io/airdrop/data/000-pow.json"
+        // First, fetch the index.json to get available airdrops
+        const indexResponse = await fetch(
+          "https://nautilusoss.github.io/airdrop/index.json"
         );
-        console.log("Fetch response received:", response.ok); // Debug log
+        console.log("Index fetch response received:", indexResponse.ok); // Debug log
+        if (!indexResponse.ok) {
+          throw new Error("Failed to fetch airdrop index");
+        }
+        const indexData = await indexResponse.json();
+        console.log("Index data parsed successfully"); // Debug log
+        setAirdropIndexData(indexData);
+
+        // Find the POW airdrop (id: "000-pow")
+        const powAirdrop = indexData.find(
+          (airdrop: AirdropIndexEntry) => airdrop.id === TARGET_AIRDROP_ID
+        );
+        if (!powAirdrop) {
+          throw new Error("POW airdrop not found in index");
+        }
+        setCurrentAirdropInfo(powAirdrop);
+
+        // Now fetch the specific airdrop data
+        const response = await fetch(
+          `https://nautilusoss.github.io/airdrop/data/${powAirdrop.id}.json`
+        );
+        console.log("Airdrop data fetch response received:", response.ok); // Debug log
         if (!response.ok) {
           throw new Error("Failed to fetch airdrop data");
         }
         const data = await response.json();
-        console.log("Data parsed successfully"); // Debug log
+        console.log("Airdrop data parsed successfully"); // Debug log
         setAirdropData(data);
 
         // Find recipient data if addresses are provided
@@ -234,11 +295,19 @@ const Airdrop: React.FC = () => {
     fetchAirdropData();
   }, [recipients]); // Changed dependency to recipients instead of recipientAddresses
 
+  console.log("currentAirdropInfo", currentAirdropInfo);
+
   useEffect(() => {
     const updateCountdown = () => {
+      if (!currentAirdropInfo) return;
+
       const now = new Date().getTime();
-      const timeLeft = AIRDROP_START_TIME - now;
-      const timeLeftUntilEnd = AIRDROP_END_TIME - now;
+      const startTime = convertToMountainTime(currentAirdropInfo.start_date).getTime();
+      const endTime =
+        startTime + parseInt(currentAirdropInfo.period) * 24 * 60 * 60 * 1000; // Convert period to milliseconds
+
+      const timeLeft = startTime - now;
+      const timeLeftUntilEnd = endTime - now;
 
       if (timeLeft <= 0) {
         setIsAirdropOpen(true);
@@ -278,7 +347,7 @@ const Airdrop: React.FC = () => {
     updateCountdown(); // Initial call
 
     return () => clearInterval(timer);
-  }, []);
+  }, [currentAirdropInfo]); // Add currentAirdropInfo as dependency
 
   // Add window resize handler
   useEffect(() => {
@@ -349,7 +418,9 @@ const Airdrop: React.FC = () => {
       });
       return;
     }
-
+    const amountBI = BigInt(
+      new BigNumber(amount).multipliedBy(10 ** 6).toFixed(0)
+    );
     setIsClaimLoading((prev) => ({
       ...prev,
       [recipientAddress]: {
@@ -358,19 +429,130 @@ const Airdrop: React.FC = () => {
       },
     }));
     try {
+      console.log("currentAirdropInfo", currentAirdropInfo.token_ids);
+      const tokenId =
+        currentAirdropInfo.token_ids[network === "algo" ? "Algorand" : "Voi"];
+      const assetId =
+        currentAirdropInfo.asset_ids[network === "algo" ? "Algorand" : "Voi"];
+      console.log("tokenId", tokenId);
+      const ciToken = new CONTRACT(tokenId, algodClient, undefined, abi.nt200, {
+        addr: activeAccount.address,
+        sk: new Uint8Array(),
+      });
+      const arc200_allowanceR = await ciToken.arc200_allowance(
+        currentAirdropInfo.airdrop_address,
+        activeAccount.address
+      );
+      if (!arc200_allowanceR.success) {
+        throw new Error(arc200_allowanceR.error);
+      }
+      const arc200_allowance = arc200_allowanceR.returnValue;
+      console.log("arc200_allowance", arc200_allowance);
+      if (arc200_allowance < amountBI) {
+        toast({
+          variant: "default",
+          description: "Airdrop already claimed",
+          duration: 3000,
+        });
+        return;
+      }
+      // check
       // TODO: Implement actual claim logic here
       console.log(
         `Claiming ${amount} POW on ${network} network for ${recipientAddress}`
       );
+      // ------------------------------------------------------------
       // TODO: Implement actual claim logic here
-      const params = await algodClient.getTransactionParams().do();
-      const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-        from: recipientAddress,
-        amount: 0,
-        to: recipientAddress,
-        suggestedParams: params,
-      });
-      const signedTxn = await signTransactions([txn]);
+      // ------------------------------------------------------------
+      //const ci = new CONTRACT
+      //here
+      if (currentAirdropInfo.type === "asset_id_and_token_id") {
+        // set beacon if algorand
+
+        const ci = new CONTRACT(tokenId, algodClient, undefined, abi.custom, {
+          addr: activeAccount.address,
+          sk: new Uint8Array(),
+        });
+        const builder = {
+          token: new CONTRACT(
+            tokenId,
+            algodClient,
+            undefined,
+            abi.nt200,
+            {
+              addr: activeAccount.address,
+              sk: new Uint8Array(),
+            },
+            true,
+            false,
+            true
+          ),
+        };
+        const buildN = [];
+        // balance of airdrop account
+        // transferFrom airdrop account to recipient
+        {
+          const balanceAirdrop = await ciToken.arc200_balanceOf(
+            currentAirdropInfo.airdrop_address
+          );
+          console.log("balanceAirdrop", balanceAirdrop);
+          const balanceRecipient = await ciToken.arc200_balanceOf(
+            activeAccount.address
+          );
+          console.log("balanceRecipient", balanceRecipient);
+
+          const owner = currentAirdropInfo.airdrop_address;
+          const spender = activeAccount.address;
+          console.log({
+            arc200_transferFrom: { owner, spender, amount: amountBI },
+          });
+          const txnO = (
+            await builder.token.arc200_transferFrom(owner, spender, amountBI)
+          ).obj;
+          const optin = {
+            // extra args
+            xaid: Number(assetId),
+            snd: activeAccount.address,
+            arcv: activeAccount.address,
+            // asset holdings
+            foreignAssets: [assetId],
+            accounts: [
+              currentAirdropInfo.airdrop_address,
+              algosdk.getApplicationAddress(tokenId),
+            ],
+          };
+          buildN.push({
+            ...txnO,
+            ...optin,
+          });
+        }
+        // withdraw
+        {
+          const txnO = (await builder.token.withdraw(amountBI)).obj;
+          buildN.push(txnO);
+        }
+        console.log("buildN", buildN);
+        ci.setPaymentAmount(1e5);
+        ci.setFee(3000);
+        ci.setBeaconId(tokenId);
+        ci.setBeaconSelector("fb6eb573"); // touch()uint64
+        ci.setEnableGroupResourceSharing(true);
+        ci.setExtraTxns(buildN);
+        const customR = await ci.custom();
+        console.log("customR", customR);
+        if (!customR.success) {
+          throw new Error(customR.error);
+        }
+        const stxns = await signTransactions(
+          customR.txns.map((txn: string) => base64ToUint8Array(txn))
+        );
+        console.log("stxns", stxns);
+        const { txId } = await algodClient.sendRawTransaction(stxns).do();
+        console.log("txId", txId);
+      } else {
+        throw new Error("Token ID airdrop not implemented yet");
+      }
+      // ------------------------------------------------------------
       toast({
         description: `Successfully claimed ${amount} POW on ${network} network`,
         duration: 3000,
@@ -924,8 +1106,12 @@ const Airdrop: React.FC = () => {
       <VideoModal
         open={isVideoModalOpen}
         onClose={handleVideoModalClose}
-        videoUrl="https://nautilusoss.github.io/airdrop/data/000-pow.mp4"
-        title="POW App!"
+        videoUrl={`https://nautilusoss.github.io/airdrop/data/${
+          currentAirdropInfo?.id || TARGET_AIRDROP_ID
+        }.mp4`}
+        title={
+          currentAirdropInfo ? `${currentAirdropInfo.name} App!` : "POW App!"
+        }
         description="To get started with your wallet and enjoy all features, please ensure cookies and local storage are enabled in your browser. This helps us save your preferences and provide a better experience."
         actionText="Get Started"
         onAction={handleVideoModalAction}
@@ -1061,7 +1247,9 @@ const Airdrop: React.FC = () => {
             style={{ filter: "brightness(0.3) contrast(1.2)" }}
           >
             <source
-              src="https://nautilusoss.github.io/airdrop/data/000-pow.mp4"
+              src={`https://nautilusoss.github.io/airdrop/data/${
+                currentAirdropInfo?.id || TARGET_AIRDROP_ID
+              }.mp4`}
               type="video/mp4"
             />
             Your browser does not support the video tag.
@@ -1075,7 +1263,7 @@ const Airdrop: React.FC = () => {
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto w-full">
           <div className="flex items-center justify-center gap-4 mb-6">
             <h1 className="text-5xl md:text-7xl font-bold text-white drop-shadow-2xl">
-              POW Airdrop
+              {currentAirdropInfo ? currentAirdropInfo.name : "POW Airdrop"}
             </h1>
             <Button
               onClick={() => setIsVideoModalOpen(true)}
@@ -1090,10 +1278,9 @@ const Airdrop: React.FC = () => {
           </div>
 
           <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg mb-8">
-            Welcome to the POW token airdrop. POW is the governance token for
-            Pact Protocol, enabling community participation in protocol
-            governance. Eligible participants can claim their tokens on both the
-            Voi and Algorand networks.
+            {currentAirdropInfo
+              ? currentAirdropInfo.description
+              : "Welcome to the POW token airdrop. POW is the governance token for Pact Protocol, enabling community participation in protocol governance. Eligible participants can claim their tokens on both the Voi and Algorand networks."}
           </p>
 
           {/* Countdown in Hero Section */}
@@ -1450,47 +1637,45 @@ const Airdrop: React.FC = () => {
                         </svg>
                       </button>
                     </h1>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {recipient.Voi > 0 && (
-                        <div className="bg-card rounded-2xl p-8 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-all hover:border-[#1EAEDB]/20 flex flex-col">
-                          <h2 className="text-2xl font-semibold mb-3">
-                            Voi Network
-                          </h2>
-                          <p className="text-3xl font-bold text-[#1EAEDB] mb-6">
-                            {recipient.Voi.toFixed(6)} POW
-                          </p>
-                          <ClaimButton
-                            network="voi"
-                            amount={recipient.Voi}
-                            address={recipient.Address}
-                          />
-                        </div>
-                      )}
-                      {recipient.Algo > 0 && (
-                        <div className="bg-card rounded-xl p-8 shadow-md border border-border flex flex-col">
-                          <h2 className="text-2xl font-semibold mb-3">
-                            Algorand Network
-                          </h2>
-                          <p className="text-3xl font-bold text-[#1EAEDB] mb-6">
-                            {recipient.Algo.toFixed(6)} POW
-                          </p>
-                          <ClaimButton
-                            network="algo"
-                            amount={recipient.Algo}
-                            address={recipient.Address}
-                          />
-                        </div>
-                      )}
-                    </div>
+                    <AccountAirdrop
+                      address={recipient.Address}
+                      showClaimButtons={true}
+                    />
                   </div>
                 ))}
               </div>
             </>
           ) : recipientAddresses ? (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center max-w-md w-full">
-              <p className="text-yellow-700">
-                No airdrop found for the provided addresses
-              </p>
+            <div className="w-full max-w-6xl mx-auto">
+              <h1 className="text-3xl font-bold mb-6">Airdrop Details</h1>
+              {recipientAddresses.map((address, index) => (
+                <div key={address} className="w-full max-w-3xl mb-24">
+                  <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
+                    Airdrop for {address.slice(0, 5)}...{address.slice(-5)}
+                    <button
+                      onClick={() => copyToClipboard(address)}
+                      className="p-2 rounded-lg transition-colors"
+                      title="Copy address"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75"
+                        />
+                      </svg>
+                    </button>
+                  </h1>
+                  <AccountAirdrop address={address} showClaimButtons={true} />
+                </div>
+              ))}
             </div>
           ) : (
             <div className="w-full max-w-4xl mx-auto">
