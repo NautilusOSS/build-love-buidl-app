@@ -18,34 +18,15 @@ import AccountAirdrop from "@/components/AccountAirdrop";
 import { AirdropEntry, AirdropIndexEntry } from "@/types/airdrop";
 import { TARGET_AIRDROP_ID } from "@/components/AccountAirdrop";
 
-// Utility function to convert date to Mountain Time
-const convertToMountainTime = (dateString: string): Date => {
-  // Create a date object from the date string at midnight
-  const date = new Date(dateString + "T00:00:00");
+// Utility function to convert date to UTC time
+const convertToUTCTime = (dateString: string): Date => {
+  // Create a date object from the date string at midnight UTC
+  const date = new Date(dateString + "T00:00:00Z");
   
-  // Get the timezone offset for Mountain Time
-  // This will automatically handle MST (UTC-7) vs MDT (UTC-6)
-  const mountainTimeZone = "America/Denver";
+  // Add 20 hours to the UTC time
+  date.setUTCHours(date.getUTCHours() + 3);
   
-  // Format the date in Mountain Time
-  const mountainTimeString = date.toLocaleString("en-US", {
-    timeZone: mountainTimeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  
-  // Create a new date object from the Mountain Time string
-  const mountainTime = new Date(mountainTimeString);
-  
-  // Add 20 hours to the Mountain Time
-  mountainTime.setHours(mountainTime.getHours() + 20);
-  
-  return mountainTime;
+  return date;
 };
 
 // Utility function to convert base64 to Uint8Array (browser-compatible)
@@ -302,7 +283,8 @@ const Airdrop: React.FC = () => {
       if (!currentAirdropInfo) return;
 
       const now = new Date().getTime();
-      const startTime = convertToMountainTime(currentAirdropInfo.start_date).getTime();
+      //const startTime = convertToUTCTime(currentAirdropInfo.start_date).getTime();
+      const startTime = convertToUTCTime("2025-06-24").getTime();
       const endTime =
         startTime + parseInt(currentAirdropInfo.period) * 24 * 60 * 60 * 1000; // Convert period to milliseconds
 
