@@ -328,13 +328,13 @@ const AccountAirdrop: React.FC<AccountAirdropProps> = ({
         currentAirdropInfo.asset_ids[network === "algo" ? "Algorand" : "Voi"];
 
       const ciToken = new CONTRACT(tokenId, algodClient, undefined, abi.nt200, {
-        addr: activeAccount.address,
+        addr: address,
         sk: new Uint8Array(),
       });
 
       const arc200_allowanceR = await ciToken.arc200_allowance(
         currentAirdropInfo.airdrop_address,
-        activeAccount.address
+        address
       );
       if (!arc200_allowanceR.success) {
         throw new Error(arc200_allowanceR.error);
