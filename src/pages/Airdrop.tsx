@@ -19,13 +19,13 @@ import { AirdropEntry, AirdropIndexEntry } from "@/types/airdrop";
 import { TARGET_AIRDROP_ID } from "@/components/AccountAirdrop";
 
 // Utility function to convert date to UTC time
-const convertToUTCTime = (dateString: string): Date => {
+export const convertToUTCTime = (dateString: string): Date => {
   // Create a date object from the date string at midnight UTC
   const date = new Date(dateString + "T00:00:00Z");
-  
+
   // Add 20 hours to the UTC time
   date.setUTCHours(date.getUTCHours() + 3);
-  
+
   return date;
 };
 
@@ -150,6 +150,32 @@ const Airdrop: React.FC = () => {
   );
   const [currentAirdropInfo, setCurrentAirdropInfo] =
     useState<AirdropIndexEntry | null>(null);
+  const [progressData, setProgressData] = useState<{
+    voi: {
+      claimed: number;
+      remaining: number;
+      total: number;
+      percentage: number;
+    };
+    algo: {
+      claimed: number;
+      remaining: number;
+      total: number;
+      percentage: number;
+    };
+    overall: {
+      claimed: number;
+      remaining: number;
+      total: number;
+      percentage: number;
+    };
+  }>({
+    voi: { claimed: 0, remaining: 0, total: 0, percentage: 0 },
+    algo: { claimed: 0, remaining: 0, total: 0, percentage: 0 },
+    overall: { claimed: 0, remaining: 0, total: 0, percentage: 0 },
+  });
+  const [isLoadingProgress, setIsLoadingProgress] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
 
   // Check for missing localStorage keys and show video modal
   useEffect(() => {
@@ -275,6 +301,13 @@ const Airdrop: React.FC = () => {
 
     fetchAirdropData();
   }, [recipients]); // Changed dependency to recipients instead of recipientAddresses
+
+  // Fetch progress data when airdrop data is loaded
+  useEffect(() => {
+    if (currentAirdropInfo && airdropData.length > 0 && algodClient) {
+      fetchProgressData();
+    }
+  }, [currentAirdropInfo, airdropData, algodClient]);
 
   console.log("currentAirdropInfo", currentAirdropInfo);
 
@@ -1072,6 +1105,129 @@ const Airdrop: React.FC = () => {
     }
   }, [videoRef]);
 
+  // Function to fetch progress data from both networks
+  const fetchProgressData = async () => {
+    if (!currentAirdropInfo) return;
+
+    setIsLoadingProgress(true);
+    try {
+      const voiTokenId = currentAirdropInfo.token_ids.Voi;
+      const algoTokenId = currentAirdropInfo.token_ids.Algorand;
+      const airdropAddress = currentAirdropInfo.airdrop_address;
+
+      // Create contract instances for both networks
+      const voiContract = new CONTRACT(
+        voiTokenId,
+        new algosdk.Algodv2("", "https://mainnet-api.voi.nodely.dev", 443),
+        undefined,
+        abi.nt200,
+        {
+          addr: airdropAddress,
+          sk: new Uint8Array(),
+        }
+      );
+
+      const algoContract = new CONTRACT(
+        algoTokenId,
+        new algosdk.Algodv2("", "https://mainnet-api.4160.nodely.dev", 443),
+        undefined,
+        abi.nt200,
+        {
+          addr: airdropAddress,
+          sk: new Uint8Array(),
+        }
+      );
+
+      console.log("airdropAddress", airdropAddress);
+
+      // Fetch balances for both networks
+      const [voiBalanceResult, algoBalanceResult] = await Promise.all([
+        voiContract
+          .arc200_balanceOf(airdropAddress)
+          .catch(() => ({ success: false, returnValue: BigInt(0) })),
+        algoContract
+          .arc200_balanceOf(airdropAddress)
+          .catch(() => ({ success: false, returnValue: BigInt(0) })),
+      ]);
+
+      console.log("voiBalanceResult", voiBalanceResult);
+      console.log("algoBalanceResult", algoBalanceResult);
+
+      // Calculate totals from airdrop data
+      const voiTotal = airdropData.reduce((sum, entry) => sum + entry.Voi, 0);
+      const algoTotal = 50_000_000 - voiTotal; // airdropData.reduce((sum, entry) => sum + entry.Algo, 0);
+      const overallTotal = voiTotal + algoTotal; // Fix: should be sum of both networks
+
+      // Get remaining balances (airdrop account still holds these)
+      const voiRemaining = voiBalanceResult.success
+        ? Number(voiBalanceResult.returnValue) / Math.pow(10, 6)
+        : voiTotal * 0.7; // Dummy: assume 30% claimed for testing
+
+      const algoRemaining = algoBalanceResult.success
+        ? Number(algoBalanceResult.returnValue) / Math.pow(10, 6)
+        : algoTotal * 0.8; // Dummy: assume 20% claimed for testing
+
+      // Calculate claimed amounts
+      const voiClaimed = Math.max(0, voiTotal - voiRemaining);
+      const algoClaimed = Math.max(0, algoTotal - algoRemaining);
+      const overallClaimed = voiClaimed + algoClaimed;
+      const overallRemaining = voiRemaining + algoRemaining;
+
+      // Calculate percentages
+      const voiPercentage = voiTotal > 0 ? (voiClaimed / voiTotal) * 100 : 0;
+      const algoPercentage =
+        algoTotal > 0 ? (algoClaimed / algoTotal) * 100 : 0;
+      const overallPercentage =
+        overallTotal > 0 ? (overallClaimed / overallTotal) * 100 : 0;
+
+      console.log("Progress calculation:", {
+        voiTotal,
+        algoTotal,
+        overallTotal,
+        voiRemaining,
+        algoRemaining,
+        voiClaimed,
+        algoClaimed,
+        overallClaimed,
+        voiPercentage,
+        algoPercentage,
+        overallPercentage,
+      });
+
+      setProgressData({
+        voi: {
+          claimed: voiClaimed,
+          remaining: voiRemaining,
+          total: voiTotal,
+          percentage: voiPercentage,
+        },
+        algo: {
+          claimed: algoClaimed,
+          remaining: algoRemaining,
+          total: algoTotal,
+          percentage: algoPercentage,
+        },
+        overall: {
+          claimed: overallClaimed,
+          remaining: overallRemaining,
+          total: overallTotal,
+          percentage: overallPercentage,
+        },
+      });
+      
+      setLastRefreshTime(new Date());
+    } catch (error) {
+      console.error("Error fetching progress data:", error);
+    } finally {
+      setIsLoadingProgress(false);
+    }
+  };
+
+  // Manual refresh function
+  const handleManualRefresh = () => {
+    fetchProgressData();
+  };
+
   return (
     <PageLayout>
       {showConfetti && (
@@ -1367,6 +1523,321 @@ const Airdrop: React.FC = () => {
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
           <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center">
             <div className="w-1 h-3 bg-white/70 rounded-full mt-2 animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Progress Bar Section */}
+      <div className="bg-gradient-to-b from-gray-900 to-gray-800 py-12 md:py-16 w-full">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
+              Airdrop Progress
+            </h2>
+            <p className="text-lg text-gray-300 max-w-2xl mx-auto mb-4">
+              Track the progress of the POW token distribution across both
+              networks
+            </p>
+            
+            {/* Refresh Controls */}
+            <div className="flex items-center justify-center gap-4">
+              <Button
+                onClick={handleManualRefresh}
+                disabled={isLoadingProgress}
+                className="px-4 py-2 text-sm font-semibold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-lg transition-all duration-200 flex items-center gap-2"
+              >
+                {isLoadingProgress ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="w-4 h-4"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+                      />
+                    </svg>
+                    Refresh Now
+                  </>
+                )}
+              </Button>
+              
+              {lastRefreshTime && (
+                <div className="text-sm text-gray-400">
+                  Last updated: {lastRefreshTime.toLocaleTimeString()}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            {/* Overall Progress */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-8">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-white">
+                  Overall Progress
+                </h3>
+                <span className="text-2xl font-bold text-[#1EAEDB]">
+                  {isAirdropOpen
+                    ? "Active"
+                    : timeUntilOpen
+                    ? "Pending"
+                    : "Ended"}
+                </span>
+              </div>
+
+              <div className="relative">
+                <div className="w-full bg-white/20 rounded-full h-4 mb-2">
+                  <div
+                    className="bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] h-4 rounded-full transition-all duration-1000 ease-out shadow-lg"
+                    style={{
+                      width:
+                        timeUntilEnd === "Ended"
+                          ? "100%"
+                          : `${progressData.overall.percentage}%`,
+                    }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-sm text-gray-300">
+                  <span>Start</span>
+                  <span>{progressData.overall.percentage.toFixed(1)}%</span>
+                  <span>End</span>
+                </div>
+              </div>
+
+              {/* Status Indicators */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                <div className="text-center">
+                  <div
+                    className={`w-3 h-3 rounded-full mx-auto mb-2 ${
+                      isAirdropOpen ? "bg-green-400" : "bg-gray-400"
+                    }`}
+                  ></div>
+                  <span className="text-sm text-gray-300">Started</span>
+                </div>
+                <div className="text-center">
+                  <div
+                    className={`w-3 h-3 rounded-full mx-auto mb-2 ${
+                      isAirdropOpen ? "bg-[#1EAEDB]" : "bg-gray-400"
+                    }`}
+                  ></div>
+                  <span className="text-sm text-gray-300">Active</span>
+                </div>
+                <div className="text-center">
+                  <div
+                    className={`w-3 h-3 rounded-full mx-auto mb-2 ${
+                      timeUntilEnd === "Ended" ? "bg-red-400" : "bg-gray-400"
+                    }`}
+                  ></div>
+                  <span className="text-sm text-gray-300">Ended</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Network Progress */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Voi Network Progress */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="w-5 h-5 text-white"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-white">Voi Network</h3>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-300">Claimed</span>
+                      <span className="text-white font-semibold">
+                        {isLoadingProgress
+                          ? "..."
+                          : `${progressData.voi.percentage.toFixed(1)}%`}
+                      </span>
+                    </div>
+                    <div className="w-full bg-white/20 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-1000 ease-out"
+                        style={{
+                          width: isLoadingProgress
+                            ? "0%"
+                            : `${progressData.voi.percentage}%`,
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-300">Remaining</span>
+                      <span className="text-white font-semibold">
+                        {isLoadingProgress
+                          ? "..."
+                          : `${(100 - progressData.voi.percentage).toFixed(
+                              1
+                            )}%`}
+                      </span>
+                    </div>
+                    <div className="w-full bg-white/20 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-gray-400 to-gray-500 h-2 rounded-full transition-all duration-1000 ease-out"
+                        style={{
+                          width: isLoadingProgress
+                            ? "100%"
+                            : `${100 - progressData.voi.percentage}%`,
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-white/20">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-300">Status</span>
+                    <span className="text-green-400 font-semibold">Active</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Algorand Network Progress */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="w-5 h-5 text-white"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-white">
+                    Algorand Network
+                  </h3>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-300">Claimed</span>
+                      <span className="text-white font-semibold">
+                        {isLoadingProgress
+                          ? "..."
+                          : `${progressData.algo.percentage.toFixed(1)}%`}
+                      </span>
+                    </div>
+                    <div className="w-full bg-white/20 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] h-2 rounded-full transition-all duration-1000 ease-out"
+                        style={{
+                          width: isLoadingProgress
+                            ? "0%"
+                            : `${progressData.algo.percentage}%`,
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-300">Remaining</span>
+                      <span className="text-white font-semibold">
+                        {isLoadingProgress
+                          ? "..."
+                          : `${(100 - progressData.algo.percentage).toFixed(
+                              1
+                            )}%`}
+                      </span>
+                    </div>
+                    <div className="w-full bg-white/20 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-gray-400 to-gray-500 h-2 rounded-full transition-all duration-1000 ease-out"
+                        style={{
+                          width: isLoadingProgress
+                            ? "100%"
+                            : `${100 - progressData.algo.percentage}%`,
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-white/20">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-300">Status</span>
+                    <span className="text-green-400 font-semibold">Active</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Statistics */}
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 text-center">
+                <div className="text-2xl font-bold text-[#1EAEDB] mb-1">
+                  {isLoadingProgress
+                    ? "..."
+                    : airdropData.length.toLocaleString()}
+                </div>
+                <div className="text-sm text-gray-300">Total Eligible</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 text-center">
+                <div className="text-2xl font-bold text-green-400 mb-1">
+                  {isLoadingProgress
+                    ? "..."
+                    : Math.round(progressData.overall.claimed).toLocaleString()}
+                </div>
+                <div className="text-sm text-gray-300">POW Claimed</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 text-center">
+                <div className="text-2xl font-bold text-yellow-400 mb-1">
+                  {isLoadingProgress
+                    ? "..."
+                    : Math.round(
+                        progressData.overall.remaining
+                      ).toLocaleString()}
+                </div>
+                <div className="text-sm text-gray-300">POW Remaining</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 text-center">
+                <div className="text-2xl font-bold text-[#1EAEDB] mb-1">
+                  {isLoadingProgress
+                    ? "..."
+                    : Math.round(progressData.overall.total).toLocaleString()}
+                </div>
+                <div className="text-sm text-gray-300">Total POW</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

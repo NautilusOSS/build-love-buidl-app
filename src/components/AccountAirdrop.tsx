@@ -7,6 +7,7 @@ import { CONTRACT, abi } from "ulujs";
 import BigNumber from "bignumber.js";
 import { AirdropEntry, AirdropIndexEntry } from "@/types/airdrop";
 import { convertToMountainTime } from "@/utils/timezone";
+import { convertToUTCTime } from "@/pages/Airdrop";
 
 // Global constant for the target airdrop ID
 export const TARGET_AIRDROP_ID = "000-pow";
@@ -231,7 +232,8 @@ const AccountAirdrop: React.FC<AccountAirdropProps> = ({
       if (!currentAirdropInfo) return;
 
       const now = new Date().getTime();
-      const startTime = convertToMountainTime(currentAirdropInfo.start_date).getTime();
+      //const startTime = convertToMountainTime(currentAirdropInfo.start_date).getTime();
+      const startTime = convertToUTCTime("2025-06-24").getTime();
       const endTime =
         startTime + parseInt(currentAirdropInfo.period) * 24 * 60 * 60 * 1000;
 
@@ -398,13 +400,21 @@ const AccountAirdrop: React.FC<AccountAirdropProps> = ({
           buildN.push({
             ...txnO,
             ...optin,
+            note: new TextEncoder().encode(
+              `arc200_transferFrom spender: ${spender} owner: ${owner} amount: ${amount}`
+            ),
           });
         }
 
         // Withdraw
         {
           const txnO = (await builder.token.withdraw(amountBI)).obj;
-          buildN.push(txnO);
+          buildN.push({
+            ...txnO,
+            note: new TextEncoder().encode(
+              `withdraw pow: arc200 -> standard asset`
+            ),
+          });
         }
 
         ci.setPaymentAmount(1e5);
