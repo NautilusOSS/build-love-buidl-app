@@ -1830,7 +1830,7 @@ const Airdrop: React.FC = () => {
         // Only add if TVL > 0
         if (liquidity > 0) {
           allPairs.push({
-            id: `voi-${pair.pair_id}`,
+            id: `voi-${pair.pool_id}`,
             pair: `${pair.base_currency}/${pair.target_currency}`,
             baseCurrency: pair.base_currency,
             targetCurrency: pair.target_currency,
@@ -1865,7 +1865,7 @@ const Airdrop: React.FC = () => {
             const asset1 = pool.assets[0];
             const asset2 = pool.assets[1];
             allPairs.push({
-              id: `pact-${pool.id}`,
+              id: `pact-${pool.on_chain_id}`,
               pair: `${asset1.unit_name || asset1.name || asset1.on_chain_id}/${
                 asset2.unit_name || asset2.name || asset2.on_chain_id
               }`,
@@ -1973,14 +1973,55 @@ const Airdrop: React.FC = () => {
   };
 
   const exportTop50ToCSV = () => {
-    const csvData = top50PairsByTVL.map((pair, index) => ({
-      Rank: index + 1,
-      "Trading Pair": pair.pair,
-      TVL: `$${pair.liquidity.toLocaleString()}`,
-      Network: pair.network,
-      Fee: pair.fee,
-      "Is POW Pair": pair.isPowPair ? "Yes" : "No",
-    }));
+    const csvData = top50PairsByTVL.map((pair, index) => {
+      // Determine application_id and application_address based on source
+      let applicationId = "";
+      let applicationAddress = "";
+
+      if (pair.source === "voi") {
+        console.log("pair", pair);
+        // For Voi pairs, use pair_id as application_id
+        applicationId = pair.id.replace("voi-", "");
+        // Derive application address from application ID
+        try {
+          applicationAddress = algosdk.getApplicationAddress(
+            parseInt(applicationId)
+          );
+        } catch (error) {
+          console.error(
+            "Error deriving application address for Voi pair:",
+            error
+          );
+          applicationAddress = "N/A";
+        }
+      } else if (pair.source === "pact") {
+        // For Pact.fi pools, use pool.id as application_id
+        applicationId = pair.id.replace("pact-", "");
+        // Derive application address from application ID
+        try {
+          applicationAddress = algosdk.getApplicationAddress(
+            parseInt(applicationId)
+          );
+        } catch (error) {
+          console.error(
+            "Error deriving application address for Pact pool:",
+            error
+          );
+          applicationAddress = "N/A";
+        }
+      }
+
+      return {
+        Rank: index + 1,
+        "Trading Pair": pair.pair,
+        TVL: `$${pair.liquidity.toLocaleString()}`,
+        Network: pair.network,
+        Fee: pair.fee,
+        "Is POW Pair": pair.isPowPair ? "Yes" : "No",
+        "Application ID": applicationId,
+        "Application Address": applicationAddress,
+      };
+    });
     exportToCSV(csvData, "top-50-tvl-pairs");
   };
 
