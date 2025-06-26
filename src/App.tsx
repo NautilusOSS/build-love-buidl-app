@@ -26,24 +26,24 @@ const queryClient = new QueryClient();
 const App = () => {
   let walletConnectProjectId: string | null;
   if (!walletConnectProjectId) {
-    walletConnectProjectId = "cd7fe0125d88d239da79fa286e6de2a8";
+    walletConnectProjectId = "e7b04c22de006e0fc7cef5a00cb7fac9";
   }
   const walletManager = new WalletManager({
     wallets: [
       WalletId.KIBISIS,
       {
         id: WalletId.LUTE,
-        options: { siteName: "Nautilus" },
+        options: { siteName: "Buidlhub" },
       },
       {
         id: WalletId.BIATEC,
         options: {
           projectId: walletConnectProjectId,
           metadata: {
-            name: "Nautilus",
-            url: "https://nautilus.sh",
-            description: "Nautilus NFT Marketplace",
-            icons: ["https://nautilus.sh/favicon.ico"],
+            name: "Buidlhub",
+            url: "https://buidlhub.xyz",
+            description: "Buidlhub",
+            icons: ["https://buidlhub.com/favicon.ico"],
           },
           themeMode: "light",
         },
@@ -53,10 +53,10 @@ const App = () => {
         options: {
           projectId: walletConnectProjectId,
           metadata: {
-            name: "Nautilus",
-            url: "https://nautilus.sh",
-            description: "Nautilus NFT Marketplace",
-            icons: ["https://nautilus.sh/favicon.ico"],
+            name: "Buidlhub",
+            url: "https://buidlhub.xyz",
+            description: "Buidlhub",
+            icons: ["https://buidlhub.xyz/favicon.ico"],
           },
           themeMode: "light",
         },
