@@ -1550,6 +1550,7 @@ const Airdrop: React.FC = () => {
 
   // State for modal
   const [isPairModalOpen, setIsPairModalOpen] = useState(false);
+  const [isTop100TVLModalOpen, setIsTop100TVLModalOpen] = useState(false);
   const [selectedPair, setSelectedPair] = useState<any>(null);
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
 
@@ -1794,9 +1795,13 @@ const Airdrop: React.FC = () => {
   }, [sortColumn, sortDirection, searchQuery]);
 
   // Handle row click to open modal
-  const handleRowClick = (pair: any) => {
+  const handleRowClick = (pair: any, tableType: 'pow' | 'top100tvl' = 'pow') => {
     setSelectedPair(pair);
-    setIsPairModalOpen(true);
+    if (tableType === 'top100tvl') {
+      setIsTop100TVLModalOpen(true);
+    } else {
+      setIsPairModalOpen(true);
+    }
   };
 
   // 1. Add useEffect to sync favorites with localStorage
@@ -3738,7 +3743,7 @@ const Airdrop: React.FC = () => {
                             className={`border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer ${
                               pair.isPowPair ? "bg-[#1EAEDB]/5" : ""
                             }`}
-                            onClick={() => handleRowClick(pair)}
+                            onClick={() => handleRowClick(pair, 'top100tvl')}
                           >
                             <td className="py-4 px-4">
                               <div className="flex items-center gap-3">
@@ -5076,6 +5081,154 @@ const Airdrop: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top 100 TVL Modal - Info Only */}
+      {isTop100TVLModalOpen && selectedPair && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative animate-in fade-in duration-300 border border-[#1EAEDB]/20 shadow-[0_8px_32px_rgba(30,174,219,0.1)]">
+            <button
+              className="absolute top-4 right-4 p-2 rounded-full z-[9999] hover:bg-white/10 transition-colors"
+              onClick={() => setIsTop100TVLModalOpen(false)}
+              aria-label="Close"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-6 h-6 text-gray-300"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            <div className="p-4 sm:p-8">
+              <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <div className="flex items-center flex-shrink-0">
+                  <img
+                    src={selectedPair.baseIcon}
+                    alt={selectedPair.baseCurrency}
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-[#1EAEDB]/30 shadow-sm"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                  <img
+                    src={selectedPair.targetIcon}
+                    alt={selectedPair.targetCurrency}
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-[#1EAEDB]/30 shadow-sm -ml-2"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                </div>
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">
+                    {selectedPair.pair}
+                  </h2>
+                  <p className="text-sm sm:text-base text-gray-300">
+                    {selectedPair.network} Network
+                  </p>
+                  {selectedPair.isPowPair && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30 mt-2">
+                      POW Pair
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Market Data */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 mb-6">
+                <h3 className="text-lg font-semibold text-white mb-3">
+                  Market Data
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Total Value Locked (TVL)</span>
+                    <span className="font-semibold text-white">
+                      ${selectedPair.liquidity.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Trading Fee</span>
+                    <span className="font-semibold text-[#1EAEDB]">
+                      {selectedPair.fee}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Network</span>
+                    <span className="font-semibold text-white">
+                      {selectedPair.network}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Asset Details */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 mb-6">
+                <h3 className="text-lg font-semibold text-white mb-3">
+                  Asset Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-medium text-gray-300 mb-2">
+                      Base Asset ({selectedPair.baseCurrency})
+                    </h4>
+                    <div className="text-sm text-gray-400">
+                      ID: {selectedPair.baseCurrencyId}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-300 mb-2">
+                      Target Asset ({selectedPair.targetCurrency})
+                    </h4>
+                    <div className="text-sm text-gray-400">
+                      ID: {selectedPair.targetCurrencyId}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Info */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 mb-6">
+                <h3 className="text-lg font-semibold text-white mb-3">
+                  Additional Information
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Data Source</span>
+                    <span className="font-semibold text-white">
+                      {selectedPair.source === "voi" ? "Voi Network" : "Pact.fi"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Pair ID</span>
+                    <span className="font-semibold text-white">
+                      {selectedPair.id}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="flex justify-center pt-4 border-t border-white/20">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsTop100TVLModalOpen(false)}
+                  className="px-6 py-2 border-white/20 text-white hover:bg-white/10"
+                >
+                  Close
+                </Button>
+              </div>
             </div>
           </div>
         </div>
