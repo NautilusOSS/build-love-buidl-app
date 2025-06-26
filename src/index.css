@@ -140,3 +140,61 @@ button:focus-visible {
   }
 }
 
+/* Vestige Swap Widget Styling */
+.swap-widget-container {
+  /* Apply custom properties to the widget */
+  --vestige-primary: #1EAEDB;
+  --vestige-secondary: #31BFEC;
+  --vestige-background: rgba(255, 255, 255, 0.1);
+  --vestige-surface: rgba(255, 255, 255, 0.05);
+  --vestige-text: #ffffff;
+  --vestige-text-secondary: rgba(255, 255, 255, 0.7);
+  --vestige-border: rgba(255, 255, 255, 0.2);
+  --vestige-accent: #1EAEDB;
+  --vestige-success: #10B981;
+  --vestige-error: #EF4444;
+  --vestige-warning: #F59E0B;
+}
+
+/* Target Vestige widget elements and apply our theme */
+.swap-widget-container [data-vestige-widget] {
+  background: var(--vestige-background) !important;
+  border: 1px solid var(--vestige-border) !important;
+  border-radius: 12px !important;
+  color: var(--vestige-text) !important;
+}
+
+.swap-widget-container [data-vestige-widget] * {
+  color: var(--vestige-text) !important;
+}
+
+.swap-widget-container [data-vestige-widget] button {
+  background: var(--vestige-primary) !important;
+  color: white !important;
+  border-radius: 8px !important;
+}
+
+.swap-widget-container [data-vestige-widget] button:hover {
+  background: var(--vestige-secondary) !important;
+}
+
+.swap-widget-container [data-vestige-widget] input {
+  background: var(--vestige-surface) !important;
+  border: 1px solid var(--vestige-border) !important;
+  color: var(--vestige-text) !important;
+}
+
+.swap-widget-container [data-vestige-widget] select {
+  background: var(--vestige-surface) !important;
+  border: 1px solid var(--vestige-border) !important;
+  color: var(--vestige-text) !important;
+}
+
+/* Fallback styling for any Vestige elements */
+.swap-widget-container iframe,
+.swap-widget-container [class*="vestige"],
+.swap-widget-container [class*="swap"] {
+  background: var(--vestige-background) !important;
+  border-radius: 12px !important;
+}
+

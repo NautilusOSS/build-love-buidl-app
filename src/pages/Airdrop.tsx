@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, act } from "react";
+import React, { useState, useEffect, useRef, act, useMemo } from "react";
 import PageLayout from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -17,6 +17,48 @@ import BigNumber from "bignumber.js";
 import AccountAirdrop from "@/components/AccountAirdrop";
 import { AirdropEntry, AirdropIndexEntry } from "@/types/airdrop";
 import { TARGET_AIRDROP_ID } from "@/components/AccountAirdrop";
+import { Swap } from "@vestigefi/widgets";
+
+// Function to calculate APR based on 24h volume, liquidity, fee bps, and POW price
+const calculateAPR = (
+  volume24h: number,
+  liquidity: number,
+  feeBps: number,
+  powPrice: number = 1
+): number => {
+  if (liquidity === 0) return 0;
+
+  // Convert fee from basis points to decimal (e.g., 100 bps = 0.01)
+  const feeRate = feeBps / 10000;
+
+  // Calculate daily fee revenue in POW
+  const dailyFeeRevenuePOW = volume24h * feeRate;
+
+  // Convert fee revenue from POW to USD
+  const dailyFeeRevenueUSD = dailyFeeRevenuePOW * powPrice;
+
+  // Calculate annual fee revenue (assuming 365 days)
+  const annualFeeRevenue = dailyFeeRevenueUSD * 365;
+
+  // Calculate APR as (annual revenue / liquidity) * 100
+  const apr = (annualFeeRevenue / liquidity) * 100;
+
+  return apr > 1000 ? 0 : apr;
+};
+
+// Function to extract fee bps from fee string
+const extractFeeBps = (feeString: string): number => {
+  // Handle percentage format like "1%" or "0.3%"
+  const match = feeString.match(/(\d+(?:\.\d+)?)%/);
+  if (match) {
+    const percentage = parseFloat(match[1]);
+    return percentage * 100; // Convert to basis points
+  }
+  return 0;
+};
+
+// Constants
+const POW_ASSET_ID = 2994233666;
 
 // Utility function to convert date to UTC time
 export const convertToUTCTime = (dateString: string): Date => {
@@ -176,6 +218,23 @@ const Airdrop: React.FC = () => {
   });
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+
+  // Trading section state
+  const [tradingData, setTradingData] = useState<any[]>([]);
+  const [isLoadingTrading, setIsLoadingTrading] = useState(false);
+  const [tradingError, setTradingError] = useState<string | null>(null);
+  const [voiPrice, setVoiPrice] = useState<string>("0");
+  const [powTradingPairs, setPowTradingPairs] = useState<any[]>([]);
+
+  // Vestige Labs API state for Algorand pools
+  const [vestigePools, setVestigePools] = useState<any[]>([]);
+  const [isLoadingVestige, setIsLoadingVestige] = useState(false);
+  const [vestigeError, setVestigeError] = useState<string | null>(null);
+  const [powVestigePools, setPowVestigePools] = useState<any[]>([]);
+
+  // State for POW USD price from Vestige Labs
+  const [powUsdPrice, setPowUsdPrice] = useState<number | null>(null);
+  const [isLoadingPowPrice, setIsLoadingPowPrice] = useState(false);
 
   // Check for missing localStorage keys and show video modal
   useEffect(() => {
@@ -1214,7 +1273,7 @@ const Airdrop: React.FC = () => {
           percentage: overallPercentage,
         },
       });
-      
+
       setLastRefreshTime(new Date());
     } catch (error) {
       console.error("Error fetching progress data:", error);
@@ -1226,6 +1285,700 @@ const Airdrop: React.FC = () => {
   // Manual refresh function
   const handleManualRefresh = () => {
     fetchProgressData();
+  };
+
+  // Enhanced refresh function with notifications
+  const handleTradingDataRefresh = async () => {
+    try {
+      await Promise.all([
+        fetchTradingData(),
+        fetchPactPowPools(),
+        fetchPowUsdPrice(),
+        fetchPactTopTVLData(),
+      ]);
+
+      toast({
+        description: "Trading data refreshed successfully",
+        duration: 2000,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        description: "Failed to refresh trading data",
+        duration: 3000,
+      });
+    }
+  };
+
+  // Function to fetch trading data from CoinGecko API
+  const fetchTradingData = async () => {
+    setIsLoadingTrading(true);
+    setTradingError(null);
+    try {
+      const response = await fetch(
+        "https://mainnet-idx.nautilus.sh/integrations/coingecko/tickers"
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch trading data");
+      }
+      const data = await response.json();
+
+      // Filter for POW trading pairs
+      const powPairs = data.filter(
+        (ticker: any) =>
+          ticker.base_currency === "POW" || ticker.target_currency === "POW"
+      );
+
+      // Get VOI price (assuming VOI is the base currency with ID "0")
+      const voiTicker = data.find(
+        (ticker: any) =>
+          ticker.base_currency_id === "0" && ticker.target_currency === "VOI"
+      );
+
+      if (voiTicker) {
+        setVoiPrice(voiTicker.last_price);
+      }
+
+      setPowTradingPairs(powPairs);
+      setTradingData(data);
+    } catch (error) {
+      console.error("Error fetching trading data:", error);
+      setTradingError(
+        error instanceof Error ? error.message : "Failed to fetch trading data"
+      );
+    } finally {
+      setIsLoadingTrading(false);
+    }
+  };
+
+  // Replace the Vestige Labs fetch with Pact API fetch for POW pools
+  const fetchPactPowPools = async () => {
+    setIsLoadingVestige(true);
+    setVestigeError(null);
+    try {
+      // Try the internal pools endpoint first
+      const response = await fetch(
+        "https://api.pact.fi/api/internal/pools_details/all?secondary_asset__on_chain_id=2994233666"
+      );
+      const allPools = await response.json();
+
+      // Try to get price data from a different endpoint if available
+      try {
+        const priceResponse = await fetch(
+          "https://api.pact.fi/api/v1/pools/?secondary_asset__on_chain_id=2994233666"
+        );
+        const priceData = await priceResponse.json();
+
+        // Merge price data with pool data if available
+        if (priceData.results && priceData.results.length > 0) {
+          const priceMap = new Map();
+          priceData.results.forEach((pool: any) => {
+            if (pool.id && pool.price) {
+              priceMap.set(pool.id, pool.price);
+            }
+          });
+
+          // Add price data to the original pools
+          allPools.forEach((pool: any) => {
+            if (priceMap.has(pool.id)) {
+              pool.price = priceMap.get(pool.id);
+            }
+          });
+        }
+      } catch (priceError) {
+        console.log("Could not fetch price data:", priceError);
+      }
+
+      const powPools = allPools;
+      setPowVestigePools(powPools);
+      setVestigePools(allPools);
+    } catch (error) {
+      console.error("Error fetching Pact POW pools:", error);
+      setVestigeError(
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch Pact POW pools"
+      );
+    } finally {
+      setIsLoadingVestige(false);
+    }
+  };
+
+  // Replace fetchVestigeData with fetchPactPowPools in useEffect
+  useEffect(() => {
+    fetchTradingData();
+    fetchPactPowPools();
+    fetchPowUsdPrice();
+    fetchPactTopTVLData();
+  }, []);
+
+  // Function to get VOI price from trading data
+  const getVoiPrice = () => {
+    if (!tradingData || tradingData.length === 0) return 0;
+
+    // Find VOI price from pool_id 395553
+    const voiTicker = tradingData.find(
+      (ticker: any) => ticker.pool_id === "395553"
+    );
+
+    return voiTicker ? parseFloat(voiTicker.last_price) : 0;
+  };
+
+  // Function to calculate volume-weighted POW price from largest pools
+  const calculateVolumeWeightedPowPrice = () => {
+    if (!powVestigePools || powVestigePools.length === 0) return null;
+
+    // Sort pools by TVL (largest first) and take top pools
+    const sortedPools = powVestigePools
+      .sort((a, b) => Number(b.tvl_usd || 0) - Number(a.tvl_usd || 0))
+      .slice(0, 3); // Take top 3 largest pools
+
+    let totalVolume = 0;
+    let weightedPriceSum = 0;
+
+    sortedPools.forEach((pool) => {
+      // Get POW price for this pool (POW/ALGO ratio)
+      const powPrice =
+        Number(pool.assets[1].price) / Number(pool.assets[0].price);
+      const volume24h = Number(pool.volume_24h_usd || 0);
+      const tvl = Number(pool.tvl_usd || 0);
+
+      // Use TVL as weight if volume is low, otherwise use volume
+      const weight = volume24h > 0 ? volume24h : tvl;
+
+      if (weight > 0) {
+        weightedPriceSum += powPrice * weight;
+        totalVolume += weight;
+      }
+    });
+
+    if (totalVolume === 0) return null;
+
+    return weightedPriceSum / totalVolume;
+  };
+
+  // Get volume-weighted POW price
+  const volumeWeightedPowPrice = calculateVolumeWeightedPowPrice();
+  const currentVoiPrice = getVoiPrice();
+
+  // Function to get POW price in USD from Vestige Labs
+  const fetchPowUsdPrice = async () => {
+    setIsLoadingPowPrice(true);
+    try {
+      const response = await fetch(
+        "https://api.vestigelabs.org/assets/price?asset_ids=2994233666&network_id=0&denominating_asset_id=31566704"
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setPowUsdPrice(data[0].price);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching POW USD price:", error);
+    } finally {
+      setIsLoadingPowPrice(false);
+    }
+  };
+
+  // Function to fetch top TVL data from Pact.fi
+  const fetchPactTopTVLData = async () => {
+    setIsLoadingPactTopTVL(true);
+    try {
+      const response = await fetch(
+        "https://api.pact.fi/api/internal/pools_details?details=&offset=0&ordering=-tvl_usd&limit=75"
+      );
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Pact.fi API response:", data);
+        console.log("Pact.fi results count:", data.results?.length || 0);
+
+        if (data.results && data.results.length > 0) {
+          // Log first few pools for debugging
+          data.results.slice(0, 3).forEach((pool, index) => {
+            console.log(`Pool ${index + 1}:`, {
+              id: pool.id,
+              tvl_usd: pool.tvl_usd,
+              is_deprecated: pool.is_deprecated,
+              assets_count: pool.assets?.length || 0,
+              assets: pool.assets?.map((a) => ({
+                on_chain_id: a.on_chain_id,
+                unit_name: a.unit_name,
+                name: a.name,
+              })),
+            });
+          });
+        }
+
+        setPactTopTVLData(data.results || []);
+      } else {
+        console.error(
+          "Pact.fi API response not ok:",
+          response.status,
+          response.statusText
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching Pact.fi top TVL data:", error);
+    } finally {
+      setIsLoadingPactTopTVL(false);
+    }
+  };
+
+  // Function to normalize trading pairs from different sources - now handled by useMemo below
+
+  // State for sorting
+  const [sortColumn, setSortColumn] = useState<string>("volume24h");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  // State for pagination
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 10;
+
+  // State for search
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // State for favorites
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [favorites, setFavorites] = useState<string[]>([]);
+
+  // State for Pact.fi top TVL data
+  const [pactTopTVLData, setPactTopTVLData] = useState<any[]>([]);
+  const [isLoadingPactTopTVL, setIsLoadingPactTopTVL] = useState(false);
+
+  // State for modal
+  const [isPairModalOpen, setIsPairModalOpen] = useState(false);
+  const [selectedPair, setSelectedPair] = useState<any>(null);
+  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+
+  // Get normalized pairs using useMemo to prevent constant recalculations
+  const normalizedPairs = useMemo(() => {
+    const normalizedPairs = [];
+
+    // Normalize VOI pairs from trading data
+    if (powTradingPairs && powTradingPairs.length > 0) {
+      powTradingPairs.forEach((pair) => {
+        const feeBps = extractFeeBps("1%"); // VOI pairs have 1% fee
+        const volume24hPOW = parseFloat(pair.base_volume || "0");
+        const liquidity = parseFloat(pair.liquidity_in_usd || "0");
+
+        // Convert POW volume to USD using POW price
+        const powPrice = parseFloat(pair.last_price);
+        const volume24hUSD = volume24hPOW * 0.0049;
+
+        const apr = calculateAPR(volume24hUSD, liquidity, feeBps);
+
+        normalizedPairs.push({
+          id: pair.pair_id,
+          pair: `${pair.base_currency}/${pair.target_currency}`,
+          baseCurrency: pair.base_currency,
+          targetCurrency: pair.target_currency,
+          baseCurrencyId: pair.base_currency_id,
+          targetCurrencyId: pair.target_currency_id,
+          price: powPrice,
+          volume24h: volume24hUSD,
+          liquidity: liquidity,
+          lastUpdated: pair.update_datetime,
+          network: "Voi",
+          fee: "1%",
+          feeBps: feeBps,
+          apr: apr,
+          baseIcon: `https://asset-verification.nautilus.sh/icons/${pair.base_currency_id}.png`,
+          targetIcon: `https://asset-verification.nautilus.sh/icons/${pair.target_currency_id}.png`,
+          source: "voi",
+        });
+      });
+    }
+
+    // Normalize Pact pairs from Vestige Labs data
+    if (powVestigePools && powVestigePools.length > 0) {
+      console.log("Processing Pact pools:", powVestigePools.length);
+      powVestigePools.forEach((pool) => {
+        try {
+          console.log(`Pool ${pool.id} assets:`, pool.assets);
+
+          // Look for POW asset (ID: 2994233666) - try both string and number comparison
+          const powAsset = pool.assets.find(
+            (a) =>
+              a.on_chain_id === 2994233666 ||
+              a.on_chain_id === "2994233666" ||
+              a.asset_id === 2994233666 ||
+              a.asset_id === "2994233666"
+          );
+
+          // Look for any other asset that's not POW
+          const pairedAsset = pool.assets.find(
+            (a) =>
+              (a.on_chain_id !== 2994233666 &&
+                a.on_chain_id !== "2994233666") ||
+              (a.asset_id !== 2994233666 && a.asset_id !== "2994233666")
+          );
+
+          console.log(
+            `Pool ${pool.id}: POW asset found:`,
+            !!powAsset,
+            "Paired asset found:",
+            !!pairedAsset
+          );
+
+          if (powAsset && pairedAsset) {
+            // Calculate POW price relative to the paired asset
+            let price = 1; // Default fallback
+
+            // Try different price calculation methods
+            if (pool.assets && pool.assets.length >= 2) {
+              if (pool.assets[0].price && pool.assets[1].price) {
+                price =
+                  Number(pool.assets[1].price) / Number(pool.assets[0].price);
+              }
+            } else if (powAsset.price && pairedAsset.price) {
+              price = Number(powAsset.price) / Number(pairedAsset.price);
+            }
+
+            console.log(
+              `Pact pool ${pool.id}: POW/${
+                pairedAsset.unit_name ||
+                pairedAsset.on_chain_id ||
+                pairedAsset.asset_id
+              }, price: ${price}`
+            );
+
+            const feeBps = pool.fee_bps || 0;
+            const apr = calculateAPR(
+              parseFloat(pool.volume_24h_usd || "0"),
+              parseFloat(pool.tvl_usd || "0"),
+              feeBps
+            );
+
+            normalizedPairs.push({
+              id: `pact-${pool.id}`,
+              pair: `POW/${
+                pairedAsset.unit_name ||
+                pairedAsset.on_chain_id ||
+                pairedAsset.asset_id
+              }`,
+              baseCurrency: "POW",
+              targetCurrency:
+                pairedAsset.unit_name ||
+                pairedAsset.on_chain_id ||
+                pairedAsset.asset_id,
+              baseCurrencyId: "2994233666",
+              targetCurrencyId: pairedAsset.on_chain_id || pairedAsset.asset_id,
+              price: price,
+              volume24h: parseFloat(pool.volume_24h_usd || "0"),
+              liquidity: parseFloat(pool.tvl_usd || "0"),
+              lastUpdated:
+                pool.last_updated ||
+                pool.updated_at ||
+                new Date().toISOString(),
+              network: "Algorand",
+              fee: `${(pool.fee_bps / 10000) * 100}%`,
+              feeBps: feeBps,
+              apr: apr,
+              baseIcon: `https://assets.pact.fi/currencies/MainNet/2994233666.image`,
+              targetIcon: `https://assets.pact.fi/currencies/MainNet/${
+                pairedAsset.on_chain_id || pairedAsset.asset_id
+              }.image`,
+              source: "pact",
+            });
+          } else {
+            console.log(
+              `Pool ${pool.id} skipped: POW asset or paired asset not found`
+            );
+          }
+        } catch (error) {
+          console.error("Error processing Pact pool:", pool, error);
+        }
+      });
+    }
+
+    console.log("Normalized pairs total:", normalizedPairs.length);
+    console.log(
+      "VOI pairs:",
+      normalizedPairs.filter((p) => p.source === "voi").length
+    );
+    console.log(
+      "Pact pairs:",
+      normalizedPairs.filter((p) => p.source === "pact").length
+    );
+
+    // Sort by the selected column and direction
+    return normalizedPairs.sort((a, b) => {
+      let aValue: any = a[sortColumn as keyof typeof a];
+      let bValue: any = b[sortColumn as keyof typeof b];
+
+      // Handle different data types
+      if (typeof aValue === "string") {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      } else if (typeof aValue === "number") {
+        // Numbers are already comparable
+      } else {
+        // For dates or other types, convert to string
+        aValue = String(aValue);
+        bValue = String(bValue);
+      }
+
+      if (aValue < bValue) {
+        return sortDirection === "asc" ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortDirection === "asc" ? 1 : -1;
+      }
+      return 0;
+    });
+  }, [powTradingPairs, powVestigePools, sortColumn, sortDirection]); // Include sort parameters in dependencies
+
+  // Filter pairs based on search query and favorites
+  const filteredPairs = useMemo(() => {
+    let filtered = normalizedPairs;
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (pair) =>
+          pair.pair.toLowerCase().includes(query) ||
+          pair.baseCurrency.toLowerCase().includes(query) ||
+          pair.targetCurrency.toLowerCase().includes(query) ||
+          pair.network.toLowerCase().includes(query)
+      );
+    }
+
+    // Filter by favorites
+    if (showFavoritesOnly) {
+      filtered = filtered.filter((pair) => favorites.includes(pair.id));
+    }
+
+    return filtered;
+  }, [normalizedPairs, searchQuery, showFavoritesOnly, favorites]);
+
+  // Handle column sorting
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      // Toggle direction if same column
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // Set new column and default to desc for most columns, asc for pair name
+      setSortColumn(column);
+      setSortDirection(column === "pair" ? "asc" : "desc");
+    }
+  };
+
+  // Helper function to get sort indicator
+  const getSortIndicator = (column: string) => {
+    if (sortColumn !== column) return null;
+    return sortDirection === "asc" ? "↑" : "↓";
+  };
+
+  // Reset to first page when sorting changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortColumn, sortDirection]);
+
+  // Pagination logic with filtered results
+  const totalPages = Math.ceil(filteredPairs.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPageItems = filteredPairs.slice(startIndex, endIndex);
+
+  // Reset to first page when search or sorting changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortColumn, sortDirection, searchQuery]);
+
+  // Handle row click to open modal
+  const handleRowClick = (pair: any) => {
+    setSelectedPair(pair);
+    setIsPairModalOpen(true);
+  };
+
+  // 1. Add useEffect to sync favorites with localStorage
+  useEffect(() => {
+    // Load favorites from localStorage on mount
+    const stored = localStorage.getItem("powFavorites");
+    if (stored) {
+      try {
+        setFavorites(JSON.parse(stored));
+      } catch {}
+    }
+  }, []);
+
+  useEffect(() => {
+    // Save favorites to localStorage whenever they change
+    localStorage.setItem("powFavorites", JSON.stringify(favorites));
+  }, [favorites]);
+
+  // 2. Add toggleFavorite function
+  const toggleFavorite = (id: string) => {
+    setFavorites((prev) =>
+      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
+    );
+  };
+
+  // Get top 50 pairs by TVL (all pairs, not just POW)
+  const top50PairsByTVL = useMemo(() => {
+    const allPairs = [];
+
+    // Add Voi pairs (all pairs, not just POW)
+    if (tradingData && tradingData.length > 0) {
+      tradingData.forEach((pair) => {
+        const liquidity = parseFloat(pair.liquidity_in_usd || "0");
+
+        // Only add if TVL > 0
+        if (liquidity > 0) {
+          allPairs.push({
+            id: `voi-${pair.pair_id}`,
+            pair: `${pair.base_currency}/${pair.target_currency}`,
+            baseCurrency: pair.base_currency,
+            targetCurrency: pair.target_currency,
+            baseCurrencyId: pair.base_currency_id,
+            targetCurrencyId: pair.target_currency_id,
+            liquidity: liquidity,
+            network: "Voi",
+            fee: "1%",
+            baseIcon: `https://asset-verification.nautilus.sh/icons/${pair.base_currency_id}.png`,
+            targetIcon: `https://asset-verification.nautilus.sh/icons/${pair.target_currency_id}.png`,
+            source: "voi",
+            isPowPair:
+              pair.base_currency === "POW" || pair.target_currency === "POW",
+          });
+        }
+      });
+    }
+
+    console.log("pactTopTVLData", pactTopTVLData);
+
+    // Add Pact.fi pools data (top 75 TVL from Algorand)
+    if (pactTopTVLData && pactTopTVLData.length > 0) {
+      pactTopTVLData.forEach((pool) => {
+        try {
+          const tvl = parseFloat(pool.tvl_usd || "0");
+          // if (
+          //   !pool.is_deprecated &&
+          //   Array.isArray(pool.assets) &&
+          //   pool.assets.length >= 2 &&
+          //   tvl > 0
+          // ) {
+          const asset1 = pool.assets[0];
+          const asset2 = pool.assets[1];
+          allPairs.push({
+            id: `pact-${pool.id}`,
+            pair: `${asset1.unit_name || asset1.name || asset1.on_chain_id}/${
+              asset2.unit_name || asset2.name || asset2.on_chain_id
+            }`,
+            baseCurrency: asset1.unit_name || asset1.name || asset1.on_chain_id,
+            targetCurrency:
+              asset2.unit_name || asset2.name || asset2.on_chain_id,
+            baseCurrencyId: asset1.on_chain_id,
+            targetCurrencyId: asset2.on_chain_id,
+            liquidity: tvl,
+            network: "Algorand",
+            fee: `${(pool.fee_bps / 10000) * 100}%`,
+            baseIcon: `https://assets.pact.fi/currencies/MainNet/${asset1.on_chain_id}.image`,
+            targetIcon: `https://assets.pact.fi/currencies/MainNet/${asset2.on_chain_id}.image`,
+            source: "pact",
+            isPowPair:
+              String(asset1.on_chain_id) === "2994233666" ||
+              String(asset2.on_chain_id) === "2994233666",
+          });
+          //}
+        } catch (error) {
+          console.error(
+            "Error processing Pact.fi pool for TVL table:",
+            pool,
+            error
+          );
+        }
+      });
+    }
+
+    // Sort by TVL and take top 50
+    const result = allPairs
+      .sort((a, b) => b.liquidity - a.liquidity)
+      .slice(0, 50);
+
+    console.log("Top 50 TVL result:", {
+      totalPairs: result.length,
+      voiPairs: result.filter((p) => p.source === "voi").length,
+      pactPairs: result.filter((p) => p.source === "pact").length,
+      topPools: result.slice(0, 5).map((p) => ({
+        id: p.id,
+        pair: p.pair,
+        source: p.source,
+        tvl: p.liquidity,
+      })),
+    });
+
+    return result;
+  }, [tradingData, pactTopTVLData]);
+
+  // CSV Export functionality
+  const exportToCSV = (data: any[], filename: string) => {
+    if (data.length === 0) return;
+
+    // Get headers from the first object
+    const headers = Object.keys(data[0]);
+
+    // Create CSV content
+    const csvContent = [
+      headers.join(","), // Header row
+      ...data.map((row) =>
+        headers
+          .map((header) => {
+            const value = row[header];
+            // Handle values that need quotes (contain commas, quotes, or newlines)
+            if (
+              typeof value === "string" &&
+              (value.includes(",") ||
+                value.includes('"') ||
+                value.includes("\n"))
+            ) {
+              return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+          })
+          .join(",")
+      ),
+    ].join("\n");
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${filename}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportPOWPairsToCSV = () => {
+    const csvData = filteredPairs.map((pair) => ({
+      "Trading Pair": pair.pair,
+      Price: pair.price.toFixed(6),
+      "24h Volume": `$${pair.volume24h.toLocaleString()}`,
+      Liquidity: `$${pair.liquidity.toLocaleString()}`,
+      APR: `${pair.apr.toFixed(2)}%`,
+      Network: pair.network,
+      Fee: pair.fee,
+      "Last Updated": new Date(pair.lastUpdated).toLocaleString(),
+      "Is POW Pair": pair.isPowPair ? "Yes" : "No",
+    }));
+    exportToCSV(csvData, "pow-trading-pairs");
+  };
+
+  const exportTop50ToCSV = () => {
+    const csvData = top50PairsByTVL.map((pair, index) => ({
+      Rank: index + 1,
+      "Trading Pair": pair.pair,
+      TVL: `$${pair.liquidity.toLocaleString()}`,
+      Network: pair.network,
+      Fee: pair.fee,
+      "Is POW Pair": pair.isPowPair ? "Yes" : "No",
+    }));
+    exportToCSV(csvData, "top-50-tvl-pairs");
   };
 
   return (
@@ -1371,7 +2124,7 @@ const Airdrop: React.FC = () => {
       )}
 
       {/* Hero Section with Background Video */}
-      <div className="relative min-h-[60vh] flex items-center justify-center overflow-hidden w-full py-16 md:py-16 md:pt-24 pb-32 md:pb-32">
+      <div className="relative min-h-[60vh] flex items-center justify-center overflow-hidden w-full py-8 md:py-16 md:pt-24 pb-16 md:pb-32">
         {/* Background Video */}
         <div className="absolute inset-0 w-full h-full">
           <video
@@ -1399,23 +2152,23 @@ const Airdrop: React.FC = () => {
 
         {/* Hero Content */}
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto w-full">
-          <div className="flex items-center justify-center gap-4 mb-6">
-            <h1 className="text-5xl md:text-7xl font-bold text-white drop-shadow-2xl">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold text-white drop-shadow-2xl">
               {currentAirdropInfo ? currentAirdropInfo.name : "POW Airdrop"}
             </h1>
             <Button
               onClick={() => setIsVideoModalOpen(true)}
-              className="flex items-center gap-2 px-6 py-3 rounded-full bg-[#1EAEDB] hover:bg-[#31BFEC] text-white transition-all duration-200 shadow-lg hover:shadow-xl backdrop-blur-sm"
+              className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-full bg-[#1EAEDB] hover:bg-[#31BFEC] text-white transition-all duration-200 shadow-lg hover:shadow-xl backdrop-blur-sm text-sm sm:text-base"
               title="Watch Introduction Video"
             >
-              <Play className="w-6 h-6" />
+              <Play className="w-4 h-4 sm:w-6 sm:h-6" />
               <span className="hidden sm:inline text-lg font-semibold">
                 Watch Video
               </span>
             </Button>
           </div>
 
-          <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg mb-8">
+          <p className="text-lg sm:text-xl md:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg mb-6 sm:mb-8 px-2">
             {currentAirdropInfo
               ? currentAirdropInfo.description
               : "Welcome to the POW token airdrop. POW is the governance token for Pact Protocol, enabling community participation in protocol governance. Eligible participants can claim their tokens on both the Voi and Algorand networks."}
@@ -1423,8 +2176,8 @@ const Airdrop: React.FC = () => {
 
           {/* Countdown in Hero Section */}
           {!isAirdropOpen && timeUntilEnd !== "Ended" && (
-            <div className="mb-8">
-              <h2 className="text-2xl md:text-3xl font-semibold mb-4 text-white drop-shadow-lg">
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold mb-4 text-white drop-shadow-lg">
                 Airdrop Opens In
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 max-w-2xl mx-auto px-2 md:px-0">
@@ -1433,10 +2186,10 @@ const Airdrop: React.FC = () => {
                     key={index}
                     className="bg-white/10 backdrop-blur-sm rounded-xl p-2 md:p-4 border border-white/20 shadow-lg hover:shadow-xl transition-all"
                   >
-                    <div className="text-2xl sm:text-4xl md:text-5xl font-bold text-white animate-pulse mb-1 md:mb-2">
+                    <div className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold text-white animate-pulse mb-1 md:mb-2">
                       {unit.replace(/[a-zA-Z]/g, "")}
                     </div>
-                    <div className="text-[10px] sm:text-xs md:text-sm text-white/80 uppercase tracking-wider font-medium">
+                    <div className="text-[8px] sm:text-[10px] md:text-xs lg:text-sm text-white/80 uppercase tracking-wider font-medium">
                       {unit.slice(-1) === "d"
                         ? "Days"
                         : unit.slice(-1) === "h"
@@ -1452,8 +2205,8 @@ const Airdrop: React.FC = () => {
           )}
 
           {isAirdropOpen && timeUntilEnd !== "Ended" && (
-            <div className="mb-8">
-              <h2 className="text-2xl md:text-3xl font-semibold mb-4 text-white drop-shadow-lg">
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold mb-4 text-white drop-shadow-lg">
                 Airdrop Ends In
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 max-w-2xl mx-auto px-2 md:px-0">
@@ -1462,10 +2215,10 @@ const Airdrop: React.FC = () => {
                     key={index}
                     className="bg-white/10 backdrop-blur-sm rounded-xl p-2 md:p-4 border border-white/20 shadow-lg hover:shadow-xl transition-all"
                   >
-                    <div className="text-2xl sm:text-4xl md:text-5xl font-bold text-white animate-pulse mb-1 md:mb-2">
+                    <div className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold text-white animate-pulse mb-1 md:mb-2">
                       {unit.replace(/[a-zA-Z]/g, "")}
                     </div>
-                    <div className="text-[10px] sm:text-xs md:text-sm text-white/80 uppercase tracking-wider font-medium">
+                    <div className="text-[8px] sm:text-[10px] md:text-xs lg:text-sm text-white/80 uppercase tracking-wider font-medium">
                       {unit.slice(-1) === "d"
                         ? "Days"
                         : unit.slice(-1) === "h"
@@ -1481,9 +2234,9 @@ const Airdrop: React.FC = () => {
           )}
 
           {timeUntilEnd === "Ended" && (
-            <div className="mb-8">
-              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 max-w-2xl mx-auto">
-                <div className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
+            <div className="mb-6 sm:mb-8">
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 sm:p-6 max-w-2xl mx-auto">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
                   Airdrop Has Ended
                 </div>
               </div>
@@ -1491,9 +2244,9 @@ const Airdrop: React.FC = () => {
           )}
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center px-2">
             <Button
-              className="px-8 py-4 text-xl font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+              className="px-6 sm:px-8 py-3 sm:py-4 text-lg sm:text-xl font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full sm:w-auto"
               onClick={() => {
                 const element = document.getElementById("wallet-address");
                 element?.scrollIntoView({ behavior: "smooth" });
@@ -1505,7 +2258,7 @@ const Airdrop: React.FC = () => {
             </Button>
             <Button
               variant="outline"
-              className="px-8 py-4 text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
+              className="px-6 sm:px-8 py-3 sm:py-4 text-lg sm:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
               onClick={() => {
                 window.open(
                   "https://medium.com/@pact.fi/all-you-need-to-know-power-token-pow-the-governance-token-of-pact-dab8aa0503de",
@@ -1516,11 +2269,37 @@ const Airdrop: React.FC = () => {
               Learn More
               <ExternalLink className="w-4 h-4" />
             </Button>
+            <Button
+              variant="outline"
+              className="px-6 sm:px-8 py-3 sm:py-4 text-lg sm:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+              onClick={() => {
+                const tradingSection = document.querySelector(
+                  '[data-section="trading"]'
+                );
+                tradingSection?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              View Trading
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-4 h-4 ml-2"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                />
+              </svg>
+            </Button>
           </div>
         </div>
 
         {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
+        <div className="absolute bottom-4 sm:bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
           <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center">
             <div className="w-1 h-3 bg-white/70 rounded-full mt-2 animate-pulse"></div>
           </div>
@@ -1528,23 +2307,23 @@ const Airdrop: React.FC = () => {
       </div>
 
       {/* Progress Bar Section */}
-      <div className="bg-gradient-to-b from-gray-900 to-gray-800 py-12 md:py-16 w-full">
+      <div className="bg-gradient-to-b from-gray-900 to-gray-800 py-8 md:py-12 lg:py-16 w-full">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
+          <div className="text-center mb-6 md:mb-8">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-3">
               Airdrop Progress
             </h2>
-            <p className="text-lg text-gray-300 max-w-2xl mx-auto mb-4">
+            <p className="text-base sm:text-lg text-gray-300 max-w-2xl mx-auto mb-4 px-2">
               Track the progress of the POW token distribution across both
               networks
             </p>
-            
+
             {/* Refresh Controls */}
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
               <Button
                 onClick={handleManualRefresh}
                 disabled={isLoadingProgress}
-                className="px-4 py-2 text-sm font-semibold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-lg transition-all duration-200 flex items-center gap-2"
+                className="px-4 py-2 text-sm font-semibold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-lg transition-all duration-200 flex items-center gap-2 w-full sm:w-auto"
               >
                 {isLoadingProgress ? (
                   <>
@@ -1571,7 +2350,7 @@ const Airdrop: React.FC = () => {
                   </>
                 )}
               </Button>
-              
+
               {lastRefreshTime && (
                 <div className="text-sm text-gray-400">
                   Last updated: {lastRefreshTime.toLocaleTimeString()}
@@ -1582,12 +2361,12 @@ const Airdrop: React.FC = () => {
 
           <div className="max-w-4xl mx-auto">
             {/* Overall Progress */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-8">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-white">
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 sm:p-6 md:p-8 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-6 md:mb-8">
+              <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
+                <h3 className="text-lg sm:text-xl font-bold text-white">
                   Overall Progress
                 </h3>
-                <span className="text-2xl font-bold text-[#1EAEDB]">
+                <span className="text-xl sm:text-2xl font-bold text-[#1EAEDB]">
                   {isAirdropOpen
                     ? "Active"
                     : timeUntilOpen
@@ -1597,9 +2376,9 @@ const Airdrop: React.FC = () => {
               </div>
 
               <div className="relative">
-                <div className="w-full bg-white/20 rounded-full h-4 mb-2">
+                <div className="w-full bg-white/20 rounded-full h-3 sm:h-4 mb-2">
                   <div
-                    className="bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] h-4 rounded-full transition-all duration-1000 ease-out shadow-lg"
+                    className="bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] h-3 sm:h-4 rounded-full transition-all duration-1000 ease-out shadow-lg"
                     style={{
                       width:
                         timeUntilEnd === "Ended"
@@ -1608,7 +2387,7 @@ const Airdrop: React.FC = () => {
                     }}
                   ></div>
                 </div>
-                <div className="flex justify-between text-sm text-gray-300">
+                <div className="flex justify-between text-xs sm:text-sm text-gray-300">
                   <span>Start</span>
                   <span>{progressData.overall.percentage.toFixed(1)}%</span>
                   <span>End</span>
@@ -1616,47 +2395,53 @@ const Airdrop: React.FC = () => {
               </div>
 
               {/* Status Indicators */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-4 sm:mt-6">
                 <div className="text-center">
                   <div
-                    className={`w-3 h-3 rounded-full mx-auto mb-2 ${
+                    className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full mx-auto mb-1 sm:mb-2 ${
                       isAirdropOpen ? "bg-green-400" : "bg-gray-400"
                     }`}
                   ></div>
-                  <span className="text-sm text-gray-300">Started</span>
+                  <span className="text-xs sm:text-sm text-gray-300">
+                    Started
+                  </span>
                 </div>
                 <div className="text-center">
                   <div
-                    className={`w-3 h-3 rounded-full mx-auto mb-2 ${
+                    className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full mx-auto mb-1 sm:mb-2 ${
                       isAirdropOpen ? "bg-[#1EAEDB]" : "bg-gray-400"
                     }`}
                   ></div>
-                  <span className="text-sm text-gray-300">Active</span>
+                  <span className="text-xs sm:text-sm text-gray-300">
+                    Active
+                  </span>
                 </div>
                 <div className="text-center">
                   <div
-                    className={`w-3 h-3 rounded-full mx-auto mb-2 ${
+                    className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full mx-auto mb-1 sm:mb-2 ${
                       timeUntilEnd === "Ended" ? "bg-red-400" : "bg-gray-400"
                     }`}
                   ></div>
-                  <span className="text-sm text-gray-300">Ended</span>
+                  <span className="text-xs sm:text-sm text-gray-300">
+                    Ended
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Network Progress */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Voi Network Progress */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
                       strokeWidth={1.5}
                       stroke="currentColor"
-                      className="w-5 h-5 text-white"
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-white"
                     >
                       <path
                         strokeLinecap="round"
@@ -1665,12 +2450,14 @@ const Airdrop: React.FC = () => {
                       />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-bold text-white">Voi Network</h3>
+                  <h3 className="text-base sm:text-lg font-bold text-white">
+                    Voi Network
+                  </h3>
                 </div>
 
                 <div className="space-y-3">
                   <div>
-                    <div className="flex justify-between text-sm mb-1">
+                    <div className="flex justify-between text-xs sm:text-sm mb-1">
                       <span className="text-gray-300">Claimed</span>
                       <span className="text-white font-semibold">
                         {isLoadingProgress
@@ -1691,7 +2478,7 @@ const Airdrop: React.FC = () => {
                   </div>
 
                   <div>
-                    <div className="flex justify-between text-sm mb-1">
+                    <div className="flex justify-between text-xs sm:text-sm mb-1">
                       <span className="text-gray-300">Remaining</span>
                       <span className="text-white font-semibold">
                         {isLoadingProgress
@@ -1715,7 +2502,7 @@ const Airdrop: React.FC = () => {
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-white/20">
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-xs sm:text-sm">
                     <span className="text-gray-300">Status</span>
                     <span className="text-green-400 font-semibold">Active</span>
                   </div>
@@ -1723,16 +2510,16 @@ const Airdrop: React.FC = () => {
               </div>
 
               {/* Algorand Network Progress */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
                       strokeWidth={1.5}
                       stroke="currentColor"
-                      className="w-5 h-5 text-white"
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-white"
                     >
                       <path
                         strokeLinecap="round"
@@ -1741,14 +2528,14 @@ const Airdrop: React.FC = () => {
                       />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-bold text-white">
+                  <h3 className="text-base sm:text-lg font-bold text-white">
                     Algorand Network
                   </h3>
                 </div>
 
                 <div className="space-y-3">
                   <div>
-                    <div className="flex justify-between text-sm mb-1">
+                    <div className="flex justify-between text-xs sm:text-sm mb-1">
                       <span className="text-gray-300">Claimed</span>
                       <span className="text-white font-semibold">
                         {isLoadingProgress
@@ -1769,7 +2556,7 @@ const Airdrop: React.FC = () => {
                   </div>
 
                   <div>
-                    <div className="flex justify-between text-sm mb-1">
+                    <div className="flex justify-between text-xs sm:text-sm mb-1">
                       <span className="text-gray-300">Remaining</span>
                       <span className="text-white font-semibold">
                         {isLoadingProgress
@@ -1793,7 +2580,7 @@ const Airdrop: React.FC = () => {
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-white/20">
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-xs sm:text-sm">
                     <span className="text-gray-300">Status</span>
                     <span className="text-green-400 font-semibold">Active</span>
                   </div>
@@ -1802,40 +2589,48 @@ const Airdrop: React.FC = () => {
             </div>
 
             {/* Statistics */}
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 text-center">
-                <div className="text-2xl font-bold text-[#1EAEDB] mb-1">
+            <div className="mt-6 md:mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20 text-center">
+                <div className="text-lg sm:text-2xl font-bold text-[#1EAEDB] mb-1">
                   {isLoadingProgress
                     ? "..."
                     : airdropData.length.toLocaleString()}
                 </div>
-                <div className="text-sm text-gray-300">Total Eligible</div>
+                <div className="text-xs sm:text-sm text-gray-300">
+                  Total Eligible
+                </div>
               </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 text-center">
-                <div className="text-2xl font-bold text-green-400 mb-1">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20 text-center">
+                <div className="text-lg sm:text-2xl font-bold text-green-400 mb-1">
                   {isLoadingProgress
                     ? "..."
                     : Math.round(progressData.overall.claimed).toLocaleString()}
                 </div>
-                <div className="text-sm text-gray-300">POW Claimed</div>
+                <div className="text-xs sm:text-sm text-gray-300">
+                  POW Claimed
+                </div>
               </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 text-center">
-                <div className="text-2xl font-bold text-yellow-400 mb-1">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20 text-center">
+                <div className="text-lg sm:text-2xl font-bold text-yellow-400 mb-1">
                   {isLoadingProgress
                     ? "..."
                     : Math.round(
                         progressData.overall.remaining
                       ).toLocaleString()}
                 </div>
-                <div className="text-sm text-gray-300">POW Remaining</div>
+                <div className="text-xs sm:text-sm text-gray-300">
+                  POW Remaining
+                </div>
               </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 text-center">
-                <div className="text-2xl font-bold text-[#1EAEDB] mb-1">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20 text-center">
+                <div className="text-lg sm:text-2xl font-bold text-[#1EAEDB] mb-1">
                   {isLoadingProgress
                     ? "..."
                     : Math.round(progressData.overall.total).toLocaleString()}
                 </div>
-                <div className="text-sm text-gray-300">Total POW</div>
+                <div className="text-xs sm:text-sm text-gray-300">
+                  Total POW
+                </div>
               </div>
             </div>
           </div>
@@ -1997,6 +2792,1069 @@ const Airdrop: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Trading Section */}
+      <div
+        className="bg-gradient-to-b from-gray-800 to-gray-900 py-8 md:py-12 lg:py-16 w-full"
+        data-section="trading"
+      >
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-6 md:mb-8">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-3">
+              POW Trading
+            </h2>
+            <p className="text-base sm:text-lg text-gray-300 max-w-2xl mx-auto px-2">
+              Track POW token prices, trading volume, and market activity across
+              different exchanges
+            </p>
+          </div>
+
+          {isLoadingTrading ? (
+            <div className="text-center py-8 md:py-12">
+              <div className="animate-spin h-6 w-6 sm:h-8 sm:w-8 border-4 border-[#1EAEDB] border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-gray-300">Loading trading data...</p>
+            </div>
+          ) : tradingError ? (
+            <div className="text-center py-8 md:py-12">
+              <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 sm:p-6 max-w-md mx-auto">
+                <p className="text-red-400">Error: {tradingError}</p>
+                <Button
+                  onClick={fetchTradingData}
+                  className="mt-4 px-4 py-2 bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-lg"
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="max-w-7xl mx-auto">
+              {/* Market Overview */}
+              <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 md:mb-8">
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-lg font-bold text-white">
+                        POW Price (VWAP)
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Volume-weighted avg
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-lg sm:text-2xl font-bold text-yellow-400">
+                    {volumeWeightedPowPrice
+                      ? `${volumeWeightedPowPrice.toFixed(6)}`
+                      : "N/A"}
+                  </div>
+                  {powUsdPrice && (
+                    <div className="text-xs sm:text-sm text-gray-400 mt-1">
+                      ${powUsdPrice.toFixed(6)}
+                    </div>
+                  )}
+                  {isLoadingPowPrice && (
+                    <div className="text-xs sm:text-sm text-gray-400 mt-1">
+                      Loading USD price...
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-lg font-bold text-white">
+                        Voi Pairs
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Active trading pairs
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-lg sm:text-2xl font-bold text-green-400">
+                    {powTradingPairs.length}
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-lg font-bold text-white">
+                        Algorand Pools
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Vestige Labs pools
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-lg sm:text-2xl font-bold text-orange-400">
+                    {isLoadingVestige ? "..." : powVestigePools.length}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Stats Section */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Total Volume 24h
+                      </p>
+                      <p className="text-base sm:text-xl font-bold text-white">
+                        $
+                        {normalizedPairs
+                          .reduce((sum, pair) => sum + pair.volume24h, 0)
+                          .toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Total Liquidity
+                      </p>
+                      <p className="text-base sm:text-xl font-bold text-white">
+                        $
+                        {normalizedPairs
+                          .reduce((sum, pair) => sum + pair.liquidity, 0)
+                          .toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Avg APR
+                      </p>
+                      <p className="text-base sm:text-xl font-bold text-white">
+                        {(
+                          normalizedPairs.reduce(
+                            (sum, pair) => sum + pair.apr,
+                            0
+                          ) / normalizedPairs.length
+                        ).toFixed(2)}
+                        %
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Active Pairs
+                      </p>
+                      <p className="text-base sm:text-xl font-bold text-white">
+                        {normalizedPairs.length}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Normalized Trading Pairs Table */}
+              {normalizedPairs.length > 0 && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-6 md:mb-8">
+                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4 sm:mb-6 gap-4">
+                    <h3 className="text-lg sm:text-xl font-bold text-white">
+                      All POW Trading Pairs ({filteredPairs.length} total)
+                    </h3>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full lg:w-auto">
+                      {/* Search Input */}
+                      <div className="relative w-full sm:w-auto">
+                        <input
+                          type="text"
+                          placeholder="Search by symbol, pair, network..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full sm:w-64 px-4 py-2 pl-10 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1EAEDB] focus:border-transparent text-sm"
+                        />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                          />
+                        </svg>
+                      </div>
+                      <div className="text-xs sm:text-sm text-gray-300 text-center sm:text-left">
+                        Voi:{" "}
+                        {filteredPairs.filter((p) => p.source === "voi").length}{" "}
+                        | Pact:{" "}
+                        {
+                          filteredPairs.filter((p) => p.source === "pact")
+                            .length
+                        }
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() =>
+                            setShowFavoritesOnly(!showFavoritesOnly)
+                          }
+                          className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 ${
+                            showFavoritesOnly
+                              ? "bg-[#1EAEDB]/20 text-[#1EAEDB] border-[#1EAEDB]/30"
+                              : "bg-white/10 hover:bg-white/20 text-white border-white/20"
+                          }`}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill={showFavoritesOnly ? "currentColor" : "none"}
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+                            />
+                          </svg>
+                          {showFavoritesOnly ? "Show All" : "Favorites"}
+                        </Button>
+                        <Button
+                          onClick={handleTradingDataRefresh}
+                          className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-lg transition-all duration-200 flex items-center gap-2"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+                            />
+                          </svg>
+                          Refresh
+                        </Button>
+                        <Button
+                          onClick={exportPOWPairsToCSV}
+                          className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 flex items-center gap-2"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                            />
+                          </svg>
+                          Export CSV
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-white/20">
+                          <th
+                            className="text-left py-3 px-4 text-white font-semibold cursor-pointer hover:bg-white/5 transition-colors"
+                            onClick={() => handleSort("pair")}
+                          >
+                            <div className="flex items-center gap-2">
+                              Trading Pair
+                              {getSortIndicator("pair")}
+                            </div>
+                          </th>
+                          <th
+                            className="text-right py-3 px-4 text-white font-semibold cursor-pointer hover:bg-white/5 transition-colors"
+                            onClick={() => handleSort("price")}
+                          >
+                            <div className="flex items-center justify-end gap-2">
+                              Price
+                              {getSortIndicator("price")}
+                            </div>
+                          </th>
+                          <th
+                            className="hidden md:table-cell text-right py-3 px-4 text-white font-semibold cursor-pointer hover:bg-white/5 transition-colors"
+                            onClick={() => handleSort("volume24h")}
+                          >
+                            <div className="flex items-center justify-end gap-2">
+                              24h Volume
+                              {getSortIndicator("volume24h")}
+                            </div>
+                          </th>
+                          <th
+                            className="hidden lg:table-cell text-right py-3 px-4 text-white font-semibold cursor-pointer hover:bg-white/5 transition-colors"
+                            onClick={() => handleSort("liquidity")}
+                          >
+                            <div className="flex items-center justify-end gap-2">
+                              Liquidity
+                              {getSortIndicator("liquidity")}
+                            </div>
+                          </th>
+                          <th
+                            className="hidden sm:table-cell text-right py-3 px-4 text-white font-semibold cursor-pointer hover:bg-white/5 transition-colors"
+                            onClick={() => handleSort("apr")}
+                          >
+                            <div className="flex items-center justify-end gap-2">
+                              APR
+                              {getSortIndicator("apr")}
+                            </div>
+                          </th>
+                          <th
+                            className="hidden md:table-cell text-right py-3 px-4 text-white font-semibold cursor-pointer hover:bg-white/5 transition-colors"
+                            onClick={() => handleSort("network")}
+                          >
+                            <div className="flex items-center justify-end gap-2">
+                              Network
+                              {getSortIndicator("network")}
+                            </div>
+                          </th>
+                          <th
+                            className="hidden lg:table-cell text-right py-3 px-4 text-white font-semibold cursor-pointer hover:bg-white/5 transition-colors"
+                            onClick={() => handleSort("lastUpdated")}
+                          >
+                            <div className="flex items-center justify-end gap-2">
+                              Last Updated
+                              {getSortIndicator("lastUpdated")}
+                            </div>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentPageItems.map((pair, index) => (
+                          <tr
+                            key={pair.id}
+                            className="border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer"
+                            onClick={() => handleRowClick(pair)}
+                          >
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleFavorite(pair.id);
+                                    }}
+                                    aria-label={
+                                      favorites.includes(pair.id)
+                                        ? "Remove from favorites"
+                                        : "Add to favorites"
+                                    }
+                                    className="focus:outline-none flex-shrink-0"
+                                    tabIndex={0}
+                                  >
+                                    {favorites.includes(pair.id) ? (
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="#FFD700"
+                                        viewBox="0 0 24 24"
+                                        strokeWidth={1.5}
+                                        stroke="#FFD700"
+                                        className="w-5 h-5 mr-1"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                        />
+                                      </svg>
+                                    ) : (
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        strokeWidth={1.5}
+                                        stroke="#FFD700"
+                                        className="w-5 h-5 mr-1"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                        />
+                                      </svg>
+                                    )}
+                                  </button>
+                                  <div className="flex items-center flex-shrink-0">
+                                    <img
+                                      src={pair.baseIcon}
+                                      alt={pair.baseCurrency}
+                                      className="w-8 h-8 rounded-full border-2 border-white/20 shadow-sm"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = "none";
+                                      }}
+                                    />
+                                    <img
+                                      src={pair.targetIcon}
+                                      alt={pair.targetCurrency}
+                                      className="w-8 h-8 rounded-full border-2 border-white/20 shadow-sm -ml-2"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = "none";
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                                <span className="text-white font-medium">
+                                  {pair.pair}
+                                </span>
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30">
+                                  {pair.fee}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 text-right">
+                              <div className="text-white font-semibold flex items-center justify-end gap-2">
+                                {pair.price.toFixed(6)}
+                                {/* Removed hardcoded price change - no 24h change data available */}
+                              </div>
+                              <div className="text-sm text-gray-400">
+                                {(1 / pair.price).toFixed(6)}{" "}
+                                {pair.baseCurrency}
+                              </div>
+                            </td>
+                            <td className="hidden md:table-cell py-4 px-4 text-right">
+                              <div className="text-white font-semibold">
+                                ${pair.volume24h.toLocaleString()}
+                              </div>
+                            </td>
+                            <td className="hidden lg:table-cell py-4 px-4 text-right">
+                              <div className="text-white font-semibold">
+                                ${pair.liquidity.toLocaleString()}
+                              </div>
+                            </td>
+                            <td className="hidden sm:table-cell py-4 px-4 text-right">
+                              <div className="text-white font-semibold">
+                                {pair.apr.toFixed(2)}%
+                              </div>
+                            </td>
+                            <td className="hidden md:table-cell py-4 px-4 text-right">
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                                  pair.network === "Voi"
+                                    ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                    : "bg-[#1EAEDB]/20 text-[#1EAEDB] border-[#1EAEDB]/30"
+                                }`}
+                              >
+                                {pair.network}
+                              </span>
+                            </td>
+                            <td className="hidden lg:table-cell py-4 px-4 text-right">
+                              <div className="text-sm text-gray-400">
+                                {new Date(pair.lastUpdated).toLocaleString()}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Loading Skeleton for Trading Table */}
+              {isLoadingTrading && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-8">
+                  <div className="animate-pulse">
+                    <div className="h-8 bg-white/10 rounded mb-6 w-1/3"></div>
+                    <div className="space-y-4">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between py-4"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-white/10 rounded-full"></div>
+                            <div className="w-24 h-4 bg-white/10 rounded"></div>
+                          </div>
+                          <div className="w-20 h-4 bg-white/10 rounded"></div>
+                          <div className="w-24 h-4 bg-white/10 rounded"></div>
+                          <div className="w-20 h-4 bg-white/10 rounded"></div>
+                          <div className="w-16 h-4 bg-white/10 rounded"></div>
+                          <div className="w-20 h-4 bg-white/10 rounded"></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between mt-6 pt-6 border-t border-white/20 gap-4">
+                  <div className="text-sm text-gray-300 text-center sm:text-left">
+                    Showing {startIndex + 1} to{" "}
+                    {Math.min(endIndex, filteredPairs.length)} of{" "}
+                    {filteredPairs.length} pairs
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() =>
+                        setCurrentPage(Math.max(1, currentPage - 1))
+                      }
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="hidden sm:inline">Previous</span>
+                      <span className="sm:hidden">←</span>
+                    </Button>
+
+                    <div className="flex items-center gap-1">
+                      {/* Show limited page numbers on mobile */}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter((page) => {
+                          if (totalPages <= 7) return true;
+                          if (page === 1 || page === totalPages) return true;
+                          if (
+                            page >= currentPage - 1 &&
+                            page <= currentPage + 1
+                          )
+                            return true;
+                          return false;
+                        })
+                        .map((page, index, array) => {
+                          // Add ellipsis if there's a gap
+                          const prevPage = array[index - 1];
+                          const showEllipsis = prevPage && page - prevPage > 1;
+
+                          return (
+                            <div key={page} className="flex items-center">
+                              {showEllipsis && (
+                                <span className="px-2 text-gray-400">...</span>
+                              )}
+                              <Button
+                                onClick={() => setCurrentPage(page)}
+                                className={`px-2 sm:px-3 py-1 text-sm rounded-lg transition-colors ${
+                                  currentPage === page
+                                    ? "bg-[#1EAEDB] text-white"
+                                    : "bg-white/10 hover:bg-white/20 text-white"
+                                }`}
+                              >
+                                {page}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                    </div>
+
+                    <Button
+                      onClick={() =>
+                        setCurrentPage(Math.min(totalPages, currentPage + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="hidden sm:inline">Next</span>
+                      <span className="sm:hidden">→</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Spacing after POW pair table */}
+              <div className="h-12 md:h-16"></div>
+
+              {/* POW Trading Pairs Table - Removed */}
+              {/* Voi Network POW Trading Pairs table has been removed */}
+
+              {/* Vestige Labs Algorand Pools - Removed */}
+              {/* Algorand POW Pools (Pact) table has been removed */}
+
+              {/* Overview Stats for Top 50 Table */}
+              {top50PairsByTVL.length > 0 && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-6">
+                  <h3 className="text-lg sm:text-xl font-bold text-white mb-4">
+                    Top 50 Overview
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-300">
+                            Total TVL
+                          </p>
+                          <p className="text-base sm:text-xl font-bold text-white">
+                            $
+                            {top50PairsByTVL
+                              .reduce((sum, pair) => sum + pair.liquidity, 0)
+                              .toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-300">
+                            POW Pairs
+                          </p>
+                          <p className="text-base sm:text-xl font-bold text-white">
+                            {top50PairsByTVL.filter((p) => p.isPowPair).length}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-300">
+                            Voi Pairs
+                          </p>
+                          <p className="text-base sm:text-xl font-bold text-white">
+                            {
+                              top50PairsByTVL.filter((p) => p.network === "Voi")
+                                .length
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-300">
+                            Pact Pairs
+                          </p>
+                          <p className="text-base sm:text-xl font-bold text-white">
+                            {50 -
+                              top50PairsByTVL.filter((p) => p.network === "Voi")
+                                .length}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Top 50 Trading Pairs by TVL */}
+              {top50PairsByTVL.length > 0 && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-6 md:mb-8">
+                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4 sm:mb-6 gap-4">
+                    <h3 className="text-lg sm:text-xl font-bold text-white">
+                      Top 50 Trading Pairs by TVL
+                    </h3>
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                      <div className="text-sm text-gray-300">
+                        Showing highest liquidity pairs across all networks
+                        (including non-POW pairs)
+                      </div>
+                      <Button
+                        onClick={exportTop50ToCSV}
+                        className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 flex items-center gap-2"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-3 h-3 sm:w-4 sm:h-4"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                          />
+                        </svg>
+                        Export CSV
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-white/20">
+                          <th className="text-left py-3 px-4 text-white font-semibold">
+                            <div className="flex items-center gap-2">Rank</div>
+                          </th>
+                          <th className="text-left py-3 px-4 text-white font-semibold">
+                            <div className="flex items-center gap-2">
+                              Trading Pair
+                            </div>
+                          </th>
+                          <th className="text-right py-3 px-4 text-white font-semibold">
+                            <div className="flex items-center justify-end gap-2">
+                              TVL
+                            </div>
+                          </th>
+                          <th className="text-right py-3 px-4 text-white font-semibold">
+                            <div className="flex items-center justify-end gap-2">
+                              Network
+                            </div>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {top50PairsByTVL.map((pair, index) => (
+                          <tr
+                            key={`tvl-${pair.id}`}
+                            className={`border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer ${
+                              pair.isPowPair ? "bg-[#1EAEDB]/5" : ""
+                            }`}
+                            onClick={() => handleRowClick(pair)}
+                          >
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                                    pair.isPowPair
+                                      ? "bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC]"
+                                      : "bg-gradient-to-br from-gray-600 to-gray-700"
+                                  }`}
+                                >
+                                  {index + 1}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleFavorite(pair.id);
+                                    }}
+                                    aria-label={
+                                      favorites.includes(pair.id)
+                                        ? "Remove from favorites"
+                                        : "Add to favorites"
+                                    }
+                                    className="focus:outline-none flex-shrink-0"
+                                    tabIndex={0}
+                                  >
+                                    {favorites.includes(pair.id) ? (
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="#FFD700"
+                                        viewBox="0 0 24 24"
+                                        strokeWidth={1.5}
+                                        stroke="#FFD700"
+                                        className="w-5 h-5 mr-1"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                        />
+                                      </svg>
+                                    ) : (
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        strokeWidth={1.5}
+                                        stroke="#FFD700"
+                                        className="w-5 h-5 mr-1"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                        />
+                                      </svg>
+                                    )}
+                                  </button>
+                                  <div className="flex items-center flex-shrink-0">
+                                    <img
+                                      src={pair.baseIcon}
+                                      alt={pair.baseCurrency}
+                                      className="w-8 h-8 rounded-full border-2 border-white/20 shadow-sm"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = "none";
+                                      }}
+                                    />
+                                    <img
+                                      src={pair.targetIcon}
+                                      alt={pair.targetCurrency}
+                                      className="w-8 h-8 rounded-full border-2 border-white/20 shadow-sm -ml-2"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = "none";
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-white font-medium">
+                                    {pair.pair}
+                                  </span>
+                                  {pair.isPowPair && (
+                                    <span className="text-xs text-[#1EAEDB] font-medium">
+                                      POW Pair
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30">
+                                  {pair.fee}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 text-right">
+                              <div className="text-white font-semibold">
+                                ${pair.liquidity.toLocaleString()}
+                              </div>
+                              <div className="text-sm text-gray-400">
+                                {(
+                                  (pair.liquidity /
+                                    top50PairsByTVL.reduce(
+                                      (sum, p) => sum + p.liquidity,
+                                      0
+                                    )) *
+                                  100
+                                ).toFixed(1)}
+                                % of total
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 text-right">
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                                  pair.network === "Voi"
+                                    ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                    : "bg-[#1EAEDB]/20 text-[#1EAEDB] border-[#1EAEDB]/30"
+                                }`}
+                              >
+                                {pair.network}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Loading state for Vestige Labs */}
+              {isLoadingVestige && (
+                <div className="mt-8 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                  <div className="text-center py-8">
+                    <div className="animate-spin h-8 w-8 border-4 border-[#1EAEDB] border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-gray-300">
+                      Loading Algorand pool data from Vestige Labs...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Error state for Vestige Labs */}
+              {vestigeError && (
+                <div className="mt-8 bg-red-500/20 border border-red-500/30 rounded-xl p-6">
+                  <div className="text-center">
+                    <p className="text-red-400 mb-4">
+                      Error loading Vestige Labs data: {vestigeError}
+                    </p>
+                    <Button
+                      onClick={fetchPactPowPools}
+                      className="px-4 py-2 bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-lg"
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -2885,7 +4743,8 @@ const Airdrop: React.FC = () => {
                     )}
                     {lastChecker === "address" && addressInput && (
                       <p className="text-lg font-semibold text-white tracking-wider">
-                        {addressInput.slice(0, 6)}...{addressInput.slice(-4)}
+                        {addressInput.slice(0, 6)}...
+                        {addressInput.slice(-4)}
                       </p>
                     )}
                   </div>
@@ -2936,6 +4795,240 @@ const Airdrop: React.FC = () => {
                   <p className="text-xl text-gray-600 dark:text-gray-200">
                     {eligibilityStatus.message}
                   </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trading Pair Details Modal */}
+      {isPairModalOpen && selectedPair && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative animate-in fade-in duration-300 border border-[#1EAEDB]/20 shadow-[0_8px_32px_rgba(30,174,219,0.1)]">
+            <button
+              className="absolute top-4 right-4 p-2 rounded-full z-[9999] hover:bg-white/10 transition-colors"
+              onClick={() => setIsPairModalOpen(false)}
+              aria-label="Close"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-6 h-6 text-gray-300"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            <div className="p-4 sm:p-8">
+              <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <div className="flex items-center flex-shrink-0">
+                  <img
+                    src={selectedPair.baseIcon}
+                    alt={selectedPair.baseCurrency}
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-[#1EAEDB]/30 shadow-sm"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                  <img
+                    src={selectedPair.targetIcon}
+                    alt={selectedPair.targetCurrency}
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-[#1EAEDB]/30 shadow-sm -ml-2"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                </div>
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">
+                    {selectedPair.pair}
+                  </h2>
+                  <p className="text-sm sm:text-base text-gray-300">
+                    {selectedPair.network} Network
+                  </p>
+                </div>
+              </div>
+
+              {/* Show different content based on network */}
+              {selectedPair.source === "voi" ? (
+                // Voi Network - Show pair info and Humble button
+                <div className="space-y-6">
+                  {/* Price Information */}
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                    <h3 className="text-lg font-semibold text-white mb-3">
+                      Price Information
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">Current Price</span>
+                        <span className="font-semibold text-white">
+                          {selectedPair.price.toFixed(6)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">Inverse Price</span>
+                        <span className="font-semibold text-white">
+                          {(1 / selectedPair.price).toFixed(6)}{" "}
+                          {selectedPair.baseCurrency}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">Trading Fee</span>
+                        <span className="font-semibold text-[#1EAEDB]">
+                          {selectedPair.fee}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Market Data */}
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                    <h3 className="text-lg font-semibold text-white mb-3">
+                      Market Data
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">24h Volume</span>
+                        <span className="font-semibold text-white">
+                          ${selectedPair.volume24h.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">Liquidity</span>
+                        <span className="font-semibold text-white">
+                          ${selectedPair.liquidity.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">APR</span>
+                        <span className="font-semibold text-green-400">
+                          {selectedPair.apr.toFixed(2)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Asset Details */}
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                    <h3 className="text-lg font-semibold text-white mb-3">
+                      Asset Details
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="font-medium text-gray-300 mb-2">
+                          Base Asset ({selectedPair.baseCurrency})
+                        </h4>
+                        <div className="text-sm text-gray-400">
+                          ID: {selectedPair.baseCurrencyId}
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-300 mb-2">
+                          Target Asset ({selectedPair.targetCurrency})
+                        </h4>
+                        <div className="text-sm text-gray-400">
+                          ID: {selectedPair.targetCurrencyId}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-white/20">
+                    <div className="text-sm text-gray-400 text-center sm:text-left">
+                      Last updated:{" "}
+                      {new Date(selectedPair.lastUpdated).toLocaleString()}
+                    </div>
+                    <div className="flex gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsPairModalOpen(false)}
+                        className="px-6 py-2 border-white/20 text-white hover:bg-white/10"
+                      >
+                        Close
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          // Open Humble with the specific pool
+                          const poolId =
+                            selectedPair.pool_id || selectedPair.id || "395553";
+                          const platformUrl = `https://voi.humble.sh/#/swap?poolId=${poolId}`;
+                          window.open(platformUrl, "_blank");
+                        }}
+                        className="px-6 py-2 bg-[#1EAEDB] hover:bg-[#31BFEC] text-white transition-all duration-300 flex items-center gap-2"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-5 h-5"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                          />
+                        </svg>
+                        Swap on Humble
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Pact Network - Show swap widget
+                <div className="space-y-6">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 flex justify-center">
+                    <div
+                      className="swap-widget-container"
+                      style={
+                        {
+                          "--vestige-primary": "#1EAEDB",
+                          "--vestige-secondary": "#31BFEC",
+                          "--vestige-background": "rgba(255, 255, 255, 0.1)",
+                          "--vestige-surface": "rgba(255, 255, 255, 0.05)",
+                          "--vestige-text": "#ffffff",
+                          "--vestige-text-secondary":
+                            "rgba(255, 255, 255, 0.7)",
+                          "--vestige-border": "rgba(255, 255, 255, 0.2)",
+                          "--vestige-accent": "#1EAEDB",
+                          "--vestige-success": "#10B981",
+                          "--vestige-error": "#EF4444",
+                          "--vestige-warning": "#F59E0B",
+                        } as React.CSSProperties
+                      }
+                    >
+                      <Swap
+                        assetIn={
+                          Number(selectedPair.baseCurrencyId) === 2994233666
+                            ? Number(selectedPair.targetCurrencyId)
+                            : Number(selectedPair.baseCurrencyId)
+                        }
+                        assetOut={2994233666}
+                        className="rounded-lg"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Close button for Pact pairs */}
+                  <div className="flex justify-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsPairModalOpen(false)}
+                      className="px-6 py-2 border-white/20 text-white hover:bg-white/10"
+                    >
+                      Close
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
