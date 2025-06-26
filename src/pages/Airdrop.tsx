@@ -1561,7 +1561,11 @@ const Airdrop: React.FC = () => {
     if (powTradingPairs && powTradingPairs.length > 0) {
       powTradingPairs.forEach((pair) => {
         const feeBps = extractFeeBps("1%"); // VOI pairs have 1% fee
-        const volume24hPOW = parseFloat(pair.base_volume || "0");
+        const volume24hPOW = parseFloat(
+          pair.base_currency_id === "POW"
+            ? pair.base_volume || "0"
+            : pair.target_volume || "0"
+        );
         const liquidity = parseFloat(pair.liquidity_in_usd || "0");
 
         // Convert POW volume to USD using POW price
