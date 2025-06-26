@@ -48,13 +48,17 @@ const calculateAPR = (
 
 // Function to extract fee bps from fee string
 const extractFeeBps = (feeString: string): number => {
-  // Handle percentage format like "1%" or "0.3%"
   const match = feeString.match(/(\d+(?:\.\d+)?)%/);
   if (match) {
-    const percentage = parseFloat(match[1]);
-    return percentage * 100; // Convert to basis points
+    const feePercent = parseFloat(match[1]);
+    return feePercent * 100; // Convert to basis points
   }
   return 0;
+};
+
+// Calculate daily fees from 24h volume and fee bps
+const calculateFees = (volume24h: number, feeBps: number): number => {
+  return (volume24h * feeBps) / 10000;
 };
 
 // Constants
@@ -1590,6 +1594,7 @@ const Airdrop: React.FC = () => {
           fee: "1%",
           feeBps: feeBps,
           apr: apr,
+          fees: calculateFees(volume24hUSD, feeBps),
           baseIcon: `https://asset-verification.nautilus.sh/icons/${pair.base_currency_id}.png`,
           targetIcon: `https://asset-verification.nautilus.sh/icons/${pair.target_currency_id}.png`,
           source: "voi",
@@ -1682,6 +1687,7 @@ const Airdrop: React.FC = () => {
               fee: `${(pool.fee_bps / 10000) * 100}%`,
               feeBps: feeBps,
               apr: apr,
+              fees: calculateFees(parseFloat(pool.volume_24h_usd || "0"), feeBps),
               baseIcon: `https://assets.pact.fi/currencies/MainNet/2994233666.image`,
               targetIcon: `https://assets.pact.fi/currencies/MainNet/${
                 pairedAsset.on_chain_id || pairedAsset.asset_id
@@ -3355,11 +3361,17 @@ const Airdrop: React.FC = () => {
                           </div>
                         </div>
                         
-                        <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-2 gap-3 text-xs">
+                        <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-3 gap-3 text-xs">
                           <div>
                             <div className="text-gray-400 mb-1">24h Volume</div>
                             <div className="text-white font-medium">
                               ${pair.volume24h.toLocaleString()}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-gray-400 mb-1">24h Fees</div>
+                            <div className="text-white font-medium">
+                              ${pair.fees.toFixed(2)}
                             </div>
                           </div>
                           <div>
@@ -3404,6 +3416,15 @@ const Airdrop: React.FC = () => {
                               <div className="flex items-center justify-end gap-2">
                                 24h Volume
                                 {getSortIndicator("volume24h")}
+                              </div>
+                            </th>
+                            <th
+                              className="text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base cursor-pointer hover:bg-white/5 transition-colors"
+                              onClick={() => handleSort("fees")}
+                            >
+                              <div className="flex items-center justify-end gap-2">
+                                24h Fees
+                                {getSortIndicator("fees")}
                               </div>
                             </th>
                             <th
@@ -3540,6 +3561,11 @@ const Airdrop: React.FC = () => {
                               <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
                                 <div className="text-white font-semibold text-sm lg:text-base">
                                   ${pair.volume24h.toLocaleString()}
+                                </div>
+                              </td>
+                              <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
+                                <div className="text-white font-semibold text-sm lg:text-base">
+                                  ${pair.fees.toFixed(2)}
                                 </div>
                               </td>
                               <td className="hidden lg:table-cell py-3 lg:py-4 px-3 lg:px-4 text-right">
