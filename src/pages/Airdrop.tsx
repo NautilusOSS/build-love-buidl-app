@@ -2831,54 +2831,10 @@ const Airdrop: React.FC = () => {
           ) : (
             <div className="max-w-7xl mx-auto">
               {/* Market Overview */}
-              <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 md:mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 md:mb-8">
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg flex items-center justify-center">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-sm sm:text-lg font-bold text-white">
-                        POW Price (VWAP)
-                      </h3>
-                      <p className="text-xs sm:text-sm text-gray-300">
-                        Volume-weighted avg
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-lg sm:text-2xl font-bold text-yellow-400">
-                    {volumeWeightedPowPrice
-                      ? `${volumeWeightedPowPrice.toFixed(6)}`
-                      : "N/A"}
-                  </div>
-                  {powUsdPrice && (
-                    <div className="text-xs sm:text-sm text-gray-400 mt-1">
-                      ${powUsdPrice.toFixed(6)}
-                    </div>
-                  )}
-                  {isLoadingPowPrice && (
-                    <div className="text-xs sm:text-sm text-gray-400 mt-1">
-                      Loading USD price...
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
@@ -2899,15 +2855,14 @@ const Airdrop: React.FC = () => {
                         Voi Pairs
                       </h3>
                       <p className="text-xs sm:text-sm text-gray-300">
-                        Active trading pairs
+                        Voi network pairs
                       </p>
                     </div>
                   </div>
-                  <div className="text-lg sm:text-2xl font-bold text-green-400">
+                  <div className="text-lg sm:text-2xl font-bold text-blue-400">
                     {powTradingPairs.length}
                   </div>
                 </div>
-
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
@@ -2937,6 +2892,37 @@ const Airdrop: React.FC = () => {
                   </div>
                   <div className="text-lg sm:text-2xl font-bold text-orange-400">
                     {isLoadingVestige ? "..." : powVestigePools.length}
+                  </div>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-lg font-bold text-white">
+                        POW Pairs
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        All POW trading pairs
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-lg sm:text-2xl font-bold text-purple-400">
+                    {powVestigePools.length + powTradingPairs.length}
                   </div>
                 </div>
               </div>
@@ -3499,7 +3485,7 @@ const Airdrop: React.FC = () => {
                   <h3 className="text-lg sm:text-xl font-bold text-white mb-4">
                     Top 50 Overview
                   </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
