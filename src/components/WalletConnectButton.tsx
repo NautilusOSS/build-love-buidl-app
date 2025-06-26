@@ -9,8 +9,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useSidebar } from "./ui/sidebar";
 
 const WalletConnectButton: React.FC = () => {
+  const { toggleSidebar } = useSidebar();
   const [connected, setConnected] = useState(false);
   const [showWallets, setShowWallets] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -49,6 +51,7 @@ const WalletConnectButton: React.FC = () => {
               <Button
                 onClick={async () => {
                   setConnecting(wallet.id);
+                  toggleSidebar();
                   if (wallet.id === activeWallet?.id) {
                     activeWallet?.disconnect();
                     setConnecting(null);
@@ -96,8 +99,10 @@ const WalletConnectButton: React.FC = () => {
                         onKeyDown={(e) => e.stopPropagation()}
                       />
                       {activeWalletAccounts
-                        .filter((account) => 
-                          account.address.toLowerCase().includes(searchQuery.toLowerCase())
+                        .filter((account) =>
+                          account.address
+                            .toLowerCase()
+                            .includes(searchQuery.toLowerCase())
                         )
                         .map((account) => (
                           <SelectItem
@@ -105,7 +110,8 @@ const WalletConnectButton: React.FC = () => {
                             value={account.address}
                             className="text-[#9b87f5] hover:bg-[#3b3060] focus:bg-[#3b3060]"
                           >
-                            {account.address.slice(0, 5)}...{account.address.slice(-4)}
+                            {account.address.slice(0, 5)}...
+                            {account.address.slice(-4)}
                           </SelectItem>
                         ))}
                     </SelectContent>
