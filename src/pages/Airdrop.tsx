@@ -1369,11 +1369,13 @@ const Airdrop: React.FC = () => {
         );
         const priceData = await priceResponse.json();
 
+        console.log("priceData", priceData);
+
         // Merge price data with pool data if available
         if (priceData.results && priceData.results.length > 0) {
           const priceMap = new Map();
           priceData.results.forEach((pool: any) => {
-            if (pool.id && pool.price) {
+            if (pool.id && pool.price && pool.is_verified) {
               priceMap.set(pool.id, pool.price);
             }
           });
@@ -1486,7 +1488,7 @@ const Airdrop: React.FC = () => {
     setIsLoadingPactTopTVL(true);
     try {
       const response = await fetch(
-        "https://api.pact.fi/api/internal/pools_details?details=&offset=0&ordering=-tvl_usd&limit=75"
+        "https://api.pact.fi/api/internal/pools_details?details=&offset=0&ordering=-tvl_usd&limit=100"
       );
       if (response.ok) {
         const data = await response.json();
@@ -1854,35 +1856,36 @@ const Airdrop: React.FC = () => {
       pactTopTVLData.forEach((pool) => {
         try {
           const tvl = parseFloat(pool.tvl_usd || "0");
-          // if (
-          //   !pool.is_deprecated &&
-          //   Array.isArray(pool.assets) &&
-          //   pool.assets.length >= 2 &&
-          //   tvl > 0
-          // ) {
-          const asset1 = pool.assets[0];
-          const asset2 = pool.assets[1];
-          allPairs.push({
-            id: `pact-${pool.id}`,
-            pair: `${asset1.unit_name || asset1.name || asset1.on_chain_id}/${
-              asset2.unit_name || asset2.name || asset2.on_chain_id
-            }`,
-            baseCurrency: asset1.unit_name || asset1.name || asset1.on_chain_id,
-            targetCurrency:
-              asset2.unit_name || asset2.name || asset2.on_chain_id,
-            baseCurrencyId: asset1.on_chain_id,
-            targetCurrencyId: asset2.on_chain_id,
-            liquidity: tvl,
-            network: "Algorand",
-            fee: `${(pool.fee_bps / 10000) * 100}%`,
-            baseIcon: `https://assets.pact.fi/currencies/MainNet/${asset1.on_chain_id}.image`,
-            targetIcon: `https://assets.pact.fi/currencies/MainNet/${asset2.on_chain_id}.image`,
-            source: "pact",
-            isPowPair:
-              String(asset1.on_chain_id) === "2994233666" ||
-              String(asset2.on_chain_id) === "2994233666",
-          });
-          //}
+          if (
+            !pool.is_deprecated &&
+            Array.isArray(pool.assets) &&
+            pool.assets.length >= 2 &&
+            tvl > 0
+          ) {
+            const asset1 = pool.assets[0];
+            const asset2 = pool.assets[1];
+            allPairs.push({
+              id: `pact-${pool.id}`,
+              pair: `${asset1.unit_name || asset1.name || asset1.on_chain_id}/${
+                asset2.unit_name || asset2.name || asset2.on_chain_id
+              }`,
+              baseCurrency:
+                asset1.unit_name || asset1.name || asset1.on_chain_id,
+              targetCurrency:
+                asset2.unit_name || asset2.name || asset2.on_chain_id,
+              baseCurrencyId: asset1.on_chain_id,
+              targetCurrencyId: asset2.on_chain_id,
+              liquidity: tvl,
+              network: "Algorand",
+              fee: `${(pool.fee_bps / 10000) * 100}%`,
+              baseIcon: `https://assets.pact.fi/currencies/MainNet/${asset1.on_chain_id}.image`,
+              targetIcon: `https://assets.pact.fi/currencies/MainNet/${asset2.on_chain_id}.image`,
+              source: "pact",
+              isPowPair:
+                String(asset1.on_chain_id) === "2994233666" ||
+                String(asset2.on_chain_id) === "2994233666",
+            });
+          }
         } catch (error) {
           console.error(
             "Error processing Pact.fi pool for TVL table:",
@@ -1893,12 +1896,12 @@ const Airdrop: React.FC = () => {
       });
     }
 
-    // Sort by TVL and take top 50
+    // Sort by TVL and take top 10
     const result = allPairs
       .sort((a, b) => b.liquidity - a.liquidity)
-      .slice(0, 50);
+      .slice(0, 100);
 
-    console.log("Top 50 TVL result:", {
+    console.log("Top 100 TVL result:", {
       totalPairs: result.length,
       voiPairs: result.filter((p) => p.source === "voi").length,
       pactPairs: result.filter((p) => p.source === "pact").length,
@@ -1979,6 +1982,17 @@ const Airdrop: React.FC = () => {
       "Is POW Pair": pair.isPowPair ? "Yes" : "No",
     }));
     exportToCSV(csvData, "top-50-tvl-pairs");
+  };
+
+  // Network exclude lists
+  const networkExcludeLists = {
+    algorand: ["319473667"],
+    voi: [],
+  };
+
+  // Helper function to check if address is excluded
+  const isAddressExcluded = (address: string, network: "algorand" | "voi") => {
+    return networkExcludeLists[network].includes(address);
   };
 
   return (
@@ -3299,7 +3313,7 @@ const Airdrop: React.FC = () => {
                                     <img
                                       src={pair.baseIcon}
                                       alt={pair.baseCurrency}
-                                      className="w-8 h-8 rounded-full border-2 border-white/20 shadow-sm"
+                                      className="w-8 h-8 rounded-full border-2 border-white/20 shadow-sm bg-white"
                                       onError={(e) => {
                                         e.currentTarget.style.display = "none";
                                       }}
@@ -3307,7 +3321,7 @@ const Airdrop: React.FC = () => {
                                     <img
                                       src={pair.targetIcon}
                                       alt={pair.targetCurrency}
-                                      className="w-8 h-8 rounded-full border-2 border-white/20 shadow-sm -ml-2"
+                                      className="w-8 h-8 rounded-full border-2 border-white/20 shadow-sm -ml-2 bg-white"
                                       onError={(e) => {
                                         e.currentTarget.style.display = "none";
                                       }}
@@ -3483,7 +3497,7 @@ const Airdrop: React.FC = () => {
               {top50PairsByTVL.length > 0 && (
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-6">
                   <h3 className="text-lg sm:text-xl font-bold text-white mb-4">
-                    Top 50 Overview
+                    Top 100 Overview
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
@@ -3613,12 +3627,12 @@ const Airdrop: React.FC = () => {
                 </div>
               )}
 
-              {/* Top 50 Trading Pairs by TVL */}
+              {/* Top 100 Trading Pairs by TVL */}
               {top50PairsByTVL.length > 0 && (
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-6 md:mb-8">
                   <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4 sm:mb-6 gap-4">
                     <h3 className="text-lg sm:text-xl font-bold text-white">
-                      Top 50 Trading Pairs by TVL
+                      Top 100 Trading Pairs by TVL
                     </h3>
                     <div className="flex flex-col sm:flex-row items-center gap-3">
                       <div className="text-sm text-gray-300">
@@ -3746,7 +3760,7 @@ const Airdrop: React.FC = () => {
                                     <img
                                       src={pair.baseIcon}
                                       alt={pair.baseCurrency}
-                                      className="w-8 h-8 rounded-full border-2 border-white/20 shadow-sm"
+                                      className="w-8 h-8 rounded-full border-2 border-white/20 shadow-sm bg-white"
                                       onError={(e) => {
                                         e.currentTarget.style.display = "none";
                                       }}
@@ -3754,7 +3768,7 @@ const Airdrop: React.FC = () => {
                                     <img
                                       src={pair.targetIcon}
                                       alt={pair.targetCurrency}
-                                      className="w-8 h-8 rounded-full border-2 border-white/20 shadow-sm -ml-2"
+                                      className="w-8 h-8 rounded-full border-2 border-white/20 shadow-sm -ml-2 bg-white"
                                       onError={(e) => {
                                         e.currentTarget.style.display = "none";
                                       }}

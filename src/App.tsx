@@ -66,7 +66,7 @@ const App = () => {
       WalletId.KIBISIS,
       {
         id: WalletId.LUTE,
-        options: { siteName: "Nautilus" },
+        options: { siteName: "POW App" },
       },
       {
         id: WalletId.BIATEC,
@@ -95,7 +95,7 @@ const App = () => {
         },
       },
     ],
-    network: NetworkId.MAINNET,
+    network: NetworkId.MAINNET
   });
   return (
     <WalletProvider manager={walletManager}>
