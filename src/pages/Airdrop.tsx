@@ -1593,7 +1593,11 @@ const Airdrop: React.FC = () => {
           network: "Voi",
           fee: "1%",
           feeBps: feeBps,
-          apr: apr,
+          apr:
+            apr +
+            (pair.base_currency === "VOI" || pair.target_currency === "VOI"
+              ? 23.15 / 2
+              : 0),
           fees: calculateFees(volume24hUSD, feeBps),
           baseIcon: `https://asset-verification.nautilus.sh/icons/${pair.base_currency_id}.png`,
           targetIcon: `https://asset-verification.nautilus.sh/icons/${pair.target_currency_id}.png`,
@@ -1686,8 +1690,11 @@ const Airdrop: React.FC = () => {
               network: "Algorand",
               fee: `${(pool.fee_bps / 10000) * 100}%`,
               feeBps: feeBps,
-              apr: apr,
-              fees: calculateFees(parseFloat(pool.volume_24h_usd || "0"), feeBps),
+              apr: apr + (pairedAsset.unit_name === "ALGO" ? 3.24 / 2 : 0),
+              fees: calculateFees(
+                parseFloat(pool.volume_24h_usd || "0"),
+                feeBps
+              ),
               baseIcon: `https://assets.pact.fi/currencies/MainNet/2994233666.image`,
               targetIcon: `https://assets.pact.fi/currencies/MainNet/${
                 pairedAsset.on_chain_id || pairedAsset.asset_id
@@ -3198,8 +3205,12 @@ const Airdrop: React.FC = () => {
                               d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
                             />
                           </svg>
-                          <span className="hidden sm:inline">{showFavoritesOnly ? "Show All" : "Favorites"}</span>
-                          <span className="sm:hidden">{showFavoritesOnly ? "All" : "★"}</span>
+                          <span className="hidden sm:inline">
+                            {showFavoritesOnly ? "Show All" : "Favorites"}
+                          </span>
+                          <span className="sm:hidden">
+                            {showFavoritesOnly ? "All" : "★"}
+                          </span>
                         </Button>
                         <Button
                           onClick={handleTradingDataRefresh}
@@ -3316,7 +3327,7 @@ const Airdrop: React.FC = () => {
                             {pair.fee}
                           </span>
                         </div>
-                        
+
                         <div className="flex items-center gap-2 mb-3">
                           <div className="flex items-center flex-shrink-0">
                             <img
@@ -3342,10 +3353,12 @@ const Airdrop: React.FC = () => {
                             </span>
                           </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
-                            <div className="text-gray-400 text-xs mb-1">Price</div>
+                            <div className="text-gray-400 text-xs mb-1">
+                              Price
+                            </div>
                             <div className="text-white font-semibold">
                               {pair.price.toFixed(6)}
                             </div>
@@ -3354,13 +3367,15 @@ const Airdrop: React.FC = () => {
                             </div>
                           </div>
                           <div>
-                            <div className="text-gray-400 text-xs mb-1">APR</div>
+                            <div className="text-gray-400 text-xs mb-1">
+                              APR
+                            </div>
                             <div className="text-white font-semibold">
                               {pair.apr.toFixed(2)}%
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-3 gap-3 text-xs">
                           <div>
                             <div className="text-gray-400 mb-1">24h Volume</div>
@@ -3526,7 +3541,8 @@ const Airdrop: React.FC = () => {
                                         alt={pair.baseCurrency}
                                         className="w-6 h-6 lg:w-8 lg:h-8 rounded-full border-2 border-white/20 shadow-sm bg-white"
                                         onError={(e) => {
-                                          e.currentTarget.style.display = "none";
+                                          e.currentTarget.style.display =
+                                            "none";
                                         }}
                                       />
                                       <img
@@ -3534,7 +3550,8 @@ const Airdrop: React.FC = () => {
                                         alt={pair.targetCurrency}
                                         className="w-6 h-6 lg:w-8 lg:h-8 rounded-full border-2 border-white/20 shadow-sm -ml-1 lg:-ml-2 bg-white"
                                         onError={(e) => {
-                                          e.currentTarget.style.display = "none";
+                                          e.currentTarget.style.display =
+                                            "none";
                                         }}
                                       />
                                     </div>
