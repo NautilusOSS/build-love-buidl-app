@@ -19,6 +19,65 @@ import { AirdropEntry, AirdropIndexEntry } from "@/types/airdrop";
 import { TARGET_AIRDROP_ID } from "@/components/AccountAirdrop";
 import { Swap } from "@vestigefi/widgets";
 
+// TODO fetch from API or remote resources
+const voi_rewards = [
+  {
+    poolId: 395553,
+    aprBoost: 28.75, // TVL lte 250k USD
+    additionalAprBoost: 16.76, // POW Incentives
+  },
+  {
+    poolId: 413161,
+    aprBoost: 28.75 / 2, // TVL lte 250k ALGO
+    additionalAprBoost: 0,
+  },
+  {
+    poolId: 40171092,
+    aprBoost: 28.75 / 2, // TVL lte 250k ETH
+    additionalAprBoost: 0,
+  },
+  {
+    poolId: 40171091,
+    aprBoost: 28.75 / 2, // TVL lte 250k cbBTC
+    additionalAprBoost: 0,
+  },
+  {
+    poolId: 395554, // GM/VOI GM
+    aprBoost: 27,
+    additionalAprBoost: 0,
+  },
+  {
+    poolId: 395509, // ROCKET/VOI ROCKET TVL 5%
+    aprBoost: 27,
+    additionalAprBoost: 0,
+  },
+  {
+    poolId: 441951, // CORN/VOI CORN TVL 5%
+    aprBoost: 9,
+    additionalAprBoost: 0,
+  },
+  {
+    poolId: 404246, // COOL/VOI COOL TVL
+    aprBoost: 5,
+    additionalAprBoost: 0,
+  },
+  {
+    poolId: 395510, // F/VOI F TVL
+    aprBoost: 8,
+    additionalAprBoost: 0,
+  },
+  {
+    poolId: 8357620, // pix/VOI
+    aprBoost: 15,
+    additionalAprBoost: 0,
+  },
+  {
+    poolId: 40120385, // POW/VOI
+    aprBoost: 17.37,
+    additionalAprBoost: 0,
+  },
+];
+
 // Function to calculate APR based on 24h volume, liquidity, fee bps, and POW price
 const calculateAPR = (
   volume24h: number,
@@ -1656,7 +1715,8 @@ const Airdrop: React.FC = () => {
             apr +
             (pair.base_currency === "VOI" || pair.target_currency === "VOI"
               ? 23.15 / 2
-              : 0),
+              : 0) +
+            (voi_rewards.find((r) => r.poolId === pair.pair_id)?.aprBoost || 0),
           fees: calculateFees(volume24hUSD, feeBps),
           baseIcon: `https://asset-verification.nautilus.sh/icons/${pair.base_currency_id}.png`,
           targetIcon: `https://asset-verification.nautilus.sh/icons/${pair.target_currency_id}.png`,
