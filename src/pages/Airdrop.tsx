@@ -2963,10 +2963,10 @@ const Airdrop: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="text-sm sm:text-lg font-bold text-white">
-                        Algorand Pools
+                        Algorand Pairs
                       </h3>
                       <p className="text-xs sm:text-sm text-gray-300">
-                        Vestige Labs pools
+                        Algorand network pairs
                       </p>
                     </div>
                   </div>
