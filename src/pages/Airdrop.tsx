@@ -22,56 +22,67 @@ import { Swap } from "@vestigefi/widgets";
 // TODO fetch from API or remote resources
 const voi_rewards = [
   {
+    ticker: "POW/VOI",
     poolId: 395553,
     aprBoost: 28.75, // TVL lte 250k USD
     additionalAprBoost: 16.76, // POW Incentives
   },
   {
+    ticker: "ALGO/VOI",
     poolId: 413161,
     aprBoost: 28.75 / 2, // TVL lte 250k ALGO
     additionalAprBoost: 0,
   },
   {
+    ticker: "ETH/VOI",
     poolId: 40171092,
     aprBoost: 28.75 / 2, // TVL lte 250k ETH
     additionalAprBoost: 0,
   },
   {
+    ticker: "cbBTC/VOI",
     poolId: 40171091,
     aprBoost: 28.75 / 2, // TVL lte 250k cbBTC
     additionalAprBoost: 0,
   },
   {
+    ticker: "GM/VOI",
     poolId: 395554, // GM/VOI GM
     aprBoost: 27,
     additionalAprBoost: 0,
   },
   {
+    ticker: "ROCKET/VOI",
     poolId: 395509, // ROCKET/VOI ROCKET TVL 5%
     aprBoost: 27,
     additionalAprBoost: 0,
   },
   {
+    ticker: "CORN/VOI",
     poolId: 441951, // CORN/VOI CORN TVL 5%
     aprBoost: 9,
     additionalAprBoost: 0,
   },
   {
+    ticker: "COOL/VOI",
     poolId: 404246, // COOL/VOI COOL TVL
     aprBoost: 5,
     additionalAprBoost: 0,
   },
   {
+    ticker: "F/VOI",
     poolId: 395510, // F/VOI F TVL
     aprBoost: 8,
     additionalAprBoost: 0,
   },
   {
+    ticker: "pix/VOI",
     poolId: 8357620, // pix/VOI
     aprBoost: 15,
     additionalAprBoost: 0,
   },
   {
+    ticker: "POW/VOI",
     poolId: 40120385, // POW/VOI
     aprBoost: 17.37,
     additionalAprBoost: 0,
@@ -2149,7 +2160,7 @@ const Airdrop: React.FC = () => {
           applicationAddress = "N/A";
         }
       } else if (pair.source === "pact") {
-        // For Pact.fi pools, use pool.id as application_id
+        // For Pact pairs, use pool.id as application_id
         applicationId = pair.id.replace("pact-", "");
         // Derive application address from application ID
         try {
@@ -3053,40 +3064,6 @@ const Airdrop: React.FC = () => {
               </div>
             </div>
 
-            {/* Vestige Card */}
-            {/*<div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.4)] transition-all duration-300 hover:transform hover:-translate-y-1">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl mx-auto mb-4 flex items-center justify-center shadow-lg">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="w-8 h-8 text-white"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">Vestige</h3>
-                <p className="text-gray-300 mb-4 text-sm">
-                  Get the best rates across all Algorand DEXs with intelligent
-                  route optimization when swapping on Algorand.
-                </p>
-                <Button
-                  onClick={() => window.open("https://vestige.fi", "_blank")}
-                  className="w-full text-base px-4 py-2 rounded-lg shadow-lg font-semibold bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white transition-all duration-300"
-                >
-                  Launch Vestige
-                  <ExternalLink className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </div>*/}
-
             {/* Aramid Finance Card */}
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.4)] transition-all duration-300 hover:transform hover:-translate-y-1">
               <div className="text-center">
@@ -3416,6 +3393,66 @@ const Airdrop: React.FC = () => {
                       <p className="text-base sm:text-xl font-bold text-white">
                         {isLoadingPactFarms ? "..." : pactFarmsData.length}
                       </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div className="relative group">
+                      <div className="flex items-center gap-1">
+                        <p className="text-xs sm:text-sm text-gray-300">
+                          Humble Incentives
+                        </p>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-3 h-3 text-gray-400"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+                          />
+                        </svg>
+                      </div>
+                      <p className="text-base sm:text-xl font-bold text-white">
+                        {isLoadingTrading
+                          ? "..."
+                          : tradingData.reduce(
+                              (sum, pair) =>
+                                sum +
+                                (pair.base_currency === "VOI" ||
+                                pair.target_currency === "VOI"
+                                  ? 1
+                                  : 0),
+                              0
+                            ) + voi_rewards.length}
+                      </p>
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                        VOI Block Rewards + Targetted Rewards (Defi Boosts)
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3832,7 +3869,7 @@ const Airdrop: React.FC = () => {
                               onClick={() => handleRowClick(pair)}
                             >
                               <td className="py-3 lg:py-4 px-3 lg:px-4">
-                                <div className="flex items-center gap-2 lg:gap-3">
+                                <div className="flex items-center gap-3 lg:gap-4">
                                   <div className="flex items-center gap-1">
                                     <button
                                       onClick={(e) => {
