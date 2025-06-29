@@ -1756,7 +1756,8 @@ const Airdrop: React.FC = () => {
                     (sum: number, program: any) =>
                       sum + Number(program?.apr || 0),
                     0
-                  ) || 0) * 100,
+                  ) || 0) *
+                  100,
               fees: calculateFees(
                 parseFloat(pool.volume_24h_usd || "0"),
                 feeBps
@@ -3817,17 +3818,155 @@ const Airdrop: React.FC = () => {
               {/* Spacing after POW pair table */}
               <div className="h-12 md:h-16"></div>
 
-              {/* Pact.fi Farms Table */}
-              {pactFarmsData.length > 0 && (
+              {/* Overview Stats for Top 50 Table */}
+              {top50PairsByTVL.length > 0 && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-6">
+                  <h3 className="text-lg sm:text-xl font-bold text-white mb-4">
+                    Top 100 Overview
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-300">
+                            Total TVL
+                          </p>
+                          <p className="text-base sm:text-xl font-bold text-white">
+                            $
+                            {top50PairsByTVL
+                              .reduce((sum, pair) => sum + pair.liquidity, 0)
+                              .toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-300">
+                            POW Pairs
+                          </p>
+                          <p className="text-base sm:text-xl font-bold text-white">
+                            {top50PairsByTVL.filter((p) => p.isPowPair).length}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-300">
+                            Voi Pairs
+                          </p>
+                          <p className="text-base sm:text-xl font-bold text-white">
+                            {
+                              top50PairsByTVL.filter((p) => p.network === "Voi")
+                                .length
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-300">
+                            Pact Pairs
+                          </p>
+                          <p className="text-base sm:text-xl font-bold text-white">
+                            {50 -
+                              top50PairsByTVL.filter((p) => p.network === "Voi")
+                                .length}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Top 100 Trading Pairs by TVL */}
+              {top50PairsByTVL.length > 0 && (
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 md:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-6 md:mb-8">
                   <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4 sm:mb-6 gap-3 sm:gap-4">
                     <h3 className="text-base sm:text-lg md:text-xl font-bold text-white">
-                      Pact.fi Farms ({pactFarmsData.length} total)
+                      Top 100 Trading Pairs by TVL
                     </h3>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                      <div className="text-xs sm:text-sm text-gray-300 order-2 sm:order-1">
+                        Showing highest liquidity pairs across all networks
+                        (including non-POW pairs)
+                      </div>
                       <Button
-                        onClick={fetchPactFarmsData}
-                        className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 justify-center"
+                        onClick={exportTop50ToCSV}
+                        className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 order-1 sm:order-2 w-full sm:w-auto justify-center"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -3840,165 +3979,317 @@ const Airdrop: React.FC = () => {
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
                           />
                         </svg>
-                        <span className="hidden sm:inline">Refresh</span>
-                        <span className="sm:hidden">↻</span>
+                        Export CSV
                       </Button>
                     </div>
                   </div>
 
-                  {isLoadingPactFarms ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full"></div>
-                      <span className="ml-3 text-white">Loading farms...</span>
-                    </div>
-                  ) : pactFarmsError ? (
-                    <div className="text-center py-8">
-                      <p className="text-red-400 mb-2">Error loading farms</p>
-                      <p className="text-gray-400 text-sm">{pactFarmsError}</p>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Mobile Card Layout */}
-                      <div className="block md:hidden space-y-3">
-                        {pactFarmsData.slice(0, 10).map((farm, index) => (
-                          <div
-                            key={`farm-mobile-${farm.on_chain_id}`}
-                            className="bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10 hover:bg-white/10 transition-colors"
-                          >
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs bg-gradient-to-br from-emerald-500 to-emerald-600">
-                                  {index + 1}
-                                </div>
-                              </div>
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                Farm
-                              </span>
+                  {/* Mobile Card Layout */}
+                  <div className="block md:hidden space-y-3">
+                    {top50PairsByTVL.map((pair, index) => (
+                      <div
+                        key={`tvl-mobile-${pair.id}`}
+                        className={`bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer ${
+                          pair.isPowPair
+                            ? "bg-[#1EAEDB]/10 border-[#1EAEDB]/20"
+                            : ""
+                        }`}
+                        onClick={() => handleRowClick(pair, "top100tvl")}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs ${
+                                pair.isPowPair
+                                  ? "bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC]"
+                                  : "bg-gradient-to-br from-gray-600 to-gray-700"
+                              }`}
+                            >
+                              {index + 1}
                             </div>
-
-                            <div className="flex flex-col gap-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-white font-medium text-sm">
-                                  Pool ID
-                                </span>
-                                <span className="text-gray-300 text-sm">
-                                  {farm.pool}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-white font-medium text-sm">
-                                  TVL
-                                </span>
-                                <span className="text-gray-300 text-sm">
-                                  ${parseFloat(farm.tvl_usd).toLocaleString()}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-white font-medium text-sm">
-                                  APR
-                                </span>
-                                <span className="text-gray-300 text-sm">
-                                  {parseFloat(farm.average_apr).toFixed(2)}%
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-white font-medium text-sm">
-                                  Ends At
-                                </span>
-                                <span className="text-gray-300 text-sm">
-                                  {new Date(
-                                    farm.displayed_ends_at
-                                  ).toLocaleDateString()}
-                                </span>
-                              </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavorite(pair.id);
+                                }}
+                                aria-label={
+                                  favorites.includes(pair.id)
+                                    ? "Remove from favorites"
+                                    : "Add to favorites"
+                                }
+                                className="focus:outline-none flex-shrink-0"
+                                tabIndex={0}
+                              >
+                                {favorites.includes(pair.id) ? (
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="#FFD700"
+                                    viewBox="0 0 24 24"
+                                    strokeWidth={1.5}
+                                    stroke="#FFD700"
+                                    className="w-4 h-4"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                    />
+                                  </svg>
+                                ) : (
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    strokeWidth={1.5}
+                                    stroke="#FFD700"
+                                    className="w-4 h-4"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                    />
+                                  </svg>
+                                )}
+                              </button>
                             </div>
                           </div>
-                        ))}
-                      </div>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                              pair.network === "Voi"
+                                ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                : "bg-[#1EAEDB]/20 text-[#1EAEDB] border-[#1EAEDB]/30"
+                            }`}
+                          >
+                            {pair.network}
+                          </span>
+                        </div>
 
-                      {/* Desktop Table Layout */}
-                      <div className="hidden md:block overflow-x-auto">
-                        <div className="min-w-full">
-                          <table className="w-full">
-                            <thead>
-                              <tr className="border-b border-white/20">
-                                <th className="text-left py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
-                                  Rank
-                                </th>
-                                <th className="text-left py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
-                                  Pool ID
-                                </th>
-                                <th className="text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
-                                  TVL
-                                </th>
-                                <th className="text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
-                                  APR
-                                </th>
-                                <th className="text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
-                                  Peak TVL
-                                </th>
-                                <th className="text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
-                                  Ends At
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {pactFarmsData.slice(0, 20).map((farm, index) => (
-                                <tr
-                                  key={`farm-${farm.on_chain_id}`}
-                                  className="border-b border-white/10 hover:bg-white/5 transition-colors"
-                                >
-                                  <td className="py-3 lg:py-4 px-3 lg:px-4">
-                                    <div className="flex items-center gap-2 lg:gap-3">
-                                      <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full flex items-center justify-center text-white font-bold text-xs lg:text-sm bg-gradient-to-br from-emerald-500 to-emerald-600">
-                                        {index + 1}
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="py-3 lg:py-4 px-3 lg:px-4">
-                                    <span className="text-white font-medium">
-                                      {farm.pool}
-                                    </span>
-                                  </td>
-                                  <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
-                                    <span className="text-white font-medium">
-                                      $
-                                      {parseFloat(
-                                        farm.tvl_usd
-                                      ).toLocaleString()}
-                                    </span>
-                                  </td>
-                                  <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
-                                    <span className="text-emerald-400 font-medium">
-                                      {parseFloat(farm.average_apr).toFixed(2)}%
-                                    </span>
-                                  </td>
-                                  <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
-                                    <span className="text-gray-300 text-sm">
-                                      $
-                                      {parseFloat(
-                                        farm.peak_tvl_usd
-                                      ).toLocaleString()}
-                                    </span>
-                                  </td>
-                                  <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
-                                    <span className="text-gray-300 text-sm">
-                                      {new Date(
-                                        farm.displayed_ends_at
-                                      ).toLocaleDateString()}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="flex items-center flex-shrink-0">
+                            <img
+                              src={pair.baseIcon}
+                              alt={pair.baseCurrency}
+                              className="w-6 h-6 rounded-full border-2 border-white/20 shadow-sm bg-white"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                            <img
+                              src={pair.targetIcon}
+                              alt={pair.targetCurrency}
+                              className="w-6 h-6 rounded-full border-2 border-white/20 shadow-sm -ml-1 bg-white"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="text-white font-medium text-sm truncate">
+                              {pair.pair}
+                            </span>
+                            {pair.isPowPair && (
+                              <span className="text-xs text-[#1EAEDB] font-medium">
+                                POW Pair
+                              </span>
+                            )}
+                          </div>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30 flex-shrink-0">
+                            {pair.fee}
+                          </span>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-white font-semibold text-sm">
+                            ${pair.liquidity.toLocaleString()}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {(
+                              (pair.liquidity /
+                                top50PairsByTVL.reduce(
+                                  (sum, p) => sum + p.liquidity,
+                                  0
+                                )) *
+                              100
+                            ).toFixed(1)}
+                            % of total
+                          </div>
                         </div>
                       </div>
-                    </>
-                  )}
+                    ))}
+                  </div>
+
+                  {/* Desktop Table Layout */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <div className="min-w-full">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-white/20">
+                            <th className="text-left py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
+                              <div className="flex items-center gap-2">
+                                Rank
+                              </div>
+                            </th>
+                            <th className="text-left py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
+                              <div className="flex items-center gap-2">
+                                Trading Pair
+                              </div>
+                            </th>
+                            <th className="text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
+                              <div className="flex items-center justify-end gap-2">
+                                TVL
+                              </div>
+                            </th>
+                            <th className="text-right py-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
+                              <div className="flex items-center justify-end gap-2">
+                                Network
+                              </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {top50PairsByTVL.map((pair, index) => (
+                            <tr
+                              key={`tvl-${pair.id}`}
+                              className={`border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer ${
+                                pair.isPowPair ? "bg-[#1EAEDB]/5" : ""
+                              }`}
+                              onClick={() => handleRowClick(pair, "top100tvl")}
+                            >
+                              <td className="py-3 lg:py-4 px-3 lg:px-4">
+                                <div className="flex items-center gap-2 lg:gap-3">
+                                  <div
+                                    className={`w-6 h-6 lg:w-8 lg:h-8 rounded-full flex items-center justify-center text-white font-bold text-xs lg:text-sm ${
+                                      pair.isPowPair
+                                        ? "bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC]"
+                                        : "bg-gradient-to-br from-gray-600 to-gray-700"
+                                    }`}
+                                  >
+                                    {index + 1}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 lg:py-4 px-3 lg:px-4">
+                                <div className="flex items-center gap-2 lg:gap-3">
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleFavorite(pair.id);
+                                      }}
+                                      aria-label={
+                                        favorites.includes(pair.id)
+                                          ? "Remove from favorites"
+                                          : "Add to favorites"
+                                      }
+                                      className="focus:outline-none flex-shrink-0"
+                                      tabIndex={0}
+                                    >
+                                      {favorites.includes(pair.id) ? (
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          fill="#FFD700"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth={1.5}
+                                          stroke="#FFD700"
+                                          className="w-4 h-4 lg:w-5 lg:h-5 mr-1"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                          />
+                                        </svg>
+                                      ) : (
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth={1.5}
+                                          stroke="#FFD700"
+                                          className="w-4 h-4 lg:w-5 lg:h-5 mr-1"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                          />
+                                        </svg>
+                                      )}
+                                    </button>
+                                    <div className="flex items-center flex-shrink-0">
+                                      <img
+                                        src={pair.baseIcon}
+                                        alt={pair.baseCurrency}
+                                        className="w-6 h-6 lg:w-8 lg:h-8 rounded-full border-2 border-white/20 shadow-sm bg-white"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display =
+                                            "none";
+                                        }}
+                                      />
+                                      <img
+                                        src={pair.targetIcon}
+                                        alt={pair.targetCurrency}
+                                        className="w-6 h-6 lg:w-8 lg:h-8 rounded-full border-2 border-white/20 shadow-sm -ml-1 lg:-ml-2 bg-white"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display =
+                                            "none";
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="text-white font-medium text-sm lg:text-base truncate">
+                                      {pair.pair}
+                                    </span>
+                                    {pair.isPowPair && (
+                                      <span className="text-xs text-[#1EAEDB] font-medium">
+                                        POW Pair
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30 flex-shrink-0">
+                                    {pair.fee}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
+                                <div className="text-white font-semibold text-sm lg:text-base">
+                                  ${pair.liquidity.toLocaleString()}
+                                </div>
+                                <div className="text-xs lg:text-sm text-gray-400">
+                                  {(
+                                    (pair.liquidity /
+                                      top50PairsByTVL.reduce(
+                                        (sum, p) => sum + p.liquidity,
+                                        0
+                                      )) *
+                                    100
+                                  ).toFixed(1)}
+                                  % of total
+                                </div>
+                              </td>
+                              <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                                    pair.network === "Voi"
+                                      ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                      : "bg-[#1EAEDB]/20 text-[#1EAEDB] border-[#1EAEDB]/30"
+                                  }`}
+                                >
+                                  {pair.network}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               )}
 
