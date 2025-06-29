@@ -249,6 +249,8 @@ const Airdrop: React.FC = () => {
   const [isLoadingPactFarms, setIsLoadingPactFarms] = useState(false);
   const [pactFarmsError, setPactFarmsError] = useState<string | null>(null);
 
+  const [rewardSettings, setRewardSettings] = useState<any>(null);
+
   // Check for missing localStorage keys and show video modal
   useEffect(() => {
     const checkLocalStorageKeys = () => {
@@ -2128,6 +2130,131 @@ const Airdrop: React.FC = () => {
     return networkExcludeLists[network].includes(address);
   };
 
+  // Helper function to check if a trading pair is eligible for COMPX rewards
+  const isCompxRewardEligible = (pair: any): boolean => {
+    if (!rewardSettings?.poolData) return false;
+
+    // Check if the pair matches any COMPX reward pool
+    return rewardSettings.poolData.some((pool: any) => {
+      // For Voi pairs, check if the pair_id matches the poolId
+      if (pair.source === "voi") {
+        return pair.id?.replace("voi-", "") === pool.poolId;
+      }
+      // For Pact pairs, check if the pool ID matches
+      else if (pair.source === "pact") {
+        return pair.id.replace("pact-", "") === pool.poolId;
+      }
+      return false;
+    });
+  };
+
+  useEffect(() => {
+    const fetchRewardSettings = async () => {
+      try {
+        // const response = await fetch(
+        //   "https://api-general.compx.io/api/reward/settings"
+        // );
+        // const data = await response.json();
+        const data = {
+          active: false,
+          poolData: [
+            {
+              poolId: "2407983368",
+              asset1Id: 760037151,
+              asset2Id: 1732165149,
+              lpTokenId: 2407983374,
+              platform: "Pact.fi",
+              displayName: "xUSD/COMPX",
+            },
+            {
+              poolId: "2901990896",
+              asset1Id: 31566704,
+              asset2Id: 760037151,
+              lpTokenId: 0,
+              platform: "Pact.fi",
+              displayName: "USDC/xUSD",
+            },
+            {
+              poolId: "2967083464",
+              asset1Id: 0,
+              asset2Id: 760037151,
+              lpTokenId: 1013581183,
+              platform: "Pact.fi",
+              displayName: "ALGO/xUSD",
+            },
+            {
+              poolId: "1175516992",
+              asset1Id: 1164556102,
+              asset2Id: 760037151,
+              lpTokenId: 1175516992,
+              platform: "Tinyman",
+              displayName: "X-NFT/xUSD",
+            },
+            {
+              poolId: "2408267020",
+              asset1Id: 1732165149,
+              asset2Id: 0,
+              lpTokenId: 2408267020,
+              platform: "Tinyman",
+              displayName: "COMPX/ALGO",
+            },
+            {
+              poolId: "2839742290",
+              asset1Id: 2400334372,
+              asset2Id: 0,
+              lpTokenId: 2839742295,
+              platform: "Pact.fi",
+              displayName: "cALGO/ALGO",
+            },
+          ],
+          pointsData: {
+            activeActions: [
+              { name: "swapGt1H", points: 350, limit: 1 },
+              { name: "swapGt1K", points: 750, limit: 2 },
+              { name: "sendHTks", points: 350, limit: 1 },
+              { name: "sendKTks", points: 750, limit: 1 },
+              { name: "mintXnft", points: 750, limit: 2 },
+              { name: "burnXnft", points: 750, limit: 2 },
+            ],
+          },
+          levelData: [
+            { level: 0, pointsMin: 0, pointsMax: 4999, rewardPercent: 2.5 },
+            { level: 1, pointsMin: 5000, pointsMax: 12499, rewardPercent: 7.5 },
+            { level: 2, pointsMin: 12500, pointsMax: 24999, rewardPercent: 15 },
+            { level: 3, pointsMin: 25000, pointsMax: 49999, rewardPercent: 20 },
+            { level: 4, pointsMin: 50000, pointsMax: 99999, rewardPercent: 25 },
+            {
+              level: 5,
+              pointsMin: 100000,
+              pointsMax: 100000,
+              rewardPercent: 30,
+            },
+          ],
+          epochData: {
+            lengthDays: 7,
+            lengthSeconds: 604800,
+            TotalRewards: 1000000,
+            rewardToken: 1732165149,
+          },
+          boostData: [
+            {
+              name: "NFD Boost",
+              description: "NFD Boost",
+              pointsBoost: 5000,
+              pointsBoostType: "absolute",
+            },
+          ],
+        };
+        setRewardSettings(data);
+      } catch (error) {
+        console.error("Error fetching reward settings:", error);
+      }
+    };
+
+    fetchRewardSettings();
+  }, []);
+  console.log("rewardSettings", rewardSettings);
+
   return (
     <PageLayout>
       {showConfetti && (
@@ -3418,6 +3545,11 @@ const Airdrop: React.FC = () => {
                             >
                               {pair.network}
                             </span>
+                            {isCompxRewardEligible(pair) && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                                CompX Eligible
+                              </span>
+                            )}
                           </div>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30">
                             {pair.fee}
@@ -3447,27 +3579,44 @@ const Airdrop: React.FC = () => {
                             <span className="text-white font-medium text-sm truncate">
                               {pair.pair}
                             </span>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <div className="text-gray-400 text-xs mb-1">
-                              Price
-                            </div>
-                            <div className="text-white font-semibold">
-                              {pair.price.toFixed(6)}
-                            </div>
-                            <div className="text-xs text-gray-400">
-                              {(1 / pair.price).toFixed(6)} {pair.baseCurrency}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-gray-400 text-xs mb-1">
-                              APR
-                            </div>
-                            <div className="text-white font-semibold">
-                              {pair.apr.toFixed(2)}%
+                            <div className="flex gap-2 mt-3">
+                              {isCompxRewardEligible(pair) && (
+                                <span
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                                  style={{
+                                    background: "rgba(16, 185, 129, 0.2)", // CompX: green bg
+                                    color: "#10b981", // CompX: green text
+                                    borderColor: "#10b981", // CompX: green border
+                                  }}
+                                  title="This pool is eligible for CompX rewards"
+                                >
+                                  CompX
+                                </span>
+                              )}
+                              {pair.isPowPair && (
+                                <span
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                                  style={{
+                                    background: "rgba(30, 174, 219, 0.1)", // POW Pair: blue bg
+                                    color: "#1EAEDB", // POW Pair: blue text
+                                    borderColor: "#1EAEDB", // POW Pair: blue border
+                                  }}
+                                >
+                                  POW Pair
+                                </span>
+                              )}
+                              {pair.fee && (
+                                <span
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                                  style={{
+                                    background: "rgba(255,255,255,0.1)", // Fee: gray bg
+                                    color: "#fff", // Fee: white text
+                                    borderColor: "rgba(255,255,255,0.2)", // Fee: light border
+                                  }}
+                                >
+                                  {pair.fee}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -3491,6 +3640,45 @@ const Airdrop: React.FC = () => {
                               ${pair.liquidity.toLocaleString()}
                             </div>
                           </div>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          {isCompxRewardEligible(pair) && (
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                              style={{
+                                background: "rgba(16, 185, 129, 0.2)", // CompX: green bg
+                                color: "#10b981", // CompX: green text
+                                borderColor: "#10b981", // CompX: green border
+                              }}
+                              title="This pool is eligible for CompX rewards"
+                            >
+                              CompX
+                            </span>
+                          )}
+                          {pair.isPowPair && (
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                              style={{
+                                background: "rgba(30, 174, 219, 0.1)", // POW Pair: blue bg
+                                color: "#1EAEDB", // POW Pair: blue text
+                                borderColor: "#1EAEDB", // POW Pair: blue border
+                              }}
+                            >
+                              POW Pair
+                            </span>
+                          )}
+                          {pair.fee && (
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                              style={{
+                                background: "rgba(255,255,255,0.1)", // Fee: gray bg
+                                color: "#fff", // Fee: white text
+                                borderColor: "rgba(255,255,255,0.2)", // Fee: light border
+                              }}
+                            >
+                              {pair.fee}
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -3656,6 +3844,48 @@ const Airdrop: React.FC = () => {
                                     <span className="text-white font-medium text-sm lg:text-base truncate">
                                       {pair.pair}
                                     </span>
+                                    <div className="flex gap-2 mt-1">
+                                      {isCompxRewardEligible(pair) && (
+                                        <span
+                                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                                          style={{
+                                            background:
+                                              "rgba(16, 185, 129, 0.2)", // CompX: green bg
+                                            color: "#10b981", // CompX: green text
+                                            borderColor: "#10b981", // CompX: green border
+                                          }}
+                                          title="This pool is eligible for CompX rewards"
+                                        >
+                                          CompX
+                                        </span>
+                                      )}
+                                      {pair.isPowPair && (
+                                        <span
+                                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                                          style={{
+                                            background:
+                                              "rgba(30, 174, 219, 0.1)", // POW Pair: blue bg
+                                            color: "#1EAEDB", // POW Pair: blue text
+                                            borderColor: "#1EAEDB", // POW Pair: blue border
+                                          }}
+                                        >
+                                          POW Pair
+                                        </span>
+                                      )}
+                                      {pair.fee && (
+                                        <span
+                                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                                          style={{
+                                            background: "rgba(255,255,255,0.1)", // Fee: gray bg
+                                            color: "#fff", // Fee: white text
+                                            borderColor:
+                                              "rgba(255,255,255,0.2)", // Fee: light border
+                                          }}
+                                        >
+                                          {pair.fee}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30 flex-shrink-0">
                                     {pair.fee}
@@ -3680,6 +3910,11 @@ const Airdrop: React.FC = () => {
                                 <div className="text-white font-semibold text-sm lg:text-base">
                                   ${pair.fees.toFixed(2)}
                                 </div>
+                                {/*isCompxRewardEligible(pair) && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30 ml-2">
+                                    CompX Eligible
+                                  </span>
+                                )*/}
                               </td>
                               <td className="hidden lg:table-cell py-3 lg:py-4 px-3 lg:px-4 text-right">
                                 <div className="text-white font-semibold text-sm lg:text-base">
@@ -4067,6 +4302,11 @@ const Airdrop: React.FC = () => {
                           >
                             {pair.network}
                           </span>
+                          {/*isCompxRewardEligible(pair) && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                              CompX Eligible
+                            </span>
+                          )*/}
                         </div>
 
                         <div className="flex items-center gap-2 mb-3">
@@ -4092,11 +4332,6 @@ const Airdrop: React.FC = () => {
                             <span className="text-white font-medium text-sm truncate">
                               {pair.pair}
                             </span>
-                            {pair.isPowPair && (
-                              <span className="text-xs text-[#1EAEDB] font-medium">
-                                POW Pair
-                              </span>
-                            )}
                           </div>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30 flex-shrink-0">
                             {pair.fee}
@@ -4246,11 +4481,18 @@ const Airdrop: React.FC = () => {
                                     <span className="text-white font-medium text-sm lg:text-base truncate">
                                       {pair.pair}
                                     </span>
-                                    {pair.isPowPair && (
-                                      <span className="text-xs text-[#1EAEDB] font-medium">
-                                        POW Pair
-                                      </span>
-                                    )}
+                                    <div>
+                                      {isCompxRewardEligible(pair) && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30 ml-2">
+                                          CompX Eligible
+                                        </span>
+                                      )}
+                                      {pair.isPowPair && (
+                                        <span className="text-xs text-[#1EAEDB] font-medium">
+                                          POW Pair
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30 flex-shrink-0">
                                     {pair.fee}
