@@ -1696,7 +1696,7 @@ const Airdrop: React.FC = () => {
       powTradingPairs.forEach((pair) => {
         const feeBps = extractFeeBps("1%"); // VOI pairs have 1% fee
         const volume24hPOW = parseFloat(
-          pair.base_currency_id === "POW"
+          pair.base_currency === "POW"
             ? pair.base_volume || "0"
             : pair.target_volume || "0"
         );
