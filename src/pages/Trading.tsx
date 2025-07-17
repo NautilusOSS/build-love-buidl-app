@@ -2468,8 +2468,8 @@ const Airdrop: React.FC = () => {
         </div>
       )}
 
-      {/* Hero Section with Background Video */}
-      <div className="relative min-h-[60vh] flex items-center justify-center overflow-hidden w-full py-8 md:py-16 md:pt-24 pb-16 md:pb-32">
+      {/* Hero Section with Dynamic Background */}
+      <div className="relative min-h-[60vh] sm:min-h-[80vh] flex items-center justify-center overflow-hidden w-full py-4 sm:py-8 md:py-16 md:pt-24 pb-8 sm:pb-16 md:pb-32">
         {/* Background Video */}
         <div className="absolute inset-0 w-full h-full">
           <video
@@ -2496,472 +2496,1688 @@ const Airdrop: React.FC = () => {
         </div>
 
         {/* Hero Content */}
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto w-full">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-            <h1 className="text-2xl sm:text-4xl md:text-6xl lg:text-7xl font-bold text-white drop-shadow-2xl leading-tight">
-              {currentAirdropInfo ? currentAirdropInfo.name : "POW Airdrop"}
+        <div className="relative z-10 text-center px-2 sm:px-4 max-w-4xl mx-auto w-full">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-6">
+            <h1 className="text-xl sm:text-2xl md:text-4xl lg:text-6xl xl:text-7xl font-bold text-white drop-shadow-2xl leading-tight">
+              POW Trading Hub
             </h1>
-            <Button
-              onClick={() => setIsVideoModalOpen(true)}
-              className="flex items-center gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-3 rounded-full bg-[#1EAEDB] hover:bg-[#31BFEC] text-white transition-all duration-200 shadow-lg hover:shadow-xl backdrop-blur-sm text-xs sm:text-sm md:text-base whitespace-nowrap"
-              title="Watch Introduction Video"
-            >
-              <Play className="w-3 h-3 sm:w-4 sm:h-4 md:w-6 md:h-6" />
-              <span className="hidden sm:inline text-sm md:text-lg font-semibold">
-                Watch Video
+            <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-6 py-1 sm:py-2 md:py-3 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg backdrop-blur-sm">
+              <svg
+                className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md-5"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 9.27 9.27 5 9.27l6.91-3.09z" />
+              </svg>
+              <span className="text-xs sm:text-sm md:text-base font-semibold">
+                Live
               </span>
-            </Button>
+            </div>
           </div>
 
-          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg mb-6 sm:mb-8 px-2">
-            {currentAirdropInfo
-              ? currentAirdropInfo.description
-              : "Welcome to the POW token airdrop. POW is the governance token for Pact Protocol, enabling community participation in protocol governance. Eligible participants can claim their tokens on both the Voi and Algorand networks."}
+          <p className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg mb-4 sm:mb-6 md:mb-8 px-2">
+            Discover real-time trading opportunities across Voi and Algorand
+            networks. Track POW token performance, explore liquidity pools, and
+            analyze market trends with comprehensive trading data and analytics.
           </p>
 
-          {/* Countdown in Hero Section */}
-          {!isAirdropOpen && timeUntilEnd !== "Ended" && (
-            <div className="mb-6 sm:mb-8">
-              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold mb-4 text-white drop-shadow-lg">
-                Airdrop Opens In
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 max-w-2xl mx-auto px-2 md:px-0">
-                {timeUntilOpen.split(" ").map((unit, index) => (
-                  <div
-                    key={index}
-                    className="bg-white/10 backdrop-blur-sm rounded-xl p-2 md:p-4 border border-white/20 shadow-lg hover:shadow-xl transition-all"
-                  >
-                    <div className="text-lg sm:text-xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-white animate-pulse mb-1 md:mb-2">
-                      {unit.replace(/[a-zA-Z]/g, "")}
-                    </div>
-                    <div className="text-[8px] sm:text-[10px] md:text-xs lg:text-sm text-white/80 uppercase tracking-wider font-medium">
-                      {unit.slice(-1) === "d"
-                        ? "Days"
-                        : unit.slice(-1) === "h"
-                        ? "Hours"
-                        : unit.slice(-1) === "m"
-                        ? "Minutes"
-                        : "Seconds"}
-                    </div>
-                  </div>
-                ))}
+          {/* Key Metrics in Hero Section */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 max-w-3xl mx-auto mb-6 sm:mb-8">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20 shadow-lg flex flex-col items-center">
+              <div className="text-xs text-gray-300 mb-1">POW Price</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-400">
+                ${powUsdPrice ? powUsdPrice.toFixed(4) : "..."}
               </div>
             </div>
-          )}
-
-          {isAirdropOpen && timeUntilEnd !== "Ended" && (
-            <div className="mb-6 sm:mb-8">
-              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold mb-4 text-white drop-shadow-lg">
-                Airdrop Ends In
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 max-w-2xl mx-auto px-2 md:px-0">
-                {timeUntilEnd.split(" ").map((unit, index) => (
-                  <div
-                    key={index}
-                    className="bg-white/10 backdrop-blur-sm rounded-xl p-2 md:p-4 border border-white/20 shadow-lg hover:shadow-xl transition-all"
-                  >
-                    <div className="text-lg sm:text-xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-white animate-pulse mb-1 md:mb-2">
-                      {unit.replace(/[a-zA-Z]/g, "")}
-                    </div>
-                    <div className="text-[8px] sm:text-[10px] md:text-xs lg:text-sm text-white/80 uppercase tracking-wider font-medium">
-                      {unit.slice(-1) === "d"
-                        ? "Days"
-                        : unit.slice(-1) === "h"
-                        ? "Hours"
-                        : unit.slice(-1) === "m"
-                        ? "Minutes"
-                        : "Seconds"}
-                    </div>
-                  </div>
-                ))}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20 shadow-lg flex flex-col items-center">
+              <div className="text-xs text-gray-300 mb-1">24h Volume</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-400">
+                $
+                {normalizedPairs
+                  .reduce((sum, p) => sum + p.volume24h, 0)
+                  .toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </div>
             </div>
-          )}
-
-          {timeUntilEnd === "Ended" && (
-            <div className="mb-6 sm:mb-8">
-              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 sm:p-6 max-w-2xl mx-auto">
-                <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white drop-shadow-lg">
-                  Airdrop Has Ended
-                </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20 shadow-lg flex flex-col items-center">
+              <div className="text-xs text-gray-300 mb-1">Total Liquidity</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-purple-400">
+                $
+                {normalizedPairs
+                  .reduce((sum, p) => sum + p.liquidity, 0)
+                  .toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </div>
             </div>
-          )}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20 shadow-lg flex flex-col items-center">
+              <div className="text-xs text-gray-300 mb-1">Active Pairs</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-white">
+                {normalizedPairs.length}
+              </div>
+            </div>
+          </div>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center px-2">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 px-2">
             <Button
-              className="px-4 sm:px-6 md:px-8 py-3 sm:py-4 text-base sm:text-lg md:text-xl font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full sm:w-auto"
+              variant="outline"
+              className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
               onClick={() => {
-                const element = document.getElementById("wallet-address");
-                element?.scrollIntoView({ behavior: "smooth" });
-                element?.focus();
-                navigate("/airdrop");
+                const tradingSection = document.querySelector(
+                  '[data-section="trading"]'
+                );
+                tradingSection?.scrollIntoView({ behavior: "smooth" });
               }}
             >
-              Check Your Eligibility
+              View Trading
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-3 h-3 sm:w-4 sm:h-4 ml-1 sm:ml-2"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                />
+              </svg>
             </Button>
             <Button
               variant="outline"
-              className="px-4 sm:px-6 md:px-8 py-3 sm:py-4 text-base sm:text-lg md:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+              className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
               onClick={() => {
-                window.open(
-                  "https://medium.com/@pact.fi/all-you-need-to-know-power-token-pow-the-governance-token-of-pact-dab8aa0503de",
-                  "_blank"
+                const top100Section = document.querySelector(
+                  '[data-section="top100"]'
                 );
+                top100Section?.scrollIntoView({ behavior: "smooth" });
               }}
             >
-              Learn More
-              <ExternalLink className="w-4 h-4" />
+              View Top 100
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-3 h-3 sm:w-4 sm:h-4 ml-1 sm:ml-2"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 17l6-6 4 4 8-8"
+                />
+              </svg>
             </Button>
-           
           </div>
         </div>
 
         {/* Scroll indicator */}
-        <div className="absolute bottom-4 sm:bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
+        <div className="absolute bottom-2 sm:bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
           <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center">
             <div className="w-1 h-3 bg-white/70 rounded-full mt-2 animate-pulse"></div>
           </div>
         </div>
       </div>
 
-      {/* Progress Bar Section - Only show when no address params are provided */}
-      {!recipientAddresses && (
-        <div className="bg-gradient-to-b from-gray-900 to-gray-800 py-8 md:py-12 lg:py-16 w-full">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-6 md:mb-8">
-              <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-3">
-                Airdrop Progress
-              </h2>
-              <p className="text-sm sm:text-base md:text-lg text-gray-300 max-w-2xl mx-auto mb-4 px-2">
-                Track the progress of the POW token distribution across both
-                networks
-              </p>
-
-              {/* Refresh Controls */}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-                <Button
-                  onClick={handleManualRefresh}
-                  disabled={isLoadingProgress}
-                  className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-lg transition-all duration-200 flex items-center gap-2 w-full sm:w-auto"
-                >
-                  {isLoadingProgress ? (
-                    <>
-                      <div className="animate-spin h-3 w-3 sm:h-4 sm:w-4 border-2 border-white border-t-transparent rounded-full" />
-                      Refreshing...
-                    </>
-                  ) : (
-                    <>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-3 h-3 sm:w-4 sm:h-4"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
-                        />
-                      </svg>
-                      Refresh Now
-                    </>
-                  )}
-                </Button>
-
-                {lastRefreshTime && (
-                  <div className="text-xs sm:text-sm text-gray-400">
-                    Last updated: {lastRefreshTime.toLocaleTimeString()}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="max-w-4xl mx-auto">
-              {/* Overall Progress */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 sm:p-6 md:p-8 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-6 md:mb-8">
-                <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
-                  <h3 className="text-base sm:text-lg md:text-xl font-bold text-white">
-                    Overall Progress
-                  </h3>
-                  <span className="text-lg sm:text-xl md:text-2xl font-bold text-[#1EAEDB]">
-                    {isAirdropOpen
-                      ? "Active"
-                      : timeUntilOpen
-                      ? "Pending"
-                      : "Ended"}
-                  </span>
-                </div>
-
-                <div className="relative">
-                  <div className="w-full bg-white/20 rounded-full h-2 sm:h-3 md:h-4 mb-2">
-                    <div
-                      className="bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] h-2 sm:h-3 md:h-4 rounded-full transition-all duration-1000 ease-out shadow-lg"
-                      style={{
-                        width:
-                          timeUntilEnd === "Ended"
-                            ? "100%"
-                            : `${progressData.overall.percentage}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between text-xs sm:text-sm text-gray-300">
-                    <span>Start</span>
-                    <span>{progressData.overall.percentage.toFixed(1)}%</span>
-                    <span>End</span>
-                  </div>
-                </div>
-
-                {/* Status Indicators */}
-                <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-4 sm:mt-6">
-                  <div className="text-center">
-                    <div
-                      className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full mx-auto mb-1 sm:mb-2 ${
-                        isAirdropOpen ? "bg-green-400" : "bg-gray-400"
-                      }`}
-                    ></div>
-                    <span className="text-xs sm:text-sm text-gray-300">
-                      Started
-                    </span>
-                  </div>
-                  <div className="text-center">
-                    <div
-                      className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full mx-auto mb-1 sm:mb-2 ${
-                        isAirdropOpen ? "bg-[#1EAEDB]" : "bg-gray-400"
-                      }`}
-                    ></div>
-                    <span className="text-xs sm:text-sm text-gray-300">
-                      Active
-                    </span>
-                  </div>
-                  <div className="text-center">
-                    <div
-                      className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full mx-auto mb-1 sm:mb-2 ${
-                        timeUntilEnd === "Ended" ? "bg-red-400" : "bg-gray-400"
-                      }`}
-                    ></div>
-                    <span className="text-xs sm:text-sm text-gray-300">
-                      Ended
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Network Progress */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                {/* Voi Network Progress */}
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-4 h-4 sm:w-5 sm:h-5 text-white"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
-                        />
-                      </svg>
-                    </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-bold text-white">
-                      Voi Network
-                    </h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-xs sm:text-sm mb-1">
-                        <span className="text-gray-300">Claimed</span>
-                        <span className="text-white font-semibold">
-                          {isLoadingProgress
-                            ? "..."
-                            : `${progressData.voi.percentage.toFixed(1)}%`}
-                        </span>
-                      </div>
-                      <div className="w-full bg-white/20 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-1000 ease-out"
-                          style={{
-                            width: isLoadingProgress
-                              ? "0%"
-                              : `${progressData.voi.percentage}%`,
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-xs sm:text-sm mb-1">
-                        <span className="text-gray-300">Remaining</span>
-                        <span className="text-white font-semibold">
-                          {isLoadingProgress
-                            ? "..."
-                            : `${(100 - progressData.voi.percentage).toFixed(
-                                1
-                              )}%`}
-                        </span>
-                      </div>
-                      <div className="w-full bg-white/20 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-gray-400 to-gray-500 h-2 rounded-full transition-all duration-1000 ease-out"
-                          style={{
-                            width: isLoadingProgress
-                              ? "100%"
-                              : `${100 - progressData.voi.percentage}%`,
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-white/20">
-                    <div className="flex justify-between text-xs sm:text-sm">
-                      <span className="text-gray-300">Status</span>
-                      <span className="text-green-400 font-semibold">Active</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Algorand Network Progress */}
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-4 h-4 sm:w-5 sm:h-5 text-white"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
-                        />
-                      </svg>
-                    </div>
-                    <h3 className="text-sm sm:text-base md:text-lg font-bold text-white">
-                      Algorand Network
-                    </h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-xs sm:text-sm mb-1">
-                        <span className="text-gray-300">Claimed</span>
-                        <span className="text-white font-semibold">
-                          {isLoadingProgress
-                            ? "..."
-                            : `${progressData.algo.percentage.toFixed(1)}%`}
-                        </span>
-                      </div>
-                      <div className="w-full bg-white/20 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] h-2 rounded-full transition-all duration-1000 ease-out"
-                          style={{
-                            width: isLoadingProgress
-                              ? "0%"
-                              : `${progressData.algo.percentage}%`,
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-xs sm:text-sm mb-1">
-                        <span className="text-gray-300">Remaining</span>
-                        <span className="text-white font-semibold">
-                          {isLoadingProgress
-                            ? "..."
-                            : `${(100 - progressData.algo.percentage).toFixed(
-                                1
-                              )}%`}
-                        </span>
-                      </div>
-                      <div className="w-full bg-white/20 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-gray-400 to-gray-500 h-2 rounded-full transition-all duration-1000 ease-out"
-                          style={{
-                            width: isLoadingProgress
-                              ? "100%"
-                              : `${100 - progressData.algo.percentage}%`,
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-white/20">
-                    <div className="flex justify-between text-xs sm:text-sm">
-                      <span className="text-gray-300">Status</span>
-                      <span className="text-green-400 font-semibold">Active</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Statistics */}
-              <div className="mt-6 md:mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20 text-center">
-                  <div className="text-base sm:text-lg md:text-2xl font-bold text-[#1EAEDB] mb-1">
-                    {isLoadingProgress
-                      ? "..."
-                      : airdropData.length.toLocaleString()}
-                  </div>
-                  <div className="text-xs sm:text-sm text-gray-300">
-                    Total Eligible
-                  </div>
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20 text-center">
-                  <div className="text-base sm:text-lg md:text-2xl font-bold text-green-400 mb-1">
-                    {isLoadingProgress
-                      ? "..."
-                      : Math.round(progressData.overall.claimed).toLocaleString()}
-                  </div>
-                  <div className="text-xs sm:text-sm text-gray-300">
-                    POW Claimed
-                  </div>
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20 text-center">
-                  <div className="text-base sm:text-lg md:text-2xl font-bold text-yellow-400 mb-1">
-                    {isLoadingProgress
-                      ? "..."
-                      : Math.round(
-                          progressData.overall.remaining
-                        ).toLocaleString()}
-                  </div>
-                  <div className="text-xs sm:text-sm text-gray-300">
-                    POW Remaining
-                  </div>
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20 text-center">
-                  <div className="text-base sm:text-lg md:text-2xl font-bold text-[#1EAEDB] mb-1">
-                    {isLoadingProgress
-                      ? "..."
-                      : Math.round(progressData.overall.total).toLocaleString()}
-                  </div>
-                  <div className="text-xs sm:text-sm text-gray-300">
-                    Total POW
-                  </div>
-                </div>
-              </div>
-            </div>
+      {/* Trading Section */}
+      <div
+        className="bg-gradient-to-b from-gray-800 to-gray-900 py-8 md:py-12 lg:py-16 w-full"
+        data-section="trading"
+      >
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-6 md:mb-8">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-3">
+              POW Trading
+            </h2>
+            <p className="text-base sm:text-lg text-gray-300 max-w-2xl mx-auto px-2">
+              Track POW token prices, trading volume, and market activity across
+              different exchanges
+            </p>
           </div>
-        </div>
-      )}
 
-     
-        
-      <div className="container mx-auto px-4 py-8 max-w-[1400px]">
+          {isLoadingTrading ? (
+            <div className="text-center py-8 md:py-12">
+              <div className="animate-spin h-6 w-6 sm:h-8 sm:w-8 border-4 border-[#1EAEDB] border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-gray-300">Loading trading data...</p>
+            </div>
+          ) : tradingError ? (
+            <div className="text-center py-8 md:py-12">
+              <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 sm:p-6 max-w-md mx-auto">
+                <p className="text-red-400">Error: {tradingError}</p>
+                <Button
+                  onClick={fetchTradingData}
+                  className="mt-4 px-4 py-2 bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-lg"
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="max-w-7xl mx-auto">
+              {/* Market Overview */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 md:mb-8">
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-lg font-bold text-white">
+                        Voi Pairs
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Voi network pairs
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-lg sm:text-2xl font-bold text-blue-400">
+                    {powTradingPairs.length}
+                  </div>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-lg font-bold text-white">
+                        Algorand Pairs
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Algorand network pairs
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-lg sm:text-2xl font-bold text-orange-400">
+                    {isLoadingVestige ? "..." : powVestigePools.length}
+                  </div>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-lg font-bold text-white">
+                        POW Pairs
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        All POW trading pairs
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-lg sm:text-2xl font-bold text-purple-400">
+                    {powVestigePools.length + powTradingPairs.length}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Stats Section */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Total Volume 24h
+                      </p>
+                      <p className="text-base sm:text-xl font-bold text-white">
+                        $
+                        {normalizedPairs
+                          .reduce((sum, pair) => sum + pair.volume24h, 0)
+                          .toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Total Liquidity
+                      </p>
+                      <p className="text-base sm:text-xl font-bold text-white">
+                        $
+                        {normalizedPairs
+                          .reduce((sum, pair) => sum + pair.liquidity, 0)
+                          .toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Avg APR
+                      </p>
+                      <p className="text-base sm:text-xl font-bold text-white">
+                        {(
+                          normalizedPairs.reduce(
+                            (sum, pair) => sum + pair.apr,
+                            0
+                          ) / normalizedPairs.length
+                        ).toFixed(2)}
+                        %
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Active Pairs
+                      </p>
+                      <p className="text-base sm:text-xl font-bold text-white">
+                        {normalizedPairs.length}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm text-gray-300">
+                        Pact Farms
+                      </p>
+                      <p className="text-base sm:text-xl font-bold text-white">
+                        {isLoadingPactFarms ? "..." : pactFarmsData.length}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div className="relative group">
+                      <div className="flex items-center gap-1">
+                        <p className="text-xs sm:text-sm text-gray-300">
+                          Humble Incentives
+                        </p>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-3 h-3 text-gray-400"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+                          />
+                        </svg>
+                      </div>
+                      <p className="text-base sm:text-xl font-bold text-white">
+                        {isLoadingTrading
+                          ? "..."
+                          : tradingData.reduce(
+                              (sum, pair) =>
+                                sum +
+                                (pair.base_currency === "VOI" ||
+                                pair.target_currency === "VOI"
+                                  ? 1
+                                  : 0),
+                              0
+                            ) + voi_rewards.length}
+                      </p>
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                        VOI Block Rewards + Targetted Rewards (Defi Boosts)
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Normalized Trading Pairs Table */}
+              {normalizedPairs.length > 0 && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 md:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-6 md:mb-8">
+                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4 sm:mb-6 gap-3 sm:gap-4">
+                    <h3 className="text-base sm:text-lg md:text-xl font-bold text-white">
+                      All POW Trading Pairs ({filteredPairs.length} total)
+                    </h3>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
+                      {/* Search Input */}
+                      <div className="relative w-full sm:w-auto">
+                        <input
+                          type="text"
+                          placeholder="Search by symbol, pair, network..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full sm:w-64 px-3 sm:px-4 py-2 pl-9 sm:pl-10 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1EAEDB] focus:border-transparent text-sm"
+                        />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-4 h-4 text-gray-400 absolute left-2.5 sm:left-3 top-1/2 transform -translate-y-1/2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                          />
+                        </svg>
+                      </div>
+                      <div className="text-xs sm:text-sm text-gray-300 text-center sm:text-left order-3 sm:order-2">
+                        Voi:{" "}
+                        {filteredPairs.filter((p) => p.source === "voi").length}{" "}
+                        | Pact:{" "}
+                        {
+                          filteredPairs.filter((p) => p.source === "pact")
+                            .length
+                        }
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2 order-2 sm:order-3">
+                        <Button
+                          variant="outline"
+                          onClick={() =>
+                            setShowFavoritesOnly(!showFavoritesOnly)
+                          }
+                          className={`px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 justify-center ${
+                            showFavoritesOnly
+                              ? "bg-[#1EAEDB]/20 text-[#1EAEDB] border-[#1EAEDB]/30"
+                              : "bg-white/10 hover:bg-white/20 text-white border-white/20"
+                          }`}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill={showFavoritesOnly ? "currentColor" : "none"}
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+                            />
+                          </svg>
+                          <span className="hidden sm:inline">
+                            {showFavoritesOnly ? "Show All" : "Favorites"}
+                          </span>
+                          <span className="sm:hidden">
+                            {showFavoritesOnly ? "All" : "★"}
+                          </span>
+                        </Button>
+                        <Button
+                          onClick={handleTradingDataRefresh}
+                          className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 justify-center"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+                            />
+                          </svg>
+                          <span className="hidden sm:inline">Refresh</span>
+                          <span className="sm:hidden">↻</span>
+                        </Button>
+                        <Button
+                          onClick={exportPOWPairsToCSV}
+                          className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 justify-center"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                            />
+                          </svg>
+                          <span className="hidden sm:inline">Export CSV</span>
+                          <span className="sm:hidden">CSV</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile Card Layout */}
+                  <div className="block md:hidden space-y-3">
+                    {currentPageItems.map((pair, index) => (
+                      <div
+                        key={`pow-mobile-${pair.id}`}
+                        className="bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
+                        onClick={() => handleRowClick(pair)}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(pair.id);
+                              }}
+                              aria-label={
+                                favorites.includes(pair.id)
+                                  ? "Remove from favorites"
+                                  : "Add to favorites"
+                              }
+                              className="focus:outline-none flex-shrink-0"
+                              tabIndex={0}
+                            >
+                              {favorites.includes(pair.id) ? (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="#FFD700"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth={1.5}
+                                  stroke="#FFD700"
+                                  className="w-4 h-4"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                  />
+                                </svg>
+                              ) : (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth={1.5}
+                                  stroke="#FFD700"
+                                  className="w-4 h-4"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                  />
+                                </svg>
+                              )}
+                            </button>
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                                pair.network === "Voi"
+                                  ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                  : "bg-[#1EAEDB]/20 text-[#1EAEDB] border-[#1EAEDB]/30"
+                              }`}
+                            >
+                              {pair.network}
+                            </span>
+                            {isCompxRewardEligible(pair) && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                                CompX Eligible
+                              </span>
+                            )}
+                          </div>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30">
+                            {pair.fee}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="flex items-center flex-shrink-0">
+                            <img
+                              src={pair.baseIcon}
+                              alt={pair.baseCurrency}
+                              className="w-6 h-6 rounded-full border-2 border-white/20 shadow-sm bg-white"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                            <img
+                              src={pair.targetIcon}
+                              alt={pair.targetCurrency}
+                              className="w-6 h-6 rounded-full border-2 border-white/20 shadow-sm -ml-1 bg-white"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="text-white font-medium text-sm truncate">
+                              {pair.pair}
+                            </span>
+                            <div className="flex gap-2 mt-3">
+                              {isCompxRewardEligible(pair) && (
+                                <span
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                                  style={{
+                                    background: "rgba(16, 185, 129, 0.2)", // CompX: green bg
+                                    color: "#10b981", // CompX: green text
+                                    borderColor: "#10b981", // CompX: green border
+                                  }}
+                                  title="This pool is eligible for CompX rewards"
+                                >
+                                  CompX
+                                </span>
+                              )}
+                              {pair.isPowPair && (
+                                <span
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                                  style={{
+                                    background: "rgba(30, 174, 219, 0.1)", // POW Pair: blue bg
+                                    color: "#1EAEDB", // POW Pair: blue text
+                                    borderColor: "#1EAEDB", // POW Pair: blue border
+                                  }}
+                                >
+                                  POW Pair
+                                </span>
+                              )}
+                              {pair.fee && (
+                                <span
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                                  style={{
+                                    background: "rgba(255,255,255,0.1)", // Fee: gray bg
+                                    color: "#fff", // Fee: white text
+                                    borderColor: "rgba(255,255,255,0.2)", // Fee: light border
+                                  }}
+                                >
+                                  {pair.fee}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-3 gap-3 text-xs">
+                          <div>
+                            <div className="text-gray-400 mb-1">24h Volume</div>
+                            <div className="text-white font-medium">
+                              ${pair.volume24h.toLocaleString()}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-gray-400 mb-1">24h Fees</div>
+                            <div className="text-white font-medium">
+                              ${pair.fees.toFixed(2)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-gray-400 mb-1">Liquidity</div>
+                            <div className="text-white font-medium">
+                              ${pair.liquidity.toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          {isCompxRewardEligible(pair) && (
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                              style={{
+                                background: "rgba(16, 185, 129, 0.2)", // CompX: green bg
+                                color: "#10b981", // CompX: green text
+                                borderColor: "#10b981", // CompX: green border
+                              }}
+                              title="This pool is eligible for CompX rewards"
+                            >
+                              CompX
+                            </span>
+                          )}
+                          {pair.isPowPair && (
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                              style={{
+                                background: "rgba(30, 174, 219, 0.1)", // POW Pair: blue bg
+                                color: "#1EAEDB", // POW Pair: blue text
+                                borderColor: "#1EAEDB", // POW Pair: blue border
+                              }}
+                            >
+                              POW Pair
+                            </span>
+                          )}
+                          {pair.fee && (
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                              style={{
+                                background: "rgba(255,255,255,0.1)", // Fee: gray bg
+                                color: "#fff", // Fee: white text
+                                borderColor: "rgba(255,255,255,0.2)", // Fee: light border
+                              }}
+                            >
+                              {pair.fee}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop Table Layout */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <div className="min-w-full">
+                      <table className="w-full min-w-[600px]">
+                        <thead>
+                          <tr className="border-b border-white/20">
+                            <th
+                              className="text-left py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base cursor-pointer hover:bg-white/5 transition-colors"
+                              onClick={() => handleSort("pair")}
+                            >
+                              <div className="flex items-center gap-2">
+                                Trading Pair
+                                {getSortIndicator("pair")}
+                              </div>
+                            </th>
+                            <th
+                              className="text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base cursor-pointer hover:bg-white/5 transition-colors"
+                              onClick={() => handleSort("price")}
+                            >
+                              <div className="flex items-center justify-end gap-2">
+                                Price
+                                {getSortIndicator("price")}
+                              </div>
+                            </th>
+                            <th
+                              className="text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base cursor-pointer hover:bg-white/5 transition-colors"
+                              onClick={() => handleSort("volume24h")}
+                            >
+                              <div className="flex items-center justify-end gap-2">
+                                24h Volume
+                                {getSortIndicator("volume24h")}
+                              </div>
+                            </th>
+                            <th
+                              className="text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base cursor-pointer hover:bg-white/5 transition-colors"
+                              onClick={() => handleSort("fees")}
+                            >
+                              <div className="flex items-center justify-end gap-2">
+                                24h Fees
+                                {getSortIndicator("fees")}
+                              </div>
+                            </th>
+                            <th
+                              className="hidden lg:table-cell text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base cursor-pointer hover:bg-white/5 transition-colors"
+                              onClick={() => handleSort("liquidity")}
+                            >
+                              <div className="flex items-center justify-end gap-2">
+                                Liquidity
+                                {getSortIndicator("liquidity")}
+                              </div>
+                            </th>
+                            <th
+                              className="text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base cursor-pointer hover:bg-white/5 transition-colors"
+                              onClick={() => handleSort("apr")}
+                            >
+                              <div className="flex items-center justify-end gap-2">
+                                APR
+                                {getSortIndicator("apr")}
+                              </div>
+                            </th>
+                            <th
+                              className="text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base cursor-pointer hover:bg-white/5 transition-colors"
+                              onClick={() => handleSort("network")}
+                            >
+                              <div className="flex items-center justify-end gap-2">
+                                Network
+                                {getSortIndicator("network")}
+                              </div>
+                            </th>
+                            <th
+                              className="hidden lg:table-cell text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base cursor-pointer hover:bg-white/5 transition-colors"
+                              onClick={() => handleSort("lastUpdated")}
+                            >
+                              <div className="flex items-center justify-end gap-2">
+                                Last Updated
+                                {getSortIndicator("lastUpdated")}
+                              </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentPageItems.map((pair, index) => (
+                            <tr
+                              key={pair.id}
+                              className="border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer"
+                              onClick={() => handleRowClick(pair)}
+                            >
+                              <td className="py-3 lg:py-4 px-3 lg:px-4">
+                                <div className="flex items-center gap-3 lg:gap-4">
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleFavorite(pair.id);
+                                      }}
+                                      aria-label={
+                                        favorites.includes(pair.id)
+                                          ? "Remove from favorites"
+                                          : "Add to favorites"
+                                      }
+                                      className="focus:outline-none flex-shrink-0"
+                                      tabIndex={0}
+                                    >
+                                      {favorites.includes(pair.id) ? (
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          fill="#FFD700"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth={1.5}
+                                          stroke="#FFD700"
+                                          className="w-4 h-4 lg:w-5 lg:h-5 mr-1"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                          />
+                                        </svg>
+                                      ) : (
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth={1.5}
+                                          stroke="#FFD700"
+                                          className="w-4 h-4 lg:w-5 lg:h-5 mr-1"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                          />
+                                        </svg>
+                                      )}
+                                    </button>
+                                    <div className="flex items-center flex-shrink-0">
+                                      <img
+                                        src={pair.baseIcon}
+                                        alt={pair.baseCurrency}
+                                        className="w-6 h-6 lg:w-8 lg:h-8 rounded-full border-2 border-white/20 shadow-sm bg-white"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display =
+                                            "none";
+                                        }}
+                                      />
+                                      <img
+                                        src={pair.targetIcon}
+                                        alt={pair.targetCurrency}
+                                        className="w-6 h-6 lg:w-8 lg:h-8 rounded-full border-2 border-white/20 shadow-sm -ml-1 lg:-ml-2 bg-white"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display =
+                                            "none";
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="text-white font-medium text-sm lg:text-base truncate">
+                                      {pair.pair}
+                                    </span>
+                                    <div className="flex gap-2 mt-1">
+                                      {isCompxRewardEligible(pair) && (
+                                        <span
+                                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                                          style={{
+                                            background:
+                                              "rgba(16, 185, 129, 0.2)", // CompX: green bg
+                                            color: "#10b981", // CompX: green text
+                                            borderColor: "#10b981", // CompX: green border
+                                          }}
+                                          title="This pool is eligible for CompX rewards"
+                                        >
+                                          CompX
+                                        </span>
+                                      )}
+                                      {pair.isPowPair && (
+                                        <span
+                                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                                          style={{
+                                            background:
+                                              "rgba(30, 174, 219, 0.1)", // POW Pair: blue bg
+                                            color: "#1EAEDB", // POW Pair: blue text
+                                            borderColor: "#1EAEDB", // POW Pair: blue border
+                                          }}
+                                        >
+                                          POW Pair
+                                        </span>
+                                      )}
+                                      {pair.fee && (
+                                        <span
+                                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+                                          style={{
+                                            background: "rgba(255,255,255,0.1)", // Fee: gray bg
+                                            color: "#fff", // Fee: white text
+                                            borderColor:
+                                              "rgba(255,255,255,0.2)", // Fee: light border
+                                          }}
+                                        >
+                                          {pair.fee}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30 flex-shrink-0">
+                                    {pair.fee}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
+                                <div className="text-white font-semibold text-sm lg:text-base flex items-center justify-end gap-2">
+                                  {pair.price.toFixed(6)}
+                                </div>
+                                <div className="text-xs lg:text-sm text-gray-400">
+                                  {(1 / pair.price).toFixed(6)}{" "}
+                                  {pair.baseCurrency}
+                                </div>
+                              </td>
+                              <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
+                                <div className="text-white font-semibold text-sm lg:text-base">
+                                  ${pair.volume24h.toLocaleString()}
+                                </div>
+                              </td>
+                              <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
+                                <div className="text-white font-semibold text-sm lg:text-base">
+                                  ${pair.fees.toFixed(2)}
+                                </div>
+                                {/*isCompxRewardEligible(pair) && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30 ml-2">
+                                    CompX Eligible
+                                  </span>
+                                )*/}
+                              </td>
+                              <td className="hidden lg:table-cell py-3 lg:py-4 px-3 lg:px-4 text-right">
+                                <div className="text-white font-semibold text-sm lg:text-base">
+                                  ${pair.liquidity.toLocaleString()}
+                                </div>
+                              </td>
+                              <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
+                                <div className="text-white font-semibold text-sm lg:text-base">
+                                  {pair.apr.toFixed(2)}%
+                                </div>
+                              </td>
+                              <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                                    pair.network === "Voi"
+                                      ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                      : "bg-[#1EAEDB]/20 text-[#1EAEDB] border-[#1EAEDB]/30"
+                                  }`}
+                                >
+                                  {pair.network}
+                                </span>
+                              </td>
+                              <td className="hidden lg:table-cell py-3 lg:py-4 px-3 lg:px-4 text-right">
+                                <div className="text-xs lg:text-sm text-gray-400">
+                                  {new Date(pair.lastUpdated).toLocaleString()}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Loading Skeleton for Trading Table */}
+              {isLoadingTrading && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-8">
+                  <div className="animate-pulse">
+                    <div className="h-8 bg-white/10 rounded mb-6 w-1/3"></div>
+                    <div className="space-y-4">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between py-4"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-white/10 rounded-full"></div>
+                            <div className="w-24 h-4 bg-white/10 rounded"></div>
+                          </div>
+                          <div className="w-20 h-4 bg-white/10 rounded"></div>
+                          <div className="w-24 h-4 bg-white/10 rounded"></div>
+                          <div className="w-20 h-4 bg-white/10 rounded"></div>
+                          <div className="w-16 h-4 bg-white/10 rounded"></div>
+                          <div className="w-20 h-4 bg-white/10 rounded"></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between mt-6 pt-6 border-t border-white/20 gap-4">
+                  <div className="text-sm text-gray-300 text-center sm:text-left">
+                    Showing {startIndex + 1} to{" "}
+                    {Math.min(endIndex, filteredPairs.length)} of{" "}
+                    {filteredPairs.length} pairs
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() =>
+                        setCurrentPage(Math.max(1, currentPage - 1))
+                      }
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="hidden sm:inline">Previous</span>
+                      <span className="sm:hidden">←</span>
+                    </Button>
+
+                    <div className="flex items-center gap-1">
+                      {/* Show limited page numbers on mobile */}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter((page) => {
+                          if (totalPages <= 7) return true;
+                          if (page === 1 || page === totalPages) return true;
+                          if (
+                            page >= currentPage - 1 &&
+                            page <= currentPage + 1
+                          )
+                            return true;
+                          return false;
+                        })
+                        .map((page, index, array) => {
+                          // Add ellipsis if there's a gap
+                          const prevPage = array[index - 1];
+                          const showEllipsis = prevPage && page - prevPage > 1;
+
+                          return (
+                            <div key={page} className="flex items-center">
+                              {showEllipsis && (
+                                <span className="px-2 text-gray-400">...</span>
+                              )}
+                              <Button
+                                onClick={() => setCurrentPage(page)}
+                                className={`px-2 sm:px-3 py-1 text-sm rounded-lg transition-colors ${
+                                  currentPage === page
+                                    ? "bg-[#1EAEDB] text-white"
+                                    : "bg-white/10 hover:bg-white/20 text-white"
+                                }`}
+                              >
+                                {page}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                    </div>
+
+                    <Button
+                      onClick={() =>
+                        setCurrentPage(Math.min(totalPages, currentPage + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="hidden sm:inline">Next</span>
+                      <span className="sm:hidden">→</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Spacing after POW pair table */}
+              <div className="h-12 md:h-16"></div>
+
+              {/* Overview Stats for Top 50 Table */}
+              {top50PairsByTVL.length > 0 && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-6">
+                  <h3 className="text-lg sm:text-xl font-bold text-white mb-4">
+                    Top 100 Overview
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-300">
+                            Total TVL
+                          </p>
+                          <p className="text-base sm:text-xl font-bold text-white">
+                            $
+                            {top50PairsByTVL
+                              .reduce((sum, pair) => sum + pair.liquidity, 0)
+                              .toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-300">
+                            POW Pairs
+                          </p>
+                          <p className="text-base sm:text-xl font-bold text-white">
+                            {top50PairsByTVL.filter((p) => p.isPowPair).length}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-300">
+                            Voi Pairs
+                          </p>
+                          <p className="text-base sm:text-xl font-bold text-white">
+                            {
+                              top50PairsByTVL.filter((p) => p.network === "Voi")
+                                .length
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-lg flex items-center justify-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            stroke="currentColor"
+                            className="w-5 h-5 sm:w-6 sm:h-6 text-white"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-300">
+                            Pact Pairs
+                          </p>
+                          <p className="text-base sm:text-xl font-bold text-white">
+                            {50 -
+                              top50PairsByTVL.filter((p) => p.network === "Voi")
+                                .length}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Top 100 Trading Pairs by TVL */}
+              {top50PairsByTVL.length > 0 && (
+                <div
+                  className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 md:p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-6 md:mb-8"
+                  data-section="top100"
+                >
+                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4 sm:mb-6 gap-3 sm:gap-4">
+                    <h3 className="text-base sm:text-lg md:text-xl font-bold text-white">
+                      Top 100 Trading Pairs by TVL
+                    </h3>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                      <div className="text-xs sm:text-sm text-gray-300 order-2 sm:order-1">
+                        Showing highest liquidity pairs across all networks
+                        (including non-POW pairs)
+                      </div>
+                      <Button
+                        onClick={exportTop50ToCSV}
+                        className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 flex items-center gap-1 sm:gap-2 order-1 sm:order-2 w-full sm:w-auto justify-center"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-3 h-3 sm:w-4 sm:h-4"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                          />
+                        </svg>
+                        Export CSV
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Mobile Card Layout */}
+                  <div className="block md:hidden space-y-3">
+                    {top50PairsByTVL.map((pair, index) => (
+                      <div
+                        key={`tvl-mobile-${pair.id}`}
+                        className={`bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer ${
+                          pair.isPowPair
+                            ? "bg-[#1EAEDB]/10 border-[#1EAEDB]/20"
+                            : ""
+                        }`}
+                        onClick={() => handleRowClick(pair, "top100tvl")}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs ${
+                                pair.isPowPair
+                                  ? "bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC]"
+                                  : "bg-gradient-to-br from-gray-600 to-gray-700"
+                              }`}
+                            >
+                              {index + 1}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavorite(pair.id);
+                                }}
+                                aria-label={
+                                  favorites.includes(pair.id)
+                                    ? "Remove from favorites"
+                                    : "Add to favorites"
+                                }
+                                className="focus:outline-none flex-shrink-0"
+                                tabIndex={0}
+                              >
+                                {favorites.includes(pair.id) ? (
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="#FFD700"
+                                    viewBox="0 0 24 24"
+                                    strokeWidth={1.5}
+                                    stroke="#FFD700"
+                                    className="w-4 h-4"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                    />
+                                  </svg>
+                                ) : (
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    strokeWidth={1.5}
+                                    stroke="#FFD700"
+                                    className="w-4 h-4"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                    />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                              pair.network === "Voi"
+                                ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                : "bg-[#1EAEDB]/20 text-[#1EAEDB] border-[#1EAEDB]/30"
+                            }`}
+                          >
+                            {pair.network}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="flex items-center flex-shrink-0">
+                            <img
+                              src={pair.baseIcon}
+                              alt={pair.baseCurrency}
+                              className="w-6 h-6 rounded-full border-2 border-white/20 shadow-sm bg-white"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                            <img
+                              src={pair.targetIcon}
+                              alt={pair.targetCurrency}
+                              className="w-6 h-6 rounded-full border-2 border-white/20 shadow-sm -ml-1 bg-white"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="text-white font-medium text-sm truncate">
+                              {pair.pair}
+                            </span>
+                          </div>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30 flex-shrink-0">
+                            {pair.fee}
+                          </span>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-white font-semibold text-sm">
+                            ${pair.liquidity.toLocaleString()}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {(
+                              (pair.liquidity /
+                                top50PairsByTVL.reduce(
+                                  (sum, p) => sum + p.liquidity,
+                                  0
+                                )) *
+                              100
+                            ).toFixed(1)}
+                            % of total
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop Table Layout */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <div className="min-w-full">
+                      <table className="w-full min-w-[600px]">
+                        <thead>
+                          <tr className="border-b border-white/20">
+                            <th className="text-left py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
+                              <div className="flex items-center gap-2">
+                                Rank
+                              </div>
+                            </th>
+                            <th className="text-left py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
+                              <div className="flex items-center gap-2">
+                                Trading Pair
+                              </div>
+                            </th>
+                            <th className="text-right py-3 px-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
+                              <div className="flex items-center justify-end gap-2">
+                                TVL
+                              </div>
+                            </th>
+                            <th className="text-right py-3 lg:px-4 text-white font-semibold text-sm lg:text-base">
+                              <div className="flex items-center justify-end gap-2">
+                                Network
+                              </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {top50PairsByTVL.map((pair, index) => (
+                            <tr
+                              key={`tvl-${pair.id}`}
+                              className={`border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer ${
+                                pair.isPowPair ? "bg-[#1EAEDB]/5" : ""
+                              }`}
+                              onClick={() => handleRowClick(pair, "top100tvl")}
+                            >
+                              <td className="py-3 lg:py-4 px-3 lg:px-4">
+                                <div className="flex items-center gap-2 lg:gap-3">
+                                  <div
+                                    className={`w-6 h-6 lg:w-8 lg:h-8 rounded-full flex items-center justify-center text-white font-bold text-xs lg:text-sm ${
+                                      pair.isPowPair
+                                        ? "bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC]"
+                                        : "bg-gradient-to-br from-gray-600 to-gray-700"
+                                    }`}
+                                  >
+                                    {index + 1}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 lg:py-4 px-3 lg:px-4">
+                                <div className="flex items-center gap-2 lg:gap-3">
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleFavorite(pair.id);
+                                      }}
+                                      aria-label={
+                                        favorites.includes(pair.id)
+                                          ? "Remove from favorites"
+                                          : "Add to favorites"
+                                      }
+                                      className="focus:outline-none flex-shrink-0"
+                                      tabIndex={0}
+                                    >
+                                      {favorites.includes(pair.id) ? (
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          fill="#FFD700"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth={1.5}
+                                          stroke="#FFD700"
+                                          className="w-4 h-4 lg:w-5 lg:h-5 mr-1"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                          />
+                                        </svg>
+                                      ) : (
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth={1.5}
+                                          stroke="#FFD700"
+                                          className="w-4 h-4 lg:w-5 lg:h-5 mr-1"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M12 17.25l-6.16 3.73 1.64-7.03L2 9.24l7.19-.61L12 2.5l2.81 6.13 7.19.61-5.48 4.71 1.64 7.03z"
+                                          />
+                                        </svg>
+                                      )}
+                                    </button>
+                                    <div className="flex items-center flex-shrink-0">
+                                      <img
+                                        src={pair.baseIcon}
+                                        alt={pair.baseCurrency}
+                                        className="w-6 h-6 lg:w-8 lg:h-8 rounded-full border-2 border-white/20 shadow-sm bg-white"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display =
+                                            "none";
+                                        }}
+                                      />
+                                      <img
+                                        src={pair.targetIcon}
+                                        alt={pair.targetCurrency}
+                                        className="w-6 h-6 lg:w-8 lg:h-8 rounded-full border-2 border-white/20 shadow-sm -ml-1 lg:-ml-2 bg-white"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display =
+                                            "none";
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="text-white font-medium text-sm lg:text-base truncate">
+                                      {pair.pair}
+                                    </span>
+                                    <div>
+                                      {isCompxRewardEligible(pair) && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30 ml-2">
+                                          CompX Eligible
+                                        </span>
+                                      )}
+                                      {pair.isPowPair && (
+                                        <span className="text-xs text-[#1EAEDB] font-medium">
+                                          POW Pair
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#1EAEDB]/20 text-[#1EAEDB] border border-[#1EAEDB]/30 flex-shrink-0">
+                                    {pair.fee}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
+                                <div className="text-white font-semibold text-sm lg:text-base">
+                                  ${pair.liquidity.toLocaleString()}
+                                </div>
+                                <div className="text-xs lg:text-sm text-gray-400">
+                                  {(
+                                    (pair.liquidity /
+                                      top50PairsByTVL.reduce(
+                                        (sum, p) => sum + p.liquidity,
+                                        0
+                                      )) *
+                                    100
+                                  ).toFixed(1)}
+                                  % of total
+                                </div>
+                              </td>
+                              <td className="py-3 lg:py-4 px-3 lg:px-4 text-right">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                                    pair.network === "Voi"
+                                      ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                      : "bg-[#1EAEDB]/20 text-[#1EAEDB] border-[#1EAEDB]/30"
+                                  }`}
+                                >
+                                  {pair.network}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Loading state for Vestige Labs */}
+              {isLoadingVestige && (
+                <div className="mt-8 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                  <div className="text-center py-8">
+                    <div className="animate-spin h-8 w-8 border-4 border-[#1EAEDB] border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-gray-300">
+                      Loading Algorand pool data from Vestige Labs...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Error state for Vestige Labs */}
+              {vestigeError && (
+                <div className="mt-8 bg-red-500/20 border border-red-500/30 rounded-xl p-6">
+                  <div className="text-center">
+                    <p className="text-red-400 mb-4">
+                      Error loading Vestige Labs data: {vestigeError}
+                    </p>
+                    <Button
+                      onClick={fetchPactPowPools}
+                      className="px-4 py-2 bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-lg"
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="container mx-auto px-2 sm:px-4 pb-2 max-w-full sm:max-w-[1400px]">
         <div className="min-h-[50vh] flex items-center justify-center flex-col gap-6">
           {isLoading && (
             <div className="text-center p-8">
@@ -2978,7 +4194,7 @@ const Airdrop: React.FC = () => {
 
           {recipientsData.length > 0 ? (
             <>
-              <div className="w-full max-w-6xl mb-8">
+              <div className="w-full max-w-full sm:max-w-3xl mb-4 sm:mb-8 px-2 sm:px-0">
                 <h1 className="text-3xl font-bold mb-6">Summary</h1>
                 <div className="bg-card rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(30,174,219,0.1)] border border-border/50 hover:shadow-[0_8px_30px_-4px_rgba(30,174,219,0.2)] transition-shadow mb-12">
                   <h2 className="text-xl font-semibold mb-4">Total Rewards</h2>
@@ -3025,7 +4241,7 @@ const Airdrop: React.FC = () => {
                 {recipientsData.map((recipient, index) => (
                   <div
                     key={recipient.Address}
-                    className="w-full max-w-3xl mb-24"
+                    className="w-full max-w-full sm:max-w-3xl mb-4 sm:mb-8 px-2 sm:px-0"
                   >
                     <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
                       Airdrop for {recipient.Address.slice(0, 5)}...
@@ -3060,10 +4276,10 @@ const Airdrop: React.FC = () => {
               </div>
             </>
           ) : recipientAddresses ? (
-            <div className="w-full max-w-6xl mx-auto">
+            <div className="w-full max-w-full sm:max-w-3xl mb-4 sm:mb-8 px-2 sm:px-0">
               <h1 className="text-3xl font-bold mb-6">Airdrop Details</h1>
               {recipientAddresses.map((address, index) => (
-                <div key={address} className="w-full max-w-3xl mb-24">
+                <div key={address} className="w-full max-w-full sm:max-w-3xl mb-4 sm:mb-8 px-2 sm:px-0">
                   <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
                     Airdrop for {address.slice(0, 5)}...{address.slice(-5)}
                     <button
@@ -3091,706 +4307,13 @@ const Airdrop: React.FC = () => {
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="w-full max-w-4xl mx-auto">
-              {/* Header Section */}
-              <div className="text-center mb-12">
-                <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] bg-clip-text text-transparent">
-                  Check Your Airdrop
-                </h2>
-                <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                  Enter your wallet address or connect your wallet to check your
-                  eligibility for the POW token airdrop
-                </p>
-              </div>
-
-              {/* Eligibility Check Cards */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-                {/* Wallet Connect Card */}
-                <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-[#1EAEDB]/20 hover:shadow-[0_12px_48px_rgba(30,174,219,0.15)] transition-all duration-300">
-                  <div className="text-center mb-6">
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-8 h-8 text-white"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3"
-                        />
-                      </svg>
-                    </div>
-                    <h3 className="text-2xl font-bold mb-2">Connect Wallet</h3>
-                    <p className="text-gray-600 mb-6">
-                      Quick and secure way to check eligibility with your
-                      connected wallet
-                    </p>
-                  </div>
-
-                  <Button
-                    className="w-full text-lg px-6 py-4 rounded-xl shadow-lg font-bold bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] hover:from-[#31BFEC] hover:to-[#1EAEDB] text-white transition-all duration-300 transform hover:-translate-y-1"
-                    onClick={handleWalletEligibilityCheck}
-                    disabled={isWalletChecking}
-                  >
-                    {isWalletChecking ? (
-                      <div className="flex items-center gap-2">
-                        <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-                        <span>Checking...</span>
-                      </div>
-                    ) : activeAccount ? (
-                      <div className="flex items-center gap-2">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={1.5}
-                          stroke="currentColor"
-                          className="w-5 h-5"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3"
-                          />
-                        </svg>
-                        Check Connected Wallet
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={1.5}
-                          stroke="currentColor"
-                          className="w-5 h-5"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3"
-                          />
-                        </svg>
-                        Connect Wallet & Check
-                      </div>
-                    )}
-                  </Button>
-
-                  {activeAccount && (
-                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-sm text-green-700 text-center mb-2">
-                        Connected: {activeAccount.address.slice(0, 6)}...
-                        {activeAccount.address.slice(-4)}
-                      </p>
-                      <Button
-                        onClick={() => {
-                          // Disconnect the active wallet
-                          if (activeAccount) {
-                            // Find the wallet that's currently connected and disconnect it
-                            const connectedWallet = wallets.find((wallet) =>
-                              wallet.accounts?.some(
-                                (account) =>
-                                  account.address === activeAccount.address
-                              )
-                            );
-                            if (connectedWallet) {
-                              connectedWallet.disconnect();
-                            }
-                          }
-                        }}
-                        className="w-full text-sm px-3 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
-                      >
-                        Disconnect Wallet
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Manual Address Card */}
-                <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-4 sm:p-6 md:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-[#1EAEDB]/20 hover:shadow-[0_12px_48px_rgba(30,174,219,0.15)] transition-all duration-300">
-                  <div className="text-center mb-4 sm:mb-6">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-gray-600 to-gray-700 rounded-2xl mx-auto mb-3 sm:mb-4 flex items-center justify-center shadow-lg">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-8 h-8 text-white"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75"
-                        />
-                      </svg>
-                    </div>
-                    <h3 className="text-2xl font-bold mb-2">Enter Address</h3>
-                    <p className="text-gray-600 mb-6">
-                      Manually enter any wallet address to check eligibility
-                    </p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <Label
-                        htmlFor="wallet-address"
-                        className={cn(
-                          "absolute left-3 transition-all duration-200 z-10 text-sm",
-                          addressInput ? "opacity-0" : "top-4"
-                        )}
-                      >
-                        Enter wallet address
-                      </Label>
-                      <div className="relative flex flex-col sm:flex-row gap-2 sm:gap-0">
-                        <Input
-                          id="wallet-address"
-                          type="text"
-                          placeholder=""
-                          value={addressInput}
-                          onChange={(e) => {
-                            setAddressInput(e.target.value);
-                            validateAddress(e.target.value);
-                          }}
-                          className={cn(
-                            "px-6 py-4 h-14 text-lg rounded-xl",
-                            "sm:pr-[140px]",
-                            !isAddressValid &&
-                              addressInput &&
-                              "border-red-500 focus:ring-red-500"
-                          )}
-                        />
-                        <Button
-                          className={cn(
-                            "h-12 text-base font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] disabled:opacity-50 rounded-xl px-4",
-                            "sm:absolute sm:right-1 sm:top-1"
-                          )}
-                          onClick={handleAddressEligibilityCheck}
-                          disabled={
-                            !addressInput ||
-                            !isAddressValid ||
-                            isAddressChecking ||
-                            isResolvingEnvoi ||
-                            isResolvingAlgo
-                          }
-                        >
-                          {isAddressChecking ||
-                          isResolvingEnvoi ||
-                          isResolvingAlgo ? (
-                            <div className="flex items-center gap-2">
-                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                              <span>
-                                {isResolvingEnvoi || isResolvingAlgo
-                                  ? "Resolving..."
-                                  : "Checking"}
-                              </span>
-                            </div>
-                          ) : (
-                            "Check"
-                          )}
-                        </Button>
-                      </div>
-                      {!isAddressValid && addressInput && (
-                        <p className="text-red-500 text-sm mt-1">
-                          Please enter a valid wallet address
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Name Resolution Section */}
-              <div className="bg-card/30 backdrop-blur-sm rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.1)] border border-[#1EAEDB]/20">
-                <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold mb-2">Name Resolution</h3>
-                  <p className="text-gray-600">
-                    Check eligibility using human-readable names
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* enVoi Name Input - Only show for Voi network */}
-                  {activeNetwork.toLowerCase().includes("voi") && (
-                    <div className="relative">
-                      {/*<div className="text-center mb-4">
-                        <span className="text-gray-500 text-sm font-medium">
-                          enVoi Names (.voi)/
-                        </span>
-                      </div>*/}
-                      <Label
-                        htmlFor="envoi-name"
-                        className={cn(
-                          "absolute left-3 transition-all duration-200 z-10 text-sm",
-                          envoiNameInput ? "opacity-0" : "top-4"
-                        )}
-                      >
-                        Enter .voi name
-                      </Label>
-                      <div className="relative flex flex-col sm:flex-row gap-2 sm:gap-0">
-                        <div className="relative flex-1">
-                          {selectedAvatar && (
-                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
-                              <img
-                                src={selectedAvatar}
-                                alt="Avatar"
-                                className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
-                                onError={(e) => {
-                                  // Show fallback avatar when image fails to load
-                                  const fallback =
-                                    e.currentTarget.parentElement?.querySelector(
-                                      ".fallback-avatar"
-                                    );
-                                  if (fallback) {
-                                    fallback.classList.remove("hidden");
-                                  }
-                                  e.currentTarget.style.display = "none";
-                                }}
-                              />
-                              <div className="fallback-avatar hidden w-12 h-12 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
-                                {envoiNameInput.charAt(0).toUpperCase()}
-                              </div>
-                            </div>
-                          )}
-                          {!selectedAvatar && envoiNameInput && (
-                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
-                              <div className="w-12 h-12 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
-                                {envoiNameInput.charAt(0).toUpperCase()}
-                              </div>
-                            </div>
-                          )}
-                          <Input
-                            id="envoi-name"
-                            type="text"
-                            placeholder=""
-                            value={envoiNameInput}
-                            onChange={(e) => {
-                              setEnvoiNameInput(e.target.value.toLowerCase());
-                              if (!e.target.value) {
-                                setSelectedAvatar(null);
-                              }
-                            }}
-                            onFocus={() => {
-                              if (searchResults.length > 0) {
-                                setShowDropdown(true);
-                              }
-                            }}
-                            onBlur={() => {
-                              // Delay hiding dropdown to allow for clicks
-                              setTimeout(() => setShowDropdown(false), 200);
-                            }}
-                            ref={envoiInputRef}
-                            className={cn(
-                              "px-6 py-4 h-14 text-lg rounded-xl sm:pr-[140px]",
-                              envoiNameInput && "bg-white text-gray-900",
-                              (selectedAvatar || envoiNameInput) && "pl-16"
-                            )}
-                          />
-                        </div>
-                        <Button
-                          className={cn(
-                            "h-12 text-base font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] disabled:opacity-50 rounded-xl px-4",
-                            "sm:absolute sm:right-1 sm:top-1"
-                          )}
-                          onClick={handleEnvoiEligibilityCheck}
-                          disabled={
-                            !envoiNameInput ||
-                            isEnvoiChecking ||
-                            isResolvingEnvoi
-                          }
-                        >
-                          {isEnvoiChecking || isResolvingEnvoi ? (
-                            <div className="flex items-center gap-2">
-                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                              <span>
-                                {isResolvingEnvoi ? "Resolving..." : "Checking"}
-                              </span>
-                            </div>
-                          ) : (
-                            "Check"
-                          )}
-                        </Button>
-                      </div>
-
-                      {/* Search Results Dropdown */}
-                      {showDropdown && (
-                        <DropdownPortal anchorRef={envoiInputRef}>
-                          <div className="bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                            {isSearching ? (
-                              <div className="p-4 text-center text-gray-500">
-                                <div className="animate-spin h-4 w-4 border-2 border-[#1EAEDB] border-t-transparent rounded-full mx-auto mb-2"></div>
-                                Searching...
-                              </div>
-                            ) : searchResults.length > 0 ? (
-                              <div>
-                                {searchResults.map((result, index) => (
-                                  <button
-                                    key={index}
-                                    onClick={() =>
-                                      handleNameSelect(
-                                        result.name,
-                                        result.avatar
-                                      )
-                                    }
-                                    className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors flex items-center gap-3"
-                                  >
-                                    {result.metadata?.avatar && (
-                                      <img
-                                        src={
-                                          result.metadata?.avatar ||
-                                          result.avatar
-                                        }
-                                        alt={`${result.name} avatar`}
-                                        className="w-12 h-12 rounded-full flex-shrink-0"
-                                        onError={(e) => {
-                                          // Show fallback avatar when image fails to load
-                                          const fallback =
-                                            e.currentTarget.parentElement?.querySelector(
-                                              ".fallback-avatar"
-                                            );
-                                          if (fallback) {
-                                            fallback.classList.remove("hidden");
-                                          }
-                                          e.currentTarget.style.display =
-                                            "none";
-                                        }}
-                                      />
-                                    )}
-                                    {!result.avatar &&
-                                      !result.metadata?.avatar && (
-                                        <div className="w-12 h-12 rounded-full flex-shrink-0 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
-                                          {result.name.charAt(0).toUpperCase()}
-                                        </div>
-                                      )}
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-medium text-gray-900">
-                                        {result.name}
-                                      </div>
-                                      <div className="text-sm text-gray-500 truncate">
-                                        {result.address}
-                                      </div>
-                                    </div>
-                                  </button>
-                                ))}
-                              </div>
-                            ) : envoiNameInput.length >= 2 ? (
-                              <div className="p-4 text-center text-gray-500">
-                                No enVoi names found
-                              </div>
-                            ) : null}
-                          </div>
-                        </DropdownPortal>
-                      )}
-                    </div>
-                  )}
-
-                  {/* algo Name Input - Only show for algo network */}
-                  {isAlgoNetwork() && (
-                    <div className="relative">
-                      {/*<div className="text-center mb-4">
-                        <span className="text-gray-500 text-sm font-medium">
-                          Algorand NFDs (.algo)
-                        </span>
-                      </div>*/}
-                      <Label
-                        htmlFor="algo-name"
-                        className={cn(
-                          "absolute left-3 transition-all duration-200 z-10 text-sm",
-                          algoNameInput ? "opacity-0" : "top-4"
-                        )}
-                      >
-                        Enter .algo name
-                      </Label>
-                      <div className="relative flex flex-col sm:flex-row gap-2 sm:gap-0">
-                        <div className="relative flex-1">
-                          {selectedAlgoAvatar && (
-                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
-                              <img
-                                src={selectedAlgoAvatar}
-                                alt="Avatar"
-                                className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
-                                onError={(e) => {
-                                  // Show fallback avatar when image fails to load
-                                  const fallback =
-                                    e.currentTarget.parentElement?.querySelector(
-                                      ".fallback-avatar"
-                                    );
-                                  if (fallback) {
-                                    fallback.classList.remove("hidden");
-                                  }
-                                  e.currentTarget.style.display = "none";
-                                }}
-                              />
-                              <div className="fallback-avatar hidden w-12 h-12 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
-                                {algoNameInput.charAt(0).toUpperCase()}
-                              </div>
-                            </div>
-                          )}
-                          {!selectedAlgoAvatar && algoNameInput && (
-                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-20">
-                              <div className="w-12 h-12 rounded-full border-2 border-white shadow-sm bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
-                                {algoNameInput.charAt(0).toUpperCase()}
-                              </div>
-                            </div>
-                          )}
-                          <Input
-                            id="algo-name"
-                            type="text"
-                            placeholder=""
-                            value={algoNameInput}
-                            onChange={(e) => {
-                              setAlgoNameInput(e.target.value.toLowerCase());
-                              if (!e.target.value) {
-                                setSelectedAlgoAvatar(null);
-                              }
-                            }}
-                            onFocus={() => {
-                              if (algoSearchResults.length > 0) {
-                                setShowAlgoDropdown(true);
-                              }
-                            }}
-                            onBlur={() => {
-                              // Delay hiding dropdown to allow for clicks
-                              setTimeout(() => setShowAlgoDropdown(false), 200);
-                            }}
-                            ref={algoInputRef}
-                            className={cn(
-                              "px-6 py-4 h-14 text-lg rounded-xl sm:pr-[140px]",
-                              algoNameInput && "bg-white text-gray-900",
-                              (selectedAlgoAvatar || algoNameInput) && "pl-16"
-                            )}
-                          />
-                        </div>
-                        <Button
-                          className={cn(
-                            "h-12 text-base font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] disabled:opacity-50 rounded-xl px-4",
-                            "sm:absolute sm:right-1 sm:top-1"
-                          )}
-                          onClick={handleAlgoEligibilityCheck}
-                          disabled={
-                            !algoNameInput || isAlgoChecking || isResolvingAlgo
-                          }
-                        >
-                          {isAlgoChecking || isResolvingAlgo ? (
-                            <div className="flex items-center gap-2">
-                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                              <span>
-                                {isResolvingAlgo ? "Resolving..." : "Checking"}
-                              </span>
-                            </div>
-                          ) : (
-                            "Check"
-                          )}
-                        </Button>
-                      </div>
-
-                      {/* Search Results Dropdown */}
-                      {showAlgoDropdown && (
-                        <DropdownPortal anchorRef={algoInputRef}>
-                          <div className="bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                            {isAlgoSearching ? (
-                              <div className="p-4 text-center text-gray-500">
-                                <div className="animate-spin h-4 w-4 border-2 border-[#1EAEDB] border-t-transparent rounded-full mx-auto mb-2"></div>
-                                Searching...
-                              </div>
-                            ) : algoSearchResults.length > 0 ? (
-                              <div>
-                                {algoSearchResults.map((result, index) => (
-                                  <button
-                                    key={index}
-                                    onClick={() =>
-                                      handleAlgoNameSelect(
-                                        result.name,
-                                        result.avatar
-                                      )
-                                    }
-                                    className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors flex items-center gap-3"
-                                  >
-                                    {result.metadata?.avatar && (
-                                      <img
-                                        src={
-                                          result.metadata?.avatar ||
-                                          result.avatar
-                                        }
-                                        alt={`${result.name} avatar`}
-                                        className="w-12 h-12 rounded-full flex-shrink-0"
-                                        onError={(e) => {
-                                          // Show fallback avatar when image fails to load
-                                          const fallback =
-                                            e.currentTarget.parentElement?.querySelector(
-                                              ".fallback-avatar"
-                                            );
-                                          if (fallback) {
-                                            fallback.classList.remove("hidden");
-                                          }
-                                          e.currentTarget.style.display =
-                                            "none";
-                                        }}
-                                      />
-                                    )}
-                                    {!result.avatar &&
-                                      !result.metadata?.avatar && (
-                                        <div className="w-12 h-12 rounded-full flex-shrink-0 bg-gradient-to-br from-[#1EAEDB] to-[#31BFEC] flex items-center justify-center text-white font-bold text-sm">
-                                          {result.name.charAt(0).toUpperCase()}
-                                        </div>
-                                      )}
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-medium text-gray-900">
-                                        {result.name}
-                                      </div>
-                                      <div className="text-sm text-gray-500 truncate">
-                                        {result.address}
-                                      </div>
-                                    </div>
-                                  </button>
-                                ))}
-                              </div>
-                            ) : algoNameInput.length >= 2 ? (
-                              <div className="p-4 text-center text-gray-500">
-                                No algo names found
-                              </div>
-                            ) : null}
-                          </div>
-                        </DropdownPortal>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Eligibility Status */}
-              {!isChecking &&
-              !isResolvingEnvoi &&
-              !isResolvingAlgo &&
-              eligibilityStatus.message ? (
-                <div
-                  className={cn(
-                    "mt-8 p-8 rounded-2xl text-center shadow-[0_8px_32px_rgba(0,0,0,0.1)] border transition-all duration-500",
-                    "animate-in fade-in duration-500",
-                    eligibilityStatus.isEligible
-                      ? "bg-card/50 backdrop-blur-sm border-[#1EAEDB]/20 hover:shadow-[0_12px_48px_rgba(30,174,219,0.15)]"
-                      : "bg-card/50 backdrop-blur-sm border-border/50"
-                  )}
-                >
-                  {eligibilityStatus.isEligible ? (
-                    <div className="animate-in slide-in-from-bottom duration-500 delay-200">
-                      <h3 className="text-3xl font-bold text-[#1EAEDB] mb-4">
-                        🎉 You're Eligible for POW!
-                      </h3>
-
-                      {/* Display the identifier that was used */}
-                      <div className="mb-4 p-3 bg-[#1EAEDB]/40 rounded-lg border border-[#1EAEDB]/30">
-                        <p className="text-sm text-[#1EAEDB] font-medium mb-1">
-                          Checked for:
-                        </p>
-                        {lastChecker === "wallet" && activeAccount && (
-                          <p className="text-lg font-semibold text-white tracking-wider">
-                            {activeAccount.address.slice(0, 6)}...
-                            {activeAccount.address.slice(-4)}
-                          </p>
-                        )}
-                        {lastChecker === "envoi" && envoiNameInput && (
-                          <p className="text-lg font-semibold text-white tracking-wider">
-                            {envoiNameInput}
-                          </p>
-                        )}
-                        {lastChecker === "algo" && algoNameInput && (
-                          <p className="text-lg font-semibold text-white tracking-wider">
-                            {algoNameInput}
-                          </p>
-                        )}
-                        {lastChecker === "address" && addressInput && (
-                          <p className="text-lg font-semibold text-white tracking-wider">
-                            {addressInput.slice(0, 6)}...
-                            {addressInput.slice(-4)}
-                          </p>
-                        )}
-                      </div>
-
-                      <p className="text-xl text-gray-600 mb-4">
-                        {eligibilityStatus.message}
-                      </p>
-                      <p className="text-lg text-gray-500 mb-6">
-                        POW is the governance token for Pact Protocol. You can
-                        use it to participate in protocol decisions, stake for
-                        rewards, and access exclusive features across the
-                        ecosystem.
-                      </p>
-                      <Button
-                        className="text-xl px-8 py-4 rounded-xl shadow-lg font-bold bg-gradient-to-r from-[#1EAEDB] to-[#31BFEC] hover:from-[#31BFEC] hover:to-[#1EAEDB] text-white transition-all duration-300 transform hover:-translate-y-1"
-                        onClick={() => {
-                          // Determine the correct address based on which method was used
-                          let claimAddress = addressInput;
-
-                          // If wallet was used, use the active account address
-                          if (activeAccount && eligibilityStatus.isEligible) {
-                            const walletEntry = airdropData.find(
-                              (entry) =>
-                                entry.Address.toLowerCase() ===
-                                activeAccount.address.toLowerCase()
-                            );
-                            if (walletEntry) {
-                              claimAddress = activeAccount.address;
-                            }
-                          }
-
-                          // If enVoi was used, use the stored resolved address
-                          if (
-                            resolvedAddress &&
-                            envoiNameInput &&
-                            !addressInput
-                          ) {
-                            claimAddress = resolvedAddress;
-                          }
-
-                          // If Algorand NFD was used, use the stored resolved address
-                          if (
-                            resolvedAlgoAddress &&
-                            algoNameInput &&
-                            !addressInput &&
-                            !envoiNameInput
-                          ) {
-                            claimAddress = resolvedAlgoAddress;
-                          }
-
-                          // Navigate to the claim page with the correct address
-                          window.location.href = `/airdrop/${claimAddress}`;
-                        }}
-                      >
-                        Claim Your POW Tokens
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="animate-in slide-in-from-bottom duration-500 delay-200">
-                      <h3 className="text-3xl font-bold text-gray-700 mb-4">
-                        Not Eligible
-                      </h3>
-                      <p className="text-xl text-gray-600">
-                        {eligibilityStatus.message}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div
-                  className="mt-8 bg-card/50 backdrop-blur-sm border-none border-[#1EAEDB]/20 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)]"
-                  style={{ height: 220 }}
-                  aria-hidden="true"
-                />
-              )}
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
 
       {isResultModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-[#181A20] rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-8 py-12 relative animate-in fade-in duration-300 border border-[#1EAEDB]/20 dark:border-[#1EAEDB]/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#181A20] rounded-2xl shadow-2xl max-w-full sm:max-w-lg w-full mx-2 sm:mx-4 p-4 sm:p-8 py-8 sm:py-12 relative animate-in fade-in duration-300 border border-[#1EAEDB]/20 dark:border-[#1EAEDB]/40">
             <button
               className="absolute top-4 right-4 p-2 rounded-full z-[9999] hover:bg-gray-100 dark:hover:bg-gray-800 transition"
               onClick={() => setIsResultModalOpen(false)}
@@ -3908,7 +4431,7 @@ const Airdrop: React.FC = () => {
       {/* Trading Pair Details Modal */}
       {isPairModalOpen && selectedPair && (
         <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
-          <div className="bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-2xl max-w-2xl w-full my-4 sm:my-0 max-h-[calc(100vh-2rem)] sm:max-h-[90vh] overflow-y-auto relative animate-in fade-in duration-300 border border-[#1EAEDB]/20 shadow-[0_8px_32px_rgba(30,174,219,0.1)]">
+          <div className="bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-2xl max-w-full sm:max-w-2xl w-full my-2 sm:my-4 max-h-[calc(100vh-2rem)] sm:max-h-[90vh] overflow-y-auto relative animate-in fade-in duration-300 border border-[#1EAEDB]/20 shadow-[0_8px_32px_rgba(30,174,219,0.1)]">
             <button
               className="absolute top-2 sm:top-4 right-2 sm:right-4 p-1.5 sm:p-2 rounded-full z-[9999] hover:bg-white/10 transition-colors bg-gray-800/50 backdrop-blur-sm"
               onClick={() => setIsPairModalOpen(false)}
@@ -4153,8 +4676,8 @@ const Airdrop: React.FC = () => {
 
       {/* Top 100 TVL Modal - Info Only */}
       {isTop100TVLModalOpen && selectedPair && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative animate-in fade-in duration-300 border border-[#1EAEDB]/20 shadow-[0_8px_32px_rgba(30,174,219,0.1)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4">
+          <div className="bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-2xl max-w-full sm:max-w-2xl w-full max-h-[90vh] overflow-y-auto relative animate-in fade-in duration-300 border border-[#1EAEDB]/20 shadow-[0_8px_32px_rgba(30,174,219,0.1)]">
             <button
               className="absolute top-4 right-4 p-2 rounded-full z-[9999] hover:bg-white/10 transition-colors"
               onClick={() => setIsTop100TVLModalOpen(false)}

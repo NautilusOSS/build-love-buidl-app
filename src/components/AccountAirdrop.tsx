@@ -25,12 +25,14 @@ const base64ToUint8Array = (base64: string): Uint8Array => {
 interface AccountAirdropProps {
   address: string;
   onDataLoaded?: (data: AirdropEntry | null) => void;
+  onLoadingChange?: (loading: boolean) => void;
   showClaimButtons?: boolean;
 }
 
 const AccountAirdrop: React.FC<AccountAirdropProps> = ({
   address,
   onDataLoaded,
+  onLoadingChange,
   showClaimButtons = true,
 }) => {
   const {

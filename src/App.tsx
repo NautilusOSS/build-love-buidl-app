@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import Wallet from "./pages/Wallet";
 import AppSidebar from "@/components/AppSidebar";
 import {
   SidebarProvider,
@@ -21,6 +22,8 @@ import {
 //import Wallet from "./pages/Wallet";
 import Airdrop from "./pages/Airdrop";
 import About from "./pages/About";
+import PALGO from "./pages/pALGO";
+import Trading from "./pages/Trading";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -95,7 +98,7 @@ const App = () => {
         },
       },
     ],
-    network: NetworkId.MAINNET
+    network: NetworkId.MAINNET,
   });
   return (
     <WalletProvider manager={walletManager}>
@@ -114,13 +117,15 @@ const App = () => {
                     <Routes>
                       <Route path="/" element={<Airdrop />} />
                       {/* <Route path="/home" element={<Home />} /> */}
-                      {/*<Route path="/wallet/:address" element={<Wallet />} />*/}
+                      <Route path="/wallet/:address" element={<Wallet />} />
                       <Route path="/airdrop" element={<Airdrop />} />
                       <Route
                         path="/airdrop/:recipients"
                         element={<Airdrop />}
                       />
                       <Route path="/about" element={<About />} />
+                      <Route path="/palgo" element={<PALGO />} />
+                      <Route path="/trading" element={<Trading />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
