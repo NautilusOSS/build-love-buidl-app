@@ -24,6 +24,12 @@ import Airdrop from "./pages/Airdrop";
 import About from "./pages/About";
 import PALGO from "./pages/pALGO";
 import Trading from "./pages/Trading";
+import Governance from "./pages/Governance";
+import ProposalsList from "./pages/ProposalsList";
+import ProposalDetail from "./pages/ProposalDetail";
+import CreateProposal from "./pages/CreateProposal";
+import Dashboard from "./pages/Dashboard";
+import AdminPanel from "./pages/AdminPanel";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -126,6 +132,15 @@ const App = () => {
                       <Route path="/about" element={<About />} />
                       <Route path="/palgo" element={<PALGO />} />
                       <Route path="/trading" element={<Trading />} />
+                      
+                      {/* Governance Routes */}
+                      <Route path="/governance" element={<Governance />} />
+                      <Route path="/governance/proposals" element={<ProposalsList />} />
+                      <Route path="/governance/proposals/create" element={<CreateProposal />} />
+                      <Route path="/governance/proposals/:id" element={<ProposalDetail />} />
+                      <Route path="/governance/dashboard" element={<Dashboard />} />
+                      <Route path="/governance/admin" element={<AdminPanel />} />
+                      
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>

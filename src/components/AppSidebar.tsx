@@ -19,6 +19,8 @@ import {
   Menu,
   Wallet,
   TrendingUp,
+  Vote,
+  BarChart3,
 } from "lucide-react";
 import WalletConnectButton from "./WalletConnectButton";
 import { useWallet } from "@txnlab/use-wallet-react";
@@ -27,6 +29,7 @@ const baseNavItems = [
   { label: "Home", to: "/airdrop", icon: Home },
   { label: "About", to: "/about", icon: HeartHandshake },
   { label: "Trading", to: "/trading", icon: TrendingUp },
+  { label: "Governance", to: "/governance", icon: Vote },
 ];
 
 const AppSidebar: React.FC = () => {
@@ -49,6 +52,11 @@ const AppSidebar: React.FC = () => {
               label: "Wallet",
               to: `/wallet/${activeAccount.address}`,
               icon: Wallet,
+            },
+            {
+              label: "Dashboard",
+              to: "/governance/dashboard",
+              icon: BarChart3,
             },
           ]
         : []),
