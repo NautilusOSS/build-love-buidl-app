@@ -22,9 +22,9 @@ interface WalletConnectModalProps {
   onConnect?: () => void;
 }
 
-const WalletConnectModal: React.FC<WalletConnectModalProps> = ({ 
-  children, 
-  onConnect 
+const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
+  children,
+  onConnect,
 }) => {
   const [open, setOpen] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -41,7 +41,9 @@ const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
   // Add networks array
   const networks = [
     { id: NetworkId.MAINNET, name: "Algorand" },
+    { id: NetworkId.TESTNET, name: "Algorand Testnet" },
     { id: NetworkId.VOIMAIN, name: "Voi" },
+    { id: NetworkId.LOCALNET, name: "Localnet" },
   ];
 
   const networkWallets = {
@@ -53,12 +55,17 @@ const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
       { id: WalletId.BIATEC, name: "Biatec" },
       { id: WalletId.WALLETCONNECT, name: "WalletConnect" },
     ],
+    [NetworkId.TESTNET]: [
+      { id: WalletId.KIBISIS, name: "Kibisis" },
+      { id: WalletId.LUTE, name: "Lute" },
+    ],
     [NetworkId.VOIMAIN]: [
       { id: WalletId.KIBISIS, name: "Kibisis" },
       { id: WalletId.LUTE, name: "Lute" },
       { id: WalletId.BIATEC, name: "Biatec" },
       { id: WalletId.WALLETCONNECT, name: "WalletConnect" },
     ],
+    [NetworkId.LOCALNET]: [WalletId.MNEMONIC],
   };
 
   // Filter wallets based on active network
@@ -71,7 +78,7 @@ const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
   // Function to handle wallet connection
   const handleWalletConnect = async (wallet: any) => {
     setConnecting(wallet.id);
-    
+
     // Set a 5-second timeout for wallet connection
     const connectionTimeout = setTimeout(() => {
       setConnecting(null);
@@ -82,7 +89,7 @@ const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
       clearTimeout(connectionTimeout);
       setConnecting(null);
       setOpen(false);
-      
+
       // Call the onConnect callback if provided
       if (onConnect) {
         onConnect();
@@ -96,9 +103,7 @@ const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
+      <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md rounded-3xl border-2 border-gray-200/20">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -106,7 +111,7 @@ const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
             Connect Wallet
           </DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           {/* Network Selector */}
           <div className="space-y-2">
@@ -146,19 +151,19 @@ const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
                     <div className="flex items-center gap-2">
                       {wallet.metadata.name}
                       {wallet.id === activeWallet?.id && (
-                        <span className="text-xs text-green-600">
-                          Active
-                        </span>
+                        <span className="text-xs text-green-600">Active</span>
                       )}
                       {connecting === wallet.id && (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {wallet.id === activeWallet?.id && <Power className="h-4 w-4" />}
+                      {wallet.id === activeWallet?.id && (
+                        <Power className="h-4 w-4" />
+                      )}
                     </div>
                   </Button>
-                  
+
                   {/* Account Selector for connected wallet */}
                   {wallet.id === activeWallet?.id && activeWalletAccounts && (
                     <div className="ml-4 mt-2 space-y-2">
@@ -207,10 +212,13 @@ const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
           {activeAccount && (
             <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
               <p className="text-sm text-green-800">
-                Connected: {activeAccount.address.slice(0, 5)}...{activeAccount.address.slice(-4)}
+                Connected: {activeAccount.address.slice(0, 5)}...
+                {activeAccount.address.slice(-4)}
               </p>
               <p className="text-xs text-green-600 mt-1">
-                Network: {networks.find((n) => n.id === activeNetwork)?.name || activeNetwork}
+                Network:{" "}
+                {networks.find((n) => n.id === activeNetwork)?.name ||
+                  activeNetwork}
               </p>
             </div>
           )}
@@ -220,4 +228,4 @@ const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
   );
 };
 
-export default WalletConnectModal; 
+export default WalletConnectModal;

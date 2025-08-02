@@ -24,7 +24,9 @@ const mockProposals = [
     totalVotes: 45,
     yesVotes: 32,
     noVotes: 13,
-    votingEnds: "2024-01-23"
+    votingEnds: "2024-01-23",
+    hasVoted: false,
+    userVote: null
   },
   {
     id: "2",
@@ -37,7 +39,9 @@ const mockProposals = [
     totalVotes: 89,
     yesVotes: 67,
     noVotes: 22,
-    votingEnds: "2024-01-17"
+    votingEnds: "2024-01-17",
+    hasVoted: true,
+    userVote: true
   },
   {
     id: "3",
@@ -50,7 +54,9 @@ const mockProposals = [
     totalVotes: 0,
     yesVotes: 0,
     noVotes: 0,
-    votingEnds: null
+    votingEnds: null,
+    hasVoted: false,
+    userVote: null
   },
   {
     id: "4",
@@ -63,7 +69,9 @@ const mockProposals = [
     totalVotes: 67,
     yesVotes: 25,
     noVotes: 42,
-    votingEnds: "2024-01-15"
+    votingEnds: "2024-01-15",
+    hasVoted: true,
+    userVote: false
   },
   {
     id: "5",
@@ -76,7 +84,9 @@ const mockProposals = [
     totalVotes: 123,
     yesVotes: 98,
     noVotes: 25,
-    votingEnds: "2024-01-12"
+    votingEnds: "2024-01-12",
+    hasVoted: false,
+    userVote: null
   }
 ];
 
@@ -107,10 +117,13 @@ const getStatusLabel = (status: string) => {
 };
 
 const formatDate = (dateString: string) => {
+  // Contract timestamps are stored in UTC seconds, converted to ISO string in frontend
+  // This function formats them for display in the user's local timezone
   return new Date(dateString).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric'
+    year: 'numeric',
+    timeZoneName: 'short', // Add timezone indicator
   });
 };
 
@@ -470,11 +483,16 @@ const ProposalsList = () => {
                           View Details
                         </Link>
                       </Button>
-                      {proposal.status === "active" && (
+                      {proposal.status === "active" && !proposal.hasVoted && userVotingPower > 0 && (
                         <Button size="sm" className="rounded-full" onClick={() => handleVoteClick(proposal.id)}>
                           <Vote className="h-4 w-4 mr-1" />
                           Vote
                         </Button>
+                      )}
+                      {proposal.status === "active" && proposal.hasVoted && (
+                        <Badge variant="outline" className="rounded-full text-xs">
+                          Voted {proposal.userVote ? "For" : "Against"}
+                        </Badge>
                       )}
                       {proposal.status === "pending" && (
                         <Button asChild variant="outline" size="sm" className="rounded-full">

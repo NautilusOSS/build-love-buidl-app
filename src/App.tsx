@@ -30,6 +30,8 @@ import ProposalDetail from "./pages/ProposalDetail";
 import CreateProposal from "./pages/CreateProposal";
 import Dashboard from "./pages/Dashboard";
 import AdminPanel from "./pages/AdminPanel";
+import ProposalStatesDemo from "./pages/ProposalStatesDemo";
+import PowerUp from "./pages/PowerUp";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -103,6 +105,12 @@ const App = () => {
           themeMode: "light",
         },
       },
+      {
+        id: WalletId.MNEMONIC,
+        options: {
+          persistToStorage: true,
+        },
+      },
     ],
     network: NetworkId.MAINNET,
   });
@@ -132,15 +140,38 @@ const App = () => {
                       <Route path="/about" element={<About />} />
                       <Route path="/palgo" element={<PALGO />} />
                       <Route path="/trading" element={<Trading />} />
-                      
+
                       {/* Governance Routes */}
                       <Route path="/governance" element={<Governance />} />
-                      <Route path="/governance/proposals" element={<ProposalsList />} />
-                      <Route path="/governance/proposals/create" element={<CreateProposal />} />
-                      <Route path="/governance/proposals/:id" element={<ProposalDetail />} />
-                      <Route path="/governance/dashboard" element={<Dashboard />} />
-                      <Route path="/governance/admin" element={<AdminPanel />} />
-                      
+                      <Route
+                        path="/governance/proposals"
+                        element={<ProposalsList />}
+                      />
+                      <Route
+                        path="/governance/proposals/create"
+                        element={<CreateProposal />}
+                      />
+                      <Route
+                        path="/governance/proposals/:id"
+                        element={<ProposalDetail />}
+                      />
+                      <Route
+                        path="/governance/dashboard"
+                        element={<Dashboard />}
+                      />
+                      <Route
+                        path="/governance/admin"
+                        element={<AdminPanel />}
+                      />
+                      <Route
+                        path="/governance/demo"
+                        element={<ProposalStatesDemo />}
+                      />
+
+                      {/* Power UP Routes */}
+                      <Route path="/powerup" element={<PowerUp />} />
+                      <Route path="/powerup/:address" element={<PowerUp />} />
+
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>

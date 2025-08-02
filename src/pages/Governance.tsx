@@ -2,28 +2,213 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Users, Vote, TrendingUp, Clock, CheckCircle, BookOpen, Loader2, ThumbsUp, ThumbsDown, Search, Filter, Zap } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useWallet } from "@txnlab/use-wallet-react";
-import { useState, useRef, useMemo } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Calendar,
+  Users,
+  Vote,
+  TrendingUp,
+  Clock,
+  CheckCircle,
+  BookOpen,
+  Loader2,
+  ThumbsUp,
+  ThumbsDown,
+  Search,
+  Filter,
+  Zap,
+} from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { useWallet, NetworkId } from "@txnlab/use-wallet-react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import WalletConnectModal from "@/components/WalletConnectModal";
+import {
+  PowGovernanceClient,
+  APP_SPEC as PowGovernanceAppSpec,
+} from "@/clients/PowGovernanceClient";
+import algosdk from "algosdk";
+import { CONTRACT } from "ulujs";
+import { getGovernanceAppId } from "@/constants/appIds";
+import { decodeProposal, Proposal } from "@/utils/command";
+import { toast } from "@/components/ui/use-toast";
+
+// Proposal status mapping
+const PROPOSAL_STATUS = {
+  0: "pending",
+  1: "active",
+  2: "canceled",
+  3: "defeated",
+  4: "succeeded",
+  5: "queued",
+  6: "expired",
+  7: "executed",
+} as const;
+
+// Proposal categories
+const PROPOSAL_CATEGORIES = {
+  0: "General",
+  1: "Treasury",
+  2: "Protocol Parameters",
+  3: "Security",
+  4: "Community",
+  5: "Technical",
+} as const;
+
+// UI-friendly proposal interface
+interface UIProposal {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  category: string;
+  author: string;
+  createdAt: string;
+  totalVotes: number;
+  yesVotes: number;
+  noVotes: number;
+  votingEnds?: string;
+  currentPower?: number;
+  requiredPower?: number;
+  timeToActivate?: string;
+  isExpired?: boolean;
+  network?: NetworkId;
+  networkName?: string;
+}
+
+// Global state interface
+export interface GlobalState {
+  proposalCount?: { asNumber(): number };
+  activeProposalCount?: { asNumber(): number };
+  totalVoterCount?: { asNumber(): number };
+  totalParticipatingVoters?: { asNumber(): number };
+}
+
+// Helper function to convert contract proposal to UI format
+const convertProposalToUI = (proposal: Proposal, aggregatedGlobalState?: GlobalState): UIProposal => {
+  const status =
+    PROPOSAL_STATUS[
+      Number(proposal.proposalStatus) as keyof typeof PROPOSAL_STATUS
+    ] || "unknown";
+  const category =
+    PROPOSAL_CATEGORIES[
+      Number(proposal.proposalCategoryId) as keyof typeof PROPOSAL_CATEGORIES
+    ] || "General";
+
+  // Contract timestamps are in UTC seconds, convert to milliseconds and create ISO string
+  const createdAt = new Date(
+    Number(proposal.createdAtTimestamp) * 1000
+  ).toISOString();
+  const votingEnds = proposal.votingEndTimestamp
+    ? new Date(Number(proposal.votingEndTimestamp) * 1000).toISOString()
+    : undefined;
+
+  const totalVotes = Number(proposal.proposalTotalVotes);
+  const yesVotes = Number(proposal.proposalYesVotes);
+  const noVotes = totalVotes - yesVotes;
+
+  const currentPower = Number(proposal.proposalTotalPower);
+  // Use aggregated global state for required power calculation if available
+  const requiredPower = aggregatedGlobalState?.totalVoterCount 
+    ? aggregatedGlobalState.totalVoterCount.asNumber() 
+    : Number(proposal.proposalActivationPower);
+
+  // Calculate if proposal is expired (pending proposals that didn't reach activation power)
+  const isExpired =
+    status === "pending" &&
+    Number(proposal.votingStartTimestamp) > 0 &&
+    Date.now() > Number(proposal.votingStartTimestamp) * 1000;
+
+  // Calculate time to activate for pending proposals
+  let timeToActivate: string | undefined;
+  if (status === "pending" && !isExpired) {
+    const activationDeadline = Number(proposal.votingStartTimestamp) * 1000;
+    const timeLeft = activationDeadline - Date.now();
+    if (timeLeft > 0) {
+      const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+      const hours = Math.floor(
+        (timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+      );
+      timeToActivate = `${days} days ${hours} hours`;
+    } else {
+      timeToActivate = "Expired";
+    }
+  }
+
+  return {
+    id: Buffer.from(proposal.proposalNode, "base64").toString("hex"),
+    title: proposal.proposalTitle,
+    description: proposal.proposalDescription,
+    status,
+    category,
+    author: proposal.proposer,
+    createdAt,
+    totalVotes,
+    yesVotes,
+    noVotes,
+    votingEnds,
+    currentPower,
+    requiredPower,
+    timeToActivate,
+    isExpired,
+  };
+};
+
+interface ProposalCreatedEvent {
+  txid: string;
+  round: number;
+  timestamp: number;
+  proposalNode: string;
+}
+
+const makeABI = (spec: { contract: { methods: unknown } }) => {
+  return {
+    name: "",
+    description: "",
+    methods: spec.contract.methods,
+    events: [
+      // ProposalCreated(byte[32])
+      {
+        name: "ProposalCreated",
+        args: [
+          {
+            name: "proposal_node",
+            type: "byte[32]",
+          },
+        ],
+      },
+    ],
+  };
+};
 
 // Mock data - replace with actual data from your governance contract
 const mockStats = {
   totalProposals: 24,
   activeProposals: 3,
   totalVoters: 156,
-  participationRate: 78
+  participationRate: 78,
 };
 
-const mockRecentProposals = [
-  {
+// Mock data for different proposal states - shared with ProposalDetail
+const mockProposals = {
+  "1": {
     id: "1",
     title: "Increase Treasury Allocation for Development",
-    description: "Proposal to increase the treasury allocation from 10% to 15% to fund additional development initiatives and community projects.",
+    description:
+      "Proposal to increase the treasury allocation from 10% to 15% to fund additional development initiatives and community projects.",
     status: "active",
     category: "Treasury",
     author: "0x1234...5678",
@@ -32,73 +217,70 @@ const mockRecentProposals = [
     yesVotes: 32,
     noVotes: 13,
     votingEnds: "2024-01-23",
-    votingPower: 1250
   },
-  {
+  "2": {
     id: "2",
     title: "Update Governance Parameters",
-    description: "Adjust voting period from 7 days to 5 days and quorum threshold from 1000 to 800 tokens.",
+    description:
+      "Adjust voting period from 7 days to 5 days and quorum threshold from 1000 to 800 tokens.",
     status: "succeeded",
-    category: "Governance",
+    category: "Protocol Parameters",
     author: "0x8765...4321",
     createdAt: "2024-01-10",
     totalVotes: 89,
     yesVotes: 67,
     noVotes: 22,
     votingEnds: "2024-01-17",
-    votingPower: 2100
   },
-  {
+  "3": {
     id: "3",
     title: "Add New Validator Node",
-    description: "Proposal to onboard a new validator node to improve network decentralization and performance.",
+    description:
+      "Proposal to onboard a new validator node to improve network decentralization and performance.",
     status: "pending",
-    category: "Infrastructure",
+    category: "Technical",
     author: "0x9876...5432",
     createdAt: "2024-01-12",
     totalVotes: 0,
     yesVotes: 0,
     noVotes: 0,
-    votingEnds: null,
     currentPower: 1800,
     requiredPower: 1500,
-    timeToActivate: "2 days 14 hours"
+    timeToActivate: "2 days 14 hours",
   },
-  {
+  "4": {
     id: "4",
     title: "Community Grant Program Expansion",
-    description: "Expand the community grant program to support more developer initiatives and educational content creation.",
-    status: "pending",
+    description:
+      "Expand the community grant program to support more developer initiatives and educational content creation.",
+    status: "defeated",
     category: "Community",
     author: "0x5432...8765",
     createdAt: "2024-01-05",
-    totalVotes: 0,
-    yesVotes: 0,
-    noVotes: 0,
-    votingEnds: null,
-    currentPower: 450,
-    requiredPower: 2000,
-    timeToActivate: "Expired",
-    isExpired: true
+    totalVotes: 67,
+    yesVotes: 25,
+    noVotes: 42,
+    votingEnds: "2024-01-13",
   },
-  {
+  "5": {
     id: "5",
     title: "Implement Cross-Chain Bridge",
-    description: "Proposal to implement a cross-chain bridge to enable interoperability with other blockchain networks.",
+    description:
+      "Proposal to implement a cross-chain bridge to enable interoperability with other blockchain networks.",
     status: "active",
-    category: "Development",
+    category: "Technical",
     author: "0x1111...2222",
     createdAt: "2024-01-18",
     totalVotes: 23,
     yesVotes: 18,
     noVotes: 5,
     votingEnds: "2024-01-25",
-    votingPower: 850
   },
-  {
+  "6": {
     id: "6",
     title: "Security Audit Funding",
-    description: "Allocate funds for comprehensive security audits of smart contracts and infrastructure.",
+    description:
+      "Allocate funds for comprehensive security audits of smart contracts and infrastructure.",
     status: "pending",
     category: "Security",
     author: "0x3333...4444",
@@ -106,74 +288,478 @@ const mockRecentProposals = [
     totalVotes: 0,
     yesVotes: 0,
     noVotes: 0,
-    votingEnds: null,
     currentPower: 1200,
     requiredPower: 1000,
-    timeToActivate: "4 days 8 hours"
-  }
-];
+    timeToActivate: "4 days 8 hours",
+  },
+  "7": {
+    id: "7",
+    title: "Fee Reduction Implementation",
+    description:
+      "Reduce transaction fees by 20% to improve user experience and increase adoption.",
+    status: "executed",
+    category: "Development",
+    author: "0x4444...5555",
+    createdAt: "2024-01-08",
+    totalVotes: 123,
+    yesVotes: 98,
+    noVotes: 25,
+    votingEnds: "2024-01-16",
+  },
+  "8": {
+    id: "8",
+    title: "DAO Treasury Diversification",
+    description:
+      "Diversify the DAO treasury holdings to reduce risk and improve yield.",
+    status: "canceled",
+    category: "Treasury",
+    author: "0x5555...6666",
+    createdAt: "2024-01-22",
+    totalVotes: 0,
+    yesVotes: 0,
+    noVotes: 0,
+  },
+  "9": {
+    id: "9",
+    title: "Developer Documentation Portal",
+    description:
+      "Create a comprehensive developer documentation portal to improve developer experience.",
+    status: "expired",
+    category: "Community",
+    author: "0x6666...7777",
+    createdAt: "2024-01-25",
+    totalVotes: 0,
+    yesVotes: 0,
+    noVotes: 0,
+    currentPower: 450,
+    requiredPower: 1000,
+    timeToActivate: "Expired",
+    isExpired: true,
+  },
+  "10": {
+    id: "10",
+    title: "Governance Token Distribution",
+    description:
+      "Implement a new governance token distribution mechanism to improve decentralization.",
+    status: "queued",
+    category: "Governance",
+    author: "0x7777...8888",
+    createdAt: "2024-01-28",
+    totalVotes: 156,
+    yesVotes: 134,
+    noVotes: 22,
+    votingEnds: "2024-02-05",
+  },
+};
+
+const mockRecentProposals: UIProposal[] = Object.values(mockProposals);
 
 const getStatusVariant = (status: string) => {
   switch (status) {
-    case "pending": return "secondary";
-    case "active": return "default";
-    case "succeeded": return "default";
-    case "defeated": return "destructive";
-    case "executed": return "default";
-    case "canceled": return "secondary";
-    case "expired": return "secondary";
-    default: return "secondary";
+    case "pending":
+      return "secondary";
+    case "active":
+      return "default";
+    case "succeeded":
+      return "default";
+    case "defeated":
+      return "destructive";
+    case "executed":
+      return "default";
+    case "canceled":
+      return "secondary";
+    case "expired":
+      return "secondary";
+    default:
+      return "secondary";
   }
 };
 
 const getStatusLabel = (status: string) => {
   switch (status) {
-    case "pending": return "Pending";
-    case "active": return "Active";
-    case "succeeded": return "Succeeded";
-    case "defeated": return "Defeated";
-    case "executed": return "Executed";
-    case "canceled": return "Canceled";
-    case "expired": return "Expired";
-    default: return "Unknown";
+    case "pending":
+      return "Pending";
+    case "active":
+      return "Active";
+    case "succeeded":
+      return "Succeeded";
+    case "defeated":
+      return "Defeated";
+    case "executed":
+      return "Executed";
+    case "canceled":
+      return "Canceled";
+    case "expired":
+      return "Expired";
+    default:
+      return "Unknown";
   }
 };
 
 const getCategoryColor = (category: string) => {
   switch (category) {
-    case "Treasury": return "bg-blue-500/20 text-blue-300 border-blue-500/30";
-    case "Governance": return "bg-purple-500/20 text-purple-300 border-purple-500/30";
-    case "Infrastructure": return "bg-green-500/20 text-green-300 border-green-500/30";
-    case "Community": return "bg-orange-500/20 text-orange-300 border-orange-500/30";
-    case "Development": return "bg-indigo-500/20 text-indigo-300 border-indigo-500/30";
-    case "Security": return "bg-red-500/20 text-red-300 border-red-500/30";
-    default: return "bg-gray-500/20 text-gray-300 border-gray-500/30";
+    case "Treasury":
+      return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+    case "Protocol Parameters":
+      return "bg-purple-500/20 text-purple-300 border-purple-500/30";
+    case "Technical":
+      return "bg-green-500/20 text-green-300 border-green-500/30";
+    case "Community":
+      return "bg-orange-500/20 text-orange-300 border-orange-500/30";
+    case "General":
+      return "bg-indigo-500/20 text-indigo-300 border-indigo-500/30";
+    case "Security":
+      return "bg-red-500/20 text-red-300 border-red-500/30";
+    default:
+      return "bg-gray-500/20 text-gray-300 border-gray-500/30";
   }
 };
 
 const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
+  // Contract timestamps are stored in UTC seconds, converted to ISO string in frontend
+  // This function formats them for display in the user's local timezone
+  return new Date(dateString).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZoneName: "short", // Add timezone indicator
   });
 };
 
+function useMockMode() {
+  const { search } = useLocation();
+  return new URLSearchParams(search).get("mock") === "true";
+}
+
 const Governance = () => {
-  const { activeWallet, activeAccount } = useWallet();
-  const [rejectingProposal, setRejectingProposal] = useState<string | null>(null);
-  const [activatingProposal, setActivatingProposal] = useState<string | null>(null);
+  const {
+    activeWallet,
+    activeAccount,
+    activeNetwork,
+    algodClient,
+    signTransactions,
+  } = useWallet();
+  const mockMode = useMockMode();
+  const [rejectingProposal, setRejectingProposal] = useState<string | null>(
+    null
+  );
+  const [activatingProposal, setActivatingProposal] = useState<string | null>(
+    null
+  );
   const [votingProposal, setVotingProposal] = useState<string | null>(null);
-  const [proposals, setProposals] = useState(mockRecentProposals);
+  const [proposals, setProposals] = useState<UIProposal[]>([]);
+  const [isLoadingProposals, setIsLoadingProposals] = useState(false);
   const [voteModalOpen, setVoteModalOpen] = useState(false);
-  const [selectedVote, setSelectedVote] = useState<'yes' | 'no' | null>(null);
+  const [selectedVote, setSelectedVote] = useState<"yes" | "no" | null>(null);
   const [submittingVote, setSubmittingVote] = useState(false);
-  
+  const [hasVoted, setHasVoted] = useState(false);
+
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [userVotingPower, setUserVotingPower] = useState(500); // Mock voting power
+  const [globalState, setGlobalState] = useState<GlobalState | null>(null);
+  const [participationRate, setParticipationRate] = useState(0);
+  const [userVotes, setUserVotes] = useState<Record<string, "yes" | "no">>({});
+  
+  // Network settings state
+  const [networkSettings, setNetworkSettings] = useState<{ [key in NetworkId]: boolean }>({
+    [NetworkId.LOCALNET]: true,
+    [NetworkId.TESTNET]: true,
+    [NetworkId.MAINNET]: false,
+    [NetworkId.VOIMAIN]: false,
+  } as { [key in NetworkId]: boolean });
+
+  // Flag to indicate if active network is not enabled
+  const [activeNetworkNotEnabled, setActiveNetworkNotEnabled] = useState<boolean>(false);
+
+  const isNetworkEnabled = (networkId: NetworkId) => {
+    return networkSettings[networkId] || false;
+  };
+
+  const getEnabledNetworks = () => {
+    return Object.entries(networkSettings)
+      .filter(([_, enabled]) => enabled)
+      .map(([networkId]) => networkId as NetworkId);
+  };
+
+  const algod = useMemo(() => {
+    if (activeNetwork === NetworkId.LOCALNET) {
+      return new algosdk.Algodv2(
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "http://10.0.0.31",
+        4001
+      );
+    }
+    return algodClient;
+  }, [algodClient, activeNetwork]);
+
+  const indexer = useMemo(() => {
+    switch (activeNetwork) {
+      case NetworkId.LOCALNET:
+        return new algosdk.Indexer(
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "http://10.0.0.31",
+          8980
+        );
+      case NetworkId.TESTNET:
+        return new algosdk.Indexer(
+          "",
+          "https://testnet-idx.4160.nodely.dev",
+          443
+        );
+    }
+    return undefined;
+  }, [activeNetwork]);
+
+  // Function to fetch user votes for all proposals
+  const fetchUserVotes = async () => {
+    if (!activeAccount || !activeNetwork || mockMode) {
+      return;
+    }
+
+    try {
+      const ci = new CONTRACT(
+        getGovernanceAppId(activeNetwork),
+        algod,
+        indexer,
+        makeABI(PowGovernanceAppSpec),
+        { addr: activeAccount.address, sk: new Uint8Array() }
+      );
+
+      // Fetch user's voting power
+      try {
+        const getVoterR = await ci.get_voter(activeAccount.address);
+        if (getVoterR.success && getVoterR.returnValue) {
+          const voterData = getVoterR.returnValue;
+          setUserVotingPower(Number(voterData[1]) / 1e6); // vote_power is at index 1
+        }
+      } catch (error) {
+        console.error("Error fetching user voting power:", error);
+      }
+
+      const userVotesMap: Record<string, "yes" | "no"> = {};
+
+      // Fetch votes for all proposals
+      for (const proposal of proposals) {
+        try {
+          const getVoteR = await ci.get_vote(
+            new Uint8Array(Buffer.from(proposal.id, "hex")),
+            activeAccount.address
+          );
+
+          if (getVoteR.success && getVoteR.returnValue !== undefined) {
+            const voteValue = Number(getVoteR.returnValue);
+            if (voteValue === 0) {
+              userVotesMap[proposal.id] = "no";
+            } else if (voteValue === 1) {
+              userVotesMap[proposal.id] = "yes";
+            }
+          }
+        } catch (error) {
+          console.error(
+            `Error fetching vote for proposal ${proposal.id}:`,
+            error
+          );
+        }
+      }
+
+      setUserVotes(userVotesMap);
+    } catch (error) {
+      console.error("Error fetching user votes:", error);
+    }
+  };
+
+  useEffect(() => {
+    const fetchGlobalState = async () => {
+      // Check if active network is enabled
+      setActiveNetworkNotEnabled(!isNetworkEnabled(activeNetwork));
+      
+      if (!activeNetwork || !algod) return;
+      
+      // Get all enabled networks
+      const enabledNetworks = getEnabledNetworks();
+      console.log("Fetching proposals from enabled networks:", enabledNetworks);
+      
+      try {
+        let allProposals: UIProposal[] = [];
+        let aggregatedGlobalState: GlobalState = {
+          proposalCount: { asNumber: () => 0 },
+          activeProposalCount: { asNumber: () => 0 },
+          totalVoterCount: { asNumber: () => 0 },
+          totalParticipatingVoters: { asNumber: () => 0 },
+        };
+        
+        let totalProposals = 0;
+        let totalActiveProposals = 0;
+        let totalVoters = 0;
+        let totalParticipatingVoters = 0;
+        
+        // Fetch proposals from all enabled networks
+        for (const networkId of enabledNetworks) {
+          try {
+            // Create algod client for this network
+            let networkAlgod;
+            if (networkId === NetworkId.LOCALNET) {
+              networkAlgod = new algosdk.Algodv2(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "http://10.0.0.31",
+                4001
+              );
+            } else if (networkId === NetworkId.TESTNET) {
+              networkAlgod = new algosdk.Algodv2(
+                "",
+                "https://testnet-api.4160.nodely.dev",
+                443
+              );
+            } else {
+              // Skip networks without governance contracts
+              continue;
+            }
+            
+            // Create indexer for this network
+            let networkIndexer;
+            if (networkId === NetworkId.LOCALNET) {
+              networkIndexer = new algosdk.Indexer(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "http://10.0.0.31",
+                8980
+              );
+            } else if (networkId === NetworkId.TESTNET) {
+              networkIndexer = new algosdk.Indexer(
+                "",
+                "https://testnet-idx.4160.nodely.dev",
+                443
+              );
+            }
+            
+            const governanceAppId = getGovernanceAppId(networkId);
+            if (governanceAppId === 0) {
+              console.log(`Skipping network ${networkId} - no governance app ID`);
+              continue;
+            }
+            
+            const client = new PowGovernanceClient(
+              {
+                id: governanceAppId,
+                resolveBy: "id",
+              },
+              networkAlgod
+            );
+            
+            const state = await client.getGlobalState();
+            
+            // Aggregate global state from all networks
+            if (state.proposalCount) {
+              totalProposals += state.proposalCount.asNumber();
+            }
+            if (state.activeProposalCount) {
+              totalActiveProposals += state.activeProposalCount.asNumber();
+            }
+            if (state.totalVoterCount) {
+              totalVoters += state.totalVoterCount.asNumber();
+            }
+            if (state.totalParticipatingVoters) {
+              totalParticipatingVoters += state.totalParticipatingVoters.asNumber();
+            }
+            
+            // Set global state and participation rate based on aggregated data
+            if (networkId === enabledNetworks[enabledNetworks.length - 1]) {
+              aggregatedGlobalState = {
+                proposalCount: { asNumber: () => totalProposals },
+                activeProposalCount: { asNumber: () => totalActiveProposals },
+                totalVoterCount: { asNumber: () => totalVoters },
+                totalParticipatingVoters: { asNumber: () => totalParticipatingVoters },
+              };
+              setGlobalState(aggregatedGlobalState);
+              const participationRate = totalVoters > 0
+                ? Number(((totalParticipatingVoters / totalVoters) * 100).toFixed(2))
+                : Number((33.33).toFixed(2));
+              setParticipationRate(participationRate);
+            }
+            
+            const ci = new CONTRACT(
+              governanceAppId,
+              networkAlgod,
+              networkIndexer,
+              makeABI(PowGovernanceAppSpec),
+              {
+                addr: algosdk.getApplicationAddress(governanceAppId),
+                sk: new Uint8Array(),
+              }
+            );
+            
+            console.log(`Fetching proposals from ${networkId} with app ID ${governanceAppId}`);
+            const evts = await ci.getEvents({});
+            const proposalCreatedEvts: ProposalCreatedEvent[] = (
+              evts?.find((evt: { name: string }) => evt.name === "ProposalCreated")
+                ?.events || []
+            )?.map((evt: unknown[]) => ({
+              txid: evt[0],
+              round: evt[1],
+              timestamp: evt[2],
+              proposalNode: evt[3],
+            }));
+            
+            const rawProposals = (
+              await Promise.all(
+                proposalCreatedEvts.map(async (evt) =>
+                  ci.get_proposal(
+                    new Uint8Array(Buffer.from(evt.proposalNode, "hex"))
+                  )
+                )
+              )
+            ).map((result: { returnValue: unknown }) =>
+              decodeProposal(result.returnValue)
+            );
+            
+            console.log(`Found ${rawProposals.length} proposals from ${networkId}`);
+            
+            // Convert to UI format and add network identifier
+            const networkProposals = rawProposals.map(proposal => {
+              const uiProposal = convertProposalToUI(proposal, aggregatedGlobalState);
+              return {
+                ...uiProposal,
+                network: networkId,
+                networkName: networkId === NetworkId.LOCALNET ? "Localnet" : 
+                             networkId === NetworkId.TESTNET ? "Algorand Testnet" : 
+                             networkId === NetworkId.MAINNET ? "Algorand Mainnet" : 
+                             networkId === NetworkId.VOIMAIN ? "Voi Mainnet" : "Unknown"
+              };
+            });
+            
+            allProposals = [...allProposals, ...networkProposals];
+            
+          } catch (error) {
+            console.error(`Error fetching proposals from ${networkId}:`, error);
+          }
+        }
+        
+        console.log(`Total proposals found: ${allProposals.length}`);
+        setProposals(allProposals);
+        
+      } catch (err) {
+        console.error("Failed to fetch global state", err);
+        setGlobalState(null);
+      }
+    };
+    if (mockMode) {
+      setProposals(mockRecentProposals);
+      setActiveNetworkNotEnabled(false);
+    } else {
+      fetchGlobalState();
+    }
+  }, [activeNetwork, algod, mockMode, indexer, networkSettings]);
+
+  // Fetch user votes when proposals are loaded and user is connected
+  useEffect(() => {
+    if (proposals.length > 0 && activeAccount && !mockMode) {
+      fetchUserVotes();
+    }
+  }, [proposals, activeAccount, mockMode]);
+
+  console.log({ globalState });
 
   const handleWalletConnect = () => {
     // Optional: Add any additional logic when wallet connects
@@ -182,26 +768,26 @@ const Governance = () => {
 
   const handleRejectProposal = async (proposalId: string) => {
     setRejectingProposal(proposalId);
-    
+
     try {
       // Simulate transaction signing and confirmation
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       // Here you would typically call your governance contract to reject the proposal
       console.log(`Rejecting proposal ${proposalId}`);
-      
+
       // Update the proposal status to rejected
-      setProposals(prevProposals => 
-        prevProposals.map(proposal => 
-          proposal.id === proposalId 
-            ? { ...proposal, status: 'rejected' }
+      setProposals((prevProposals) =>
+        prevProposals.map((proposal) =>
+          proposal.id === proposalId
+            ? { ...proposal, status: "canceled" }
             : proposal
         )
       );
-      
+
       // Optional: Show success message or update UI
     } catch (error) {
-      console.error('Error rejecting proposal:', error);
+      console.error("Error rejecting proposal:", error);
       // Optional: Show error message
     } finally {
       setRejectingProposal(null);
@@ -209,78 +795,211 @@ const Governance = () => {
   };
 
   const handleActivateProposal = async (proposalId: string) => {
+    if (!activeAccount || !activeNetwork) {
+      toast({
+        title: "Error",
+        description: "Please connect your wallet to activate proposals",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setActivatingProposal(proposalId);
-    
+
     try {
-      // Simulate transaction signing and confirmation
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Convert hex string back to Uint8Array for contract call
+      const proposalNodeBytes = new Uint8Array(Buffer.from(proposalId, "hex"));
+
+      const ci = new CONTRACT(
+        getGovernanceAppId(activeNetwork),
+        algod,
+        indexer,
+        makeABI(PowGovernanceAppSpec),
+        { addr: activeAccount.address, sk: new Uint8Array() }
+      );
+
+      console.log("Activating proposal:", proposalId);
+      console.log("proposalNodeBytes", proposalNodeBytes);
       
-      // Here you would typically call your governance contract to activate the proposal
-      console.log(`Activating proposal ${proposalId}`);
-      
+      const activateProposalR = await ci.activate_proposal(proposalNodeBytes);
+      console.log("activateProposalR", activateProposalR);
+
+      if (!activateProposalR.success) {
+        throw new Error("Failed to activate proposal");
+      }
+
+      const stxns = await signTransactions(
+        activateProposalR.txns.map(
+          (txn: string) => new Uint8Array(Buffer.from(txn, "base64"))
+        )
+      );
+
+      const { txId } = await algod.sendRawTransaction(stxns).do();
+      console.log("Activation transaction ID:", txId);
+
+      // Show success message
+      toast({
+        title: "Success",
+        description: "Proposal activated successfully",
+        variant: "default",
+      });
+
       // Update the proposal status to active
-      setProposals(prevProposals => 
-        prevProposals.map(proposal => 
-          proposal.id === proposalId 
-            ? { 
-                ...proposal, 
-                status: 'active',
-                votingEnds: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 7 days from now
+      setProposals((prevProposals) =>
+        prevProposals.map((proposal) =>
+          proposal.id === proposalId
+            ? {
+                ...proposal,
+                status: "active",
+                votingEnds: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                  .toISOString()
+                  .split("T")[0], // 7 days from now
               }
             : proposal
         )
       );
-      
-      // Optional: Show success message or update UI
+
     } catch (error) {
-      console.error('Error activating proposal:', error);
-      // Optional: Show error message
+      console.error("Error activating proposal:", error);
+      toast({
+        title: "Activation Failed",
+        description: error instanceof Error ? error.message : "Failed to activate proposal",
+        variant: "destructive",
+      });
     } finally {
       setActivatingProposal(null);
     }
   };
 
-  const handleVoteClick = (proposalId: string) => {
+  const handleVoteClick = async (proposalId: string) => {
     setVotingProposal(proposalId);
     setVoteModalOpen(true);
     setSelectedVote(null);
+
+    // Fetch user's existing vote for this proposal
+    if (!activeAccount || !activeNetwork) {
+      return;
+    }
+
+    try {
+      if (mockMode) {
+        // For mock mode, simulate no existing vote
+        return;
+      }
+
+      const ci = new CONTRACT(
+        getGovernanceAppId(activeNetwork),
+        algod,
+        indexer,
+        makeABI(PowGovernanceAppSpec),
+        { addr: activeAccount.address, sk: new Uint8Array() }
+      );
+
+      const getVoteR = await ci.get_vote(
+        new Uint8Array(Buffer.from(proposalId, "hex")),
+        activeAccount.address
+      );
+
+      if (getVoteR.success && getVoteR.returnValue !== undefined) {
+        const voteValue = Number(getVoteR.returnValue);
+        if (voteValue === 0) {
+          setSelectedVote("no"); // Against
+          setHasVoted(true);
+          setUserVotes((prev) => ({ ...prev, [proposalId]: "no" }));
+        } else if (voteValue === 1) {
+          setSelectedVote("yes"); // For
+          setHasVoted(true);
+          setUserVotes((prev) => ({ ...prev, [proposalId]: "yes" }));
+        } else {
+          // If voteValue is 2 or undefined, user hasn't voted yet
+          setHasVoted(false);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user vote:", error);
+      // Continue with modal open, user can still vote
+    }
   };
 
   const handleSubmitVote = async () => {
     if (!selectedVote || !votingProposal) return;
-    
+
     setSubmittingVote(true);
-    
+
     try {
       // Simulate transaction signing and confirmation
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       // Here you would typically call your governance contract to submit the vote
       console.log(`Voting ${selectedVote} on proposal ${votingProposal}`);
-      
+
+      const ci = new CONTRACT(
+        getGovernanceAppId(activeNetwork),
+        algod,
+        indexer,
+        makeABI(PowGovernanceAppSpec),
+        { addr: activeAccount.address, sk: new Uint8Array() }
+      );
+      console.log({ ci });
+      const castVoteR = await ci.cast_vote(
+        new Uint8Array(Buffer.from(votingProposal, "hex")),
+        selectedVote === "yes" ? 1 : 0
+      );
+      console.log({ castVoteR });
+      if (!castVoteR.success) {
+        throw new Error("Failed to cast vote");
+      }
+
+      const stxns = await signTransactions(
+        castVoteR.txns.map(
+          (txn: string) => new Uint8Array(Buffer.from(txn, "base64"))
+        )
+      );
+
+      const { txId } = await algod.sendRawTransaction(stxns).do();
+      console.log({ txId });
+
       // Update the proposal with the new vote
-      setProposals(prevProposals => 
-        prevProposals.map(proposal => 
-          proposal.id === votingProposal 
-            ? { 
-                ...proposal, 
+      setProposals((prevProposals) =>
+        prevProposals.map((proposal) =>
+          proposal.id === votingProposal
+            ? {
+                ...proposal,
                 totalVotes: proposal.totalVotes + 1,
-                yesVotes: proposal.yesVotes + (selectedVote === 'yes' ? 1 : 0),
-                noVotes: proposal.noVotes + (selectedVote === 'no' ? 1 : 0)
+                yesVotes: proposal.yesVotes + (selectedVote === "yes" ? 1 : 0),
+                noVotes: proposal.noVotes + (selectedVote === "no" ? 1 : 0),
               }
             : proposal
         )
       );
-      
-      // Close modal and reset state
-      setVoteModalOpen(false);
-      setVotingProposal(null);
-      setSelectedVote(null);
-      
-      // Optional: Show success message
+
+      // Set hasVoted to true since vote was successful
+      setHasVoted(true);
+      setUserVotes((prev) => ({ ...prev, [votingProposal]: selectedVote }));
+
+      // Show success message
+      toast({
+        title: "Vote Submitted",
+        description: `Successfully voted ${selectedVote} on proposal`,
+        variant: "default",
+      });
+
+      // Close modal and reset state after a short delay to show the success state
+      setTimeout(() => {
+        setVoteModalOpen(false);
+        setVotingProposal(null);
+        setSelectedVote(null);
+        setHasVoted(false);
+      }, 2000);
     } catch (error) {
-      console.error('Error submitting vote:', error);
-      // Optional: Show error message
+      console.error("Error submitting vote:", error);
+      // Show error message
+      toast({
+        title: "Vote Failed",
+        description:
+          error instanceof Error ? error.message : "Failed to submit vote",
+        variant: "destructive",
+      });
     } finally {
       setSubmittingVote(false);
     }
@@ -291,25 +1010,31 @@ const Governance = () => {
     setVotingProposal(null);
     setSelectedVote(null);
     setSubmittingVote(false);
+    setHasVoted(false);
   };
 
   // Filter proposals based on search and filters
   const filteredProposals = useMemo(() => {
-    return proposals.filter(proposal => {
-      const matchesSearch = proposal.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           proposal.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           proposal.category.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesStatus = statusFilter === "all" || proposal.status === statusFilter;
-      const matchesCategory = categoryFilter === "all" || proposal.category === categoryFilter;
-      
+    return proposals.filter((proposal) => {
+      const matchesSearch =
+        proposal.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        proposal.description
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        proposal.category.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesStatus =
+        statusFilter === "all" || proposal.status === statusFilter;
+      const matchesCategory =
+        categoryFilter === "all" || proposal.category === categoryFilter;
+
       return matchesSearch && matchesStatus && matchesCategory;
     });
   }, [proposals, searchQuery, statusFilter, categoryFilter]);
 
   // Get unique categories for filter dropdown
   const categories = useMemo(() => {
-    const uniqueCategories = [...new Set(proposals.map(p => p.category))];
+    const uniqueCategories = [...new Set(proposals.map((p) => p.category))];
     return uniqueCategories.sort();
   }, [proposals]);
 
@@ -321,20 +1046,21 @@ const Governance = () => {
         <div className="absolute inset-0 w-full h-full">
           {/* Gradient Background */}
           <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900"></div>
-          
+
           {/* Animated Grid Pattern */}
           <div className="absolute inset-0 opacity-20">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `
                 linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
               `,
-              backgroundSize: '50px 50px',
-              animation: 'gridMove 20s linear infinite'
-            }}></div>
+                backgroundSize: "50px 50px",
+                animation: "gridMove 20s linear infinite",
+              }}
+            ></div>
           </div>
-
-
 
           {/* Animated Particles */}
           <div className="absolute inset-0">
@@ -346,7 +1072,7 @@ const Governance = () => {
                   left: `${Math.random() * 100}%`,
                   top: `${Math.random() * 100}%`,
                   animationDelay: `${Math.random() * 3}s`,
-                  animationDuration: `${2 + Math.random() * 2}s`
+                  animationDuration: `${2 + Math.random() * 2}s`,
                 }}
               ></div>
             ))}
@@ -371,7 +1097,11 @@ const Governance = () => {
                 viewBox="0 0 24 24"
               >
                 <path d="M9 2h6M10 2v5.172a2 2 0 0 1-.586 1.414l-4.242 4.242A7 7 0 0 0 12 21a7 7 0 0 0 6.828-8.172l-4.242-4.242A2 2 0 0 1 14 7.172V2" />
-                <path d="M8 15s1.5 2 4 2 4-2 4-2" fill="currentColor" fillOpacity=".2" />
+                <path
+                  d="M8 15s1.5 2 4 2 4-2 4-2"
+                  fill="currentColor"
+                  fillOpacity=".2"
+                />
               </svg>
               <span className="text-xs sm:text-sm md:text-base font-semibold">
                 Beta
@@ -380,8 +1110,8 @@ const Governance = () => {
           </div>
 
           <p className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg mb-4 sm:mb-6 md:mb-8 px-2">
-            Participate in decentralized decision-making. Create proposals, vote on important matters, 
-            and help shape the future of the ecosystem.
+            Participate in decentralized decision-making. Create proposals, vote
+            on important matters, and help shape the future of the ecosystem.
           </p>
 
           {/* Key Metrics in Hero Section */}
@@ -389,25 +1119,34 @@ const Governance = () => {
             <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20 shadow-lg flex flex-col items-center">
               <div className="text-xs text-gray-300 mb-1">Total Proposals</div>
               <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-400">
-                {mockStats.totalProposals}
+                {mockMode
+                  ? mockStats.totalProposals
+                  : globalState?.proposalCount.asNumber()}
               </div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20 shadow-lg flex flex-col items-center">
               <div className="text-xs text-gray-300 mb-1">Active Proposals</div>
               <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-400">
-                {mockStats.activeProposals}
+                {mockMode
+                  ? mockStats.activeProposals
+                  : globalState?.activeProposalCount.asNumber()}
               </div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20 shadow-lg flex flex-col items-center">
               <div className="text-xs text-gray-300 mb-1">Total Voters</div>
               <div className="text-lg sm:text-xl md:text-2xl font-bold text-purple-400">
-                {mockStats.totalVoters}
+                {mockMode
+                  ? mockStats.totalVoters
+                  : globalState?.totalVoterCount?.asNumber() || 0}
               </div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20 shadow-lg flex flex-col items-center">
               <div className="text-xs text-gray-300 mb-1">Participation</div>
               <div className="text-lg sm:text-xl md:text-2xl font-bold text-white">
-                {mockStats.participationRate}%
+                {mockMode
+                  ? mockStats.participationRate
+                  : participationRate || 0}
+                %
               </div>
             </div>
           </div>
@@ -427,21 +1166,32 @@ const Governance = () => {
             >
               <Link to="/about">How it Works</Link>
             </Button>
-            {activeWallet && activeAccount ? (
-              <Button
-                asChild
-                variant="outline"
-                className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
-              >
-                <Link to="/governance/proposals/create">Create Proposal</Link>
-              </Button>
+            {activeWallet &&
+            activeAccount &&
+            activeNetwork === NetworkId.LOCALNET ? (
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+                >
+                  <Link to="/governance/proposals/create">Create Proposal</Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+                >
+                  <Link to="/governance/demo">View All States</Link>
+                </Button>
+              </div>
             ) : (
               <WalletConnectModal onConnect={handleWalletConnect}>
                 <Button
                   variant="outline"
                   className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
                 >
-                  Connect Wallet 
+                  Connect Wallet
                 </Button>
               </WalletConnectModal>
             )}
@@ -449,7 +1199,32 @@ const Governance = () => {
         </div>
       </div>
 
-
+      {/* Active Network Warning */}
+      {activeNetworkNotEnabled && (
+        <div className="container mx-auto px-4 py-4">
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-yellow-400 mb-1">
+                  Active Network Not Enabled
+                </h3>
+                <p className="text-xs text-yellow-300/80">
+                  The currently selected network ({activeNetwork === NetworkId.LOCALNET ? "Localnet" : 
+                  activeNetwork === NetworkId.TESTNET ? "Algorand Testnet" : 
+                  activeNetwork === NetworkId.MAINNET ? "Algorand Mainnet" : 
+                  activeNetwork === NetworkId.VOIMAIN ? "Voi Mainnet" : "Unknown"}) is not enabled in your network settings. 
+                  Proposals are being fetched from enabled networks only.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="container mx-auto px-4 space-y-8">
@@ -463,7 +1238,9 @@ const Governance = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-300">{mockStats.totalProposals}</div>
+              <div className="text-2xl font-bold text-blue-300">
+                {globalState?.proposalCount.asNumber()}
+              </div>
               <p className="text-xs text-muted-foreground">
                 All time proposals created
               </p>
@@ -478,7 +1255,11 @@ const Governance = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-300">{mockStats.activeProposals}</div>
+              <div className="text-2xl font-bold text-green-300">
+                {mockMode
+                  ? mockStats.activeProposals
+                  : globalState?.activeProposalCount.asNumber()}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Currently open for voting
               </p>
@@ -493,7 +1274,11 @@ const Governance = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-300">{mockStats.totalVoters}</div>
+              <div className="text-2xl font-bold text-purple-300">
+                {mockMode
+                  ? mockStats.totalVoters
+                  : globalState?.totalVoterCount?.asNumber() || 0}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Unique addresses voted
               </p>
@@ -508,7 +1293,12 @@ const Governance = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-indigo-300">{mockStats.participationRate}%</div>
+              <div className="text-2xl font-bold text-indigo-300">
+                {mockMode
+                  ? mockStats.participationRate
+                  : participationRate || 0}
+                %
+              </div>
               <p className="text-xs text-muted-foreground">
                 Average voter turnout
               </p>
@@ -519,7 +1309,9 @@ const Governance = () => {
         {/* Section Divider and Header for Recent Proposals */}
         <div className="flex items-center gap-4 my-8">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-          <h2 className="text-2xl font-bold text-white tracking-tight animate-fade-in">Recent Proposals</h2>
+          <h2 className="text-2xl font-bold text-white tracking-tight animate-fade-in">
+            Recent Proposals
+          </h2>
           <div className="flex-1 h-px bg-gradient-to-l from-transparent via-white/20 to-transparent" />
         </div>
 
@@ -549,6 +1341,9 @@ const Governance = () => {
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="succeeded">Succeeded</SelectItem>
                 <SelectItem value="defeated">Defeated</SelectItem>
+                <SelectItem value="canceled">Canceled</SelectItem>
+                <SelectItem value="expired">Expired</SelectItem>
+                <SelectItem value="executed">Executed</SelectItem>
               </SelectContent>
             </Select>
 
@@ -559,8 +1354,10 @@ const Governance = () => {
               </SelectTrigger>
               <SelectContent className="bg-gray-900 border-white/10">
                 <SelectItem value="all">All Categories</SelectItem>
-                {categories.map(category => (
-                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -576,19 +1373,24 @@ const Governance = () => {
 
         {/* Recent Proposals */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProposals
-            .filter(proposal => ["active", "succeeded", "pending", "rejected"].includes(proposal.status))
-            .length === 0 ? (
+          {filteredProposals.filter((proposal) =>
+            ["active", "succeeded", "pending", "canceled"].includes(
+              proposal.status
+            )
+          ).length === 0 ? (
             <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
               <div className="w-16 h-16 bg-gray-500/20 rounded-full flex items-center justify-center mb-4">
                 <Search className="h-8 w-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">No proposals found</h3>
+              <h3 className="text-lg font-semibold text-white mb-2">
+                No proposals found
+              </h3>
               <p className="text-gray-400 mb-4">
-                Try adjusting your search terms or filters to find what you're looking for.
+                Try adjusting your search terms or filters to find what you're
+                looking for.
               </p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setSearchQuery("");
                   setStatusFilter("all");
@@ -601,184 +1403,387 @@ const Governance = () => {
             </div>
           ) : (
             filteredProposals
-              .filter(proposal => ["active", "succeeded", "pending", "rejected"].includes(proposal.status))
+              .filter((proposal) =>
+                ["active", "succeeded", "pending", "canceled"].includes(
+                  proposal.status
+                )
+              )
               .map((proposal) => {
-            const votePercentage = proposal.totalVotes > 0 
-              ? (proposal.yesVotes / proposal.totalVotes) * 100 
-              : 0;
-            return (
-              <Card key={proposal.id} className="bg-white/5 border border-white/10 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in flex flex-col rounded-3xl">
-                <CardHeader>
-                  <div className="flex items-center justify-between mb-2 h-12">
-                    <CardTitle className="text-lg line-clamp-2 text-white flex-1">
-                      {proposal.title}
-                    </CardTitle>
-                    <Badge variant={getStatusVariant(proposal.status)} className="ml-2 text-xs px-2 py-1 rounded-full font-semibold">
-                      {getStatusLabel(proposal.status)}
-                    </Badge>
-                  </div>
-                  
-                  {/* Category Badge */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge className={`text-xs px-2 py-1 rounded-full font-semibold border ${getCategoryColor(proposal.category)}`}>
-                      {proposal.category}
-                    </Badge>
-                    <span className="text-xs text-gray-400">by {proposal.author}</span>
-                  </div>
-                  
-                  <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-2" />
-                  <p className="text-muted-foreground line-clamp-2 mb-2">
-                    {proposal.description}
-                  </p>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col">
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>Created {formatDate(proposal.createdAt)}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="h-4 w-4" />
-                      <span>{proposal.totalVotes} votes</span>
-                    </div>
-                  </div>
-                  {proposal.status === "active" && (
-                    <div className="space-y-3 mb-4">
-                      {/* Voting Progress Bar */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-xs text-gray-400">
-                          <span>Voting Progress</span>
-                          <span>{proposal.totalVotes} total votes</span>
+                const votePercentage =
+                  proposal.totalVotes > 0
+                    ? (proposal.yesVotes / proposal.totalVotes) * 100
+                    : 0;
+                return (
+                  <Card
+                    key={proposal.id}
+                    className="bg-white/5 border border-white/10 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in flex flex-col rounded-3xl"
+                  >
+                    <CardHeader>
+                      <div className="flex items-center justify-between mb-2 h-12">
+                        <CardTitle className="text-lg line-clamp-2 text-white flex-1">
+                          {proposal.title}
+                        </CardTitle>
+                        <Badge
+                          variant={getStatusVariant(proposal.status)}
+                          className="ml-2 text-xs px-2 py-1 rounded-full font-semibold"
+                        >
+                          {getStatusLabel(proposal.status)}
+                        </Badge>
+                      </div>
+
+                      {/* Category Badge */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge
+                          className={`text-xs px-2 py-1 rounded-full font-semibold border ${getCategoryColor(
+                            proposal.category
+                          )}`}
+                        >
+                          {proposal.category}
+                        </Badge>
+                        <span className="text-xs text-gray-400">
+                          by {proposal.author.slice(0, 6)}...
+                          {proposal.author.slice(-4)}
+                        </span>
+                        {proposal.networkName && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs px-2 py-1 rounded-full font-semibold border-blue-500/50 text-blue-400"
+                          >
+                            {proposal.networkName}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-2" />
+                      <p className="text-muted-foreground line-clamp-2 mb-2">
+                        {proposal.description}
+                      </p>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col">
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>Created {formatDate(proposal.createdAt)}</span>
                         </div>
-                        <div className="relative">
-                          <Progress 
-                            value={votePercentage} 
-                            className="h-3 bg-gray-700/50" 
-                          />
-                          <div 
-                            className="absolute inset-0 rounded-full bg-gradient-to-r from-green-500/20 to-green-600/20"
-                            style={{ width: `${votePercentage}%` }}
-                          />
+                        <div className="flex items-center gap-1">
+                          <Users className="h-4 w-4" />
+                          <span>{proposal.totalVotes} votes</span>
                         </div>
                       </div>
-                      
-                      {/* Vote Breakdown */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs text-green-400 font-medium">For</span>
-                            <span className="text-sm font-bold text-green-300">{proposal.yesVotes}</span>
-                          </div>
-                          <div className="text-xs text-green-400/70">
-                            {votePercentage.toFixed(1)}% of votes
-                          </div>
-                        </div>
-                        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs text-red-400 font-medium">Against</span>
-                            <span className="text-sm font-bold text-red-300">{proposal.noVotes}</span>
-                          </div>
-                          <div className="text-xs text-red-400/70">
-                            {((proposal.noVotes / proposal.totalVotes) * 100).toFixed(1)}% of votes
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Time Remaining */}
-                      {proposal.votingEnds && (
-                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4 text-blue-400" />
-                              <span className="text-xs text-blue-400 font-medium">Voting Ends</span>
+                      {proposal.status === "active" && (
+                        <div className="space-y-3 mb-4">
+                          {/* Voting Progress Bar */}
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs text-gray-400">
+                              <span>Voting Progress</span>
+                              <span>{proposal.totalVotes} total votes</span>
                             </div>
-                            <span className="text-sm font-bold text-blue-300">
-                              {formatDate(proposal.votingEnds)}
-                            </span>
+                            <div className="relative">
+                              <Progress
+                                value={votePercentage}
+                                className="h-3 bg-gray-700/50"
+                              />
+                              <div
+                                className="absolute inset-0 rounded-full bg-gradient-to-r from-green-500/20 to-green-600/20"
+                                style={{ width: `${votePercentage}%` }}
+                              />
+                            </div>
                           </div>
+
+                          {/* Vote Breakdown */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-green-400 font-medium">
+                                  For
+                                </span>
+                                <span className="text-sm font-bold text-green-300">
+                                  {proposal.yesVotes}
+                                </span>
+                              </div>
+                              <div className="text-xs text-green-400/70">
+                                {votePercentage.toFixed(1)}% of votes
+                              </div>
+                            </div>
+                            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-red-400 font-medium">
+                                  Against
+                                </span>
+                                <span className="text-sm font-bold text-red-300">
+                                  {proposal.noVotes}
+                                </span>
+                              </div>
+                              <div className="text-xs text-red-400/70">
+                                {(
+                                  (proposal.noVotes / proposal.totalVotes) *
+                                  100
+                                ).toFixed(1)}
+                                % of votes
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Time Remaining */}
+                          {proposal.votingEnds && (
+                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-4 w-4 text-blue-400" />
+                                  <span className="text-xs text-blue-400 font-medium">
+                                    Voting Ends
+                                  </span>
+                                </div>
+                                <span className="text-sm font-bold text-blue-300">
+                                  {formatDate(proposal.votingEnds)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
-                    </div>
-                  )}
-                  {proposal.status === "pending" && (
-                    <div className="space-y-2 mb-4">
-                      <div className="flex justify-between text-sm">
-                        <span className={proposal.isExpired ? "text-red-400" : "text-orange-400"}>
-                          Power Level: {proposal.currentPower}/{proposal.requiredPower}
-                        </span>
-                        <span className={proposal.isExpired ? "text-red-400" : "text-blue-400"}>
-                          {proposal.isExpired ? "Time Expired" : `Time Left: ${proposal.timeToActivate}`}
-                        </span>
+                      {proposal.status === "pending" && (
+                        <div className="space-y-3 mb-4">
+                          {/* Activation Progress Bar */}
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs text-gray-400">
+                              <span>Activation Progress</span>
+                              <span>
+                                {proposal.currentPower} /{" "}
+                                {proposal.requiredPower} power
+                              </span>
+                            </div>
+                            <div className="relative">
+                              <Progress
+                                value={
+                                  (proposal.currentPower /
+                                    proposal.requiredPower) *
+                                  100
+                                }
+                                className="h-3 bg-gray-700/50"
+                              />
+                              <div
+                                className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-500/20 to-yellow-500/20"
+                                style={{
+                                  width: `${
+                                    (proposal.currentPower /
+                                      proposal.requiredPower) *
+                                    100
+                                  }%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Activation Status */}
+                          <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Zap className="h-4 w-4 text-orange-400" />
+                                <span className="text-sm font-medium text-orange-300">
+                                  Activation Status
+                                </span>
+                              </div>
+                              <span
+                                className={`text-sm font-bold ${
+                                  proposal.isExpired
+                                    ? "text-red-400"
+                                    : proposal.currentPower >=
+                                      proposal.requiredPower
+                                    ? "text-green-400"
+                                    : "text-orange-400"
+                                }`}
+                              >
+                                {proposal.isExpired
+                                  ? "Expired"
+                                  : proposal.currentPower >=
+                                    proposal.requiredPower
+                                  ? "Ready to Activate"
+                                  : "Needs More Power"}
+                              </span>
+                            </div>
+
+                            {/* Power Details */}
+                            <div className="grid grid-cols-2 gap-3 mb-2">
+                              <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-2">
+                                <div className="text-xs text-orange-400/70 mb-1">
+                                  Current Power
+                                </div>
+                                <div className="text-sm font-bold text-orange-300">
+                                  {proposal.currentPower.toLocaleString()}
+                                </div>
+                              </div>
+                              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-2">
+                                <div className="text-xs text-blue-400/70 mb-1">
+                                  Required Power
+                                </div>
+                                <div className="text-sm font-bold text-blue-300">
+                                  {proposal.requiredPower.toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Time Remaining */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-gray-400" />
+                                <span className="text-xs text-gray-400">
+                                  {proposal.isExpired
+                                    ? "Activation Period"
+                                    : "Time Remaining"}
+                                </span>
+                              </div>
+                              <span
+                                className={`text-sm font-bold ${
+                                  proposal.isExpired
+                                    ? "text-red-400"
+                                    : "text-blue-400"
+                                }`}
+                              >
+                                {proposal.isExpired
+                                  ? "Expired"
+                                  : proposal.timeToActivate || "Unknown"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Warning for expired proposals */}
+                          {proposal.isExpired && (
+                            <div className="text-xs text-red-400 bg-red-900/20 p-3 rounded-xl border border-red-500/30">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-red-400">⚠️</span>
+                                <span className="font-medium">
+                                  Activation Failed
+                                </span>
+                              </div>
+                              <p className="text-red-400/80">
+                                This proposal failed to reach the required power
+                                level ({proposal.requiredPower.toLocaleString()}
+                                ) within the activation period and has expired.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Success message for ready proposals */}
+                          {!proposal.isExpired &&
+                            proposal.currentPower >= proposal.requiredPower && (
+                              <div className="text-xs text-green-400 bg-green-900/20 p-3 rounded-xl border border-green-500/30">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-green-400">✅</span>
+                                  <span className="font-medium">
+                                    Ready to Activate
+                                  </span>
+                                </div>
+                                <p className="text-green-400/80">
+                                  This proposal has reached the required power
+                                  level and can be activated to begin voting.
+                                </p>
+                              </div>
+                            )}
+                        </div>
+                      )}
+                      <div className="flex gap-2 mt-auto">
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full"
+                        >
+                          <Link to={`/governance/proposals/${proposal.id}`}>
+                            View Details
+                          </Link>
+                        </Button>
+                        {activeAccount && proposal.status === "active" && (
+                          <div className="flex items-center gap-1 text-xs text-gray-400 bg-gray-800/50 px-2 py-1 rounded-full">
+                            <Zap className="h-3 w-3" />
+                            {userVotingPower.toLocaleString()} power
+                          </div>
+                        )}
+                        {userVotes[proposal.id] &&
+                          proposal.status === "active" && (
+                            <div
+                              className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                                userVotes[proposal.id] === "yes"
+                                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                  : "bg-red-500/20 text-red-400 border border-red-500/30"
+                              }`}
+                            >
+                              {userVotes[proposal.id] === "yes" ? (
+                                <ThumbsUp className="h-3 w-3" />
+                              ) : (
+                                <ThumbsDown className="h-3 w-3" />
+                              )}
+                              {userVotes[proposal.id] === "yes"
+                                ? "For"
+                                : "Against"}
+                            </div>
+                          )}
+                        {proposal.status === "active" &&
+                          !userVotes[proposal.id] && (
+                            <Button
+                              size="sm"
+                              className="rounded-full"
+                              onClick={() => handleVoteClick(proposal.id)}
+                            >
+                              <Vote className="h-4 w-4 mr-1" />
+                              Vote
+                            </Button>
+                          )}
+                        {proposal.status === "pending" &&
+                          !proposal.isExpired && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-full"
+                              onClick={() =>
+                                handleActivateProposal(proposal.id)
+                              }
+                              disabled={activatingProposal === proposal.id}
+                            >
+                              {activatingProposal === proposal.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Activating...
+                                </>
+                              ) : (
+                                "Activate"
+                              )}
+                            </Button>
+                          )}
+                        {proposal.status === "pending" &&
+                          proposal.isExpired && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="rounded-full"
+                              onClick={() => handleRejectProposal(proposal.id)}
+                              disabled={rejectingProposal === proposal.id}
+                            >
+                              {rejectingProposal === proposal.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Rejecting...
+                                </>
+                              ) : (
+                                "Reject"
+                              )}
+                            </Button>
+                          )}
+                        {proposal.status === "canceled" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled
+                            className="opacity-50 cursor-not-allowed rounded-full"
+                          >
+                            Canceled
+                          </Button>
+                        )}
                       </div>
-                      {proposal.isExpired && (
-                        <div className="text-xs text-red-400 bg-red-900/20 p-2 rounded border border-red-500/30">
-                          ⚠️ This proposal failed to reach the required power level within the activation period and has expired.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex gap-2 mt-auto">
-                    <Button asChild variant="outline" size="sm" className="rounded-full">
-                      <Link to={`/governance/proposals/${proposal.id}`}>
-                        View Details
-                      </Link>
-                    </Button>
-                    {proposal.status === "active" && (
-                      <Button 
-                        size="sm"
-                        className="rounded-full"
-                        onClick={() => handleVoteClick(proposal.id)}
-                      >
-                        <Vote className="h-4 w-4 mr-1" />
-                        Vote
-                      </Button>
-                    )}
-                    {proposal.status === "pending" && !proposal.isExpired && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="rounded-full"
-                        onClick={() => handleActivateProposal(proposal.id)}
-                        disabled={activatingProposal === proposal.id}
-                      >
-                        {activatingProposal === proposal.id ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Activating...
-                          </>
-                        ) : (
-                          "Activate"
-                        )}
-                      </Button>
-                    )}
-                    {proposal.status === "pending" && proposal.isExpired && (
-                      <Button 
-                        variant="destructive" 
-                        size="sm"
-                        className="rounded-full"
-                        onClick={() => handleRejectProposal(proposal.id)}
-                        disabled={rejectingProposal === proposal.id}
-                      >
-                        {rejectingProposal === proposal.id ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Rejecting...
-                          </>
-                        ) : (
-                          "Reject"
-                        )}
-                      </Button>
-                    )}
-                    {proposal.status === "rejected" && (
-                      <Button variant="outline" size="sm" disabled className="opacity-50 cursor-not-allowed rounded-full">
-                        Rejected
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
+                    </CardContent>
+                  </Card>
+                );
+              })
           )}
         </div>
       </div>
@@ -789,22 +1794,57 @@ const Governance = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Vote className="h-5 w-5" />
-              Cast Your Vote
+              {hasVoted ? "Your Vote" : "Cast Your Vote"}
             </DialogTitle>
             <DialogDescription>
-              {votingProposal && proposals.find(p => p.id === votingProposal)?.title}
+              {votingProposal &&
+                proposals.find((p) => p.id === votingProposal)?.title}
+              {hasVoted && (
+                <div
+                  className={`mt-2 p-3 rounded-lg border ${
+                    selectedVote === "yes"
+                      ? "bg-green-500/10 border-green-500/20"
+                      : "bg-red-500/10 border-red-500/20"
+                  }`}
+                >
+                  <div
+                    className={`flex items-center gap-2 ${
+                      selectedVote === "yes" ? "text-green-400" : "text-red-400"
+                    }`}
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="font-medium">
+                      You voted {selectedVote === "yes" ? "Yes" : "No"} on this
+                      proposal
+                    </span>
+                  </div>
+                  <p
+                    className={`text-xs mt-1 ${
+                      selectedVote === "yes"
+                        ? "text-green-400/70"
+                        : "text-red-400/70"
+                    }`}
+                  >
+                    Your vote has been recorded and cannot be changed
+                  </p>
+                </div>
+              )}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {/* Voting Power Display */}
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Zap className="h-4 w-4 text-blue-400" />
-                  <span className="text-sm font-medium text-blue-300">Your Voting Power</span>
+                  <span className="text-sm font-medium text-blue-300">
+                    Your Voting Power
+                  </span>
                 </div>
-                <span className="text-lg font-bold text-blue-200">{userVotingPower.toLocaleString()}</span>
+                <span className="text-lg font-bold text-blue-200">
+                  {userVotingPower.toLocaleString()}
+                </span>
               </div>
               <p className="text-xs text-blue-400/70 mt-1">
                 This represents your influence on this proposal
@@ -812,82 +1852,118 @@ const Governance = () => {
             </div>
 
             {/* Impact Preview */}
-            {votingProposal && (() => {
-              const proposal = proposals.find(p => p.id === votingProposal);
-              if (!proposal || proposal.status !== "active") return null;
-              const currentYes = proposal.yesVotes;
-              const currentNo = proposal.noVotes;
-              const currentTotal = proposal.totalVotes;
-              const currentYesPct = currentTotal > 0 ? (currentYes / currentTotal) * 100 : 0;
-              const currentNoPct = currentTotal > 0 ? (currentNo / currentTotal) * 100 : 0;
-              let newYes = currentYes;
-              let newNo = currentNo;
-              let newTotal = currentTotal;
-              if (selectedVote === 'yes') {
-                newYes += 1;
-                newTotal += 1;
-              } else if (selectedVote === 'no') {
-                newNo += 1;
-                newTotal += 1;
-              }
-              const newYesPct = newTotal > 0 ? (newYes / newTotal) * 100 : 0;
-              const newNoPct = newTotal > 0 ? (newNo / newTotal) * 100 : 0;
-              return (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <span>Impact Preview</span>
-                    <span className="rounded-full bg-gray-700/40 px-2 py-0.5 text-[10px] text-gray-300">if you vote {selectedVote === 'yes' ? 'Yes' : selectedVote === 'no' ? 'No' : ''}</span>
+            {votingProposal &&
+              (() => {
+                const proposal = proposals.find((p) => p.id === votingProposal);
+                if (!proposal || proposal.status !== "active") return null;
+                const currentYes = proposal.yesVotes;
+                const currentNo = proposal.noVotes;
+                const currentTotal = proposal.totalVotes;
+                const currentYesPct =
+                  currentTotal > 0 ? (currentYes / currentTotal) * 100 : 0;
+                const currentNoPct =
+                  currentTotal > 0 ? (currentNo / currentTotal) * 100 : 0;
+                let newYes = currentYes;
+                let newNo = currentNo;
+                let newTotal = currentTotal;
+                if (selectedVote === "yes") {
+                  newYes += 1;
+                  newTotal += 1;
+                } else if (selectedVote === "no") {
+                  newNo += 1;
+                  newTotal += 1;
+                }
+                const newYesPct = newTotal > 0 ? (newYes / newTotal) * 100 : 0;
+                const newNoPct = newTotal > 0 ? (newNo / newTotal) * 100 : 0;
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <span>Impact Preview</span>
+                      <span className="rounded-full bg-gray-700/40 px-2 py-0.5 text-[10px] text-gray-300">
+                        if you vote{" "}
+                        {selectedVote === "yes"
+                          ? "Yes"
+                          : selectedVote === "no"
+                          ? "No"
+                          : ""}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      {/* Current progress bar */}
+                      <Progress
+                        value={currentYesPct}
+                        className="h-2 bg-gray-700/50"
+                      />
+                      {/* Preview progress bar overlays */}
+                      {selectedVote && (
+                        <div
+                          className="absolute top-0 left-0 h-2 rounded-full bg-green-500/40 transition-all duration-300"
+                          style={{
+                            width: `${newYesPct}%`,
+                            opacity: 0.7,
+                            zIndex: 2,
+                          }}
+                        />
+                      )}
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-green-400">
+                        For: {currentYes} → <b>{newYes}</b> (
+                        {currentYesPct.toFixed(1)}% →{" "}
+                        <b>{newYesPct.toFixed(1)}%</b>)
+                      </span>
+                      <span className="text-red-400">
+                        Against: {currentNo} → <b>{newNo}</b> (
+                        {currentNoPct.toFixed(1)}% →{" "}
+                        <b>{newNoPct.toFixed(1)}%</b>)
+                      </span>
+                    </div>
                   </div>
-                  <div className="relative">
-                    {/* Current progress bar */}
-                    <Progress value={currentYesPct} className="h-2 bg-gray-700/50" />
-                    {/* Preview progress bar overlays */}
-                    {selectedVote && (
-                      <div className="absolute top-0 left-0 h-2 rounded-full bg-green-500/40 transition-all duration-300" style={{ width: `${newYesPct}%`, opacity: 0.7, zIndex: 2 }} />
-                    )}
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-green-400">
-                      For: {currentYes} → <b>{newYes}</b> ({currentYesPct.toFixed(1)}% → <b>{newYesPct.toFixed(1)}%</b>)
-                    </span>
-                    <span className="text-red-400">
-                      Against: {currentNo} → <b>{newNo}</b> ({currentNoPct.toFixed(1)}% → <b>{newNoPct.toFixed(1)}%</b>)
-                    </span>
-                  </div>
-                </div>
-              );
-            })()}
-            
+                );
+              })()}
+
             <div className="text-sm text-muted-foreground">
               Select your vote for this proposal. This action cannot be undone.
             </div>
-            
+
             <div className="grid grid-cols-2 gap-3">
               <Button
-                variant={selectedVote === 'yes' ? 'default' : 'outline'}
+                variant={selectedVote === "yes" ? "default" : "outline"}
                 className={`h-16 flex flex-col items-center justify-center gap-2 rounded-2xl ${
-                  selectedVote === 'yes' ? 'bg-green-600 hover:bg-green-700' : ''
+                  selectedVote === "yes"
+                    ? hasVoted
+                      ? "bg-green-600 hover:bg-green-700 text-white border-green-500"
+                      : "bg-green-600 hover:bg-green-700"
+                    : ""
                 }`}
-                onClick={() => setSelectedVote('yes')}
-                disabled={submittingVote}
+                onClick={() => setSelectedVote("yes")}
+                disabled={submittingVote || hasVoted}
               >
                 <ThumbsUp className="h-6 w-6" />
-                <span className="font-semibold">Vote Yes</span>
+                <span className="font-semibold">
+                  {hasVoted && selectedVote === "yes" ? "Voted" : "Vote Yes"}
+                </span>
               </Button>
-              
+
               <Button
-                variant={selectedVote === 'no' ? 'default' : 'outline'}
+                variant={selectedVote === "no" ? "default" : "outline"}
                 className={`h-16 flex flex-col items-center justify-center gap-2 rounded-2xl ${
-                  selectedVote === 'no' ? 'bg-red-600 hover:bg-red-700' : ''
+                  selectedVote === "no"
+                    ? hasVoted
+                      ? "bg-red-600 hover:bg-red-700 text-white border-red-500"
+                      : "bg-red-600 hover:bg-red-700"
+                    : ""
                 }`}
-                onClick={() => setSelectedVote('no')}
-                disabled={submittingVote}
+                onClick={() => setSelectedVote("no")}
+                disabled={submittingVote || hasVoted}
               >
                 <ThumbsDown className="h-6 w-6" />
-                <span className="font-semibold">Vote No</span>
+                <span className="font-semibold">
+                  {hasVoted && selectedVote === "no" ? "Voted" : "Vote No"}
+                </span>
               </Button>
             </div>
-            
+
             <div className="flex gap-2 pt-4">
               <Button
                 variant="outline"
@@ -895,22 +1971,24 @@ const Governance = () => {
                 disabled={submittingVote}
                 className="flex-1 rounded-2xl"
               >
-                Cancel
+                {hasVoted ? "Close" : "Cancel"}
               </Button>
-              <Button
-                onClick={handleSubmitVote}
-                disabled={!selectedVote || submittingVote}
-                className="flex-1 rounded-2xl"
-              >
-                {submittingVote ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  'Submit Vote'
-                )}
-              </Button>
+              {!hasVoted && (
+                <Button
+                  onClick={handleSubmitVote}
+                  disabled={!selectedVote || submittingVote}
+                  className="flex-1 rounded-2xl"
+                >
+                  {submittingVote ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Vote"
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
@@ -919,4 +1997,4 @@ const Governance = () => {
   );
 };
 
-export default Governance; 
+export default Governance;

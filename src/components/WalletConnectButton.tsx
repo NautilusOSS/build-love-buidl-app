@@ -9,12 +9,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useSidebar } from "./ui/sidebar";
+import algosdk from "algosdk";
+import { SimpleFaucet } from "@/service/simple-faucet";
 
 const WalletConnectButton: React.FC = () => {
   const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
+  const location = useLocation();
   const [connecting, setConnecting] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const {
@@ -24,12 +27,18 @@ const WalletConnectButton: React.FC = () => {
     activeWalletAccounts,
     activeNetwork,
     setActiveNetwork,
+    algodClient,
   } = useWallet();
+
+  // Check if current page is a wallet page
+  const isWalletPage = location.pathname.startsWith("/wallet/");
 
   // Add networks array
   const networks = [
     { id: NetworkId.MAINNET, name: "Algorand" },
+    { id: NetworkId.TESTNET, name: "Algorand Testnet" },
     { id: NetworkId.VOIMAIN, name: "Voi" },
+    { id: NetworkId.LOCALNET, name: "Localnet" },
   ];
 
   const networkWallets = {
@@ -41,12 +50,17 @@ const WalletConnectButton: React.FC = () => {
       { id: WalletId.BIATEC, name: "Biatec" },
       { id: WalletId.WALLETCONNECT, name: "WalletConnect" },
     ],
+    [NetworkId.TESTNET]: [
+      { id: WalletId.KIBISIS, name: "Kibisis" },
+      { id: WalletId.LUTE, name: "Lute" },
+    ],
     [NetworkId.VOIMAIN]: [
       { id: WalletId.KIBISIS, name: "Kibisis" },
       { id: WalletId.LUTE, name: "Lute" },
       { id: WalletId.BIATEC, name: "Biatec" },
       { id: WalletId.WALLETCONNECT, name: "WalletConnect" },
     ],
+    [NetworkId.LOCALNET]: [{ id: WalletId.MNEMONIC, name: "Mnemonic" }],
   };
 
   // Filter wallets based on active network
@@ -72,11 +86,32 @@ const WalletConnectButton: React.FC = () => {
     }, 5000);
 
     try {
-      toggleSidebar();
+      if (![NetworkId.LOCALNET].includes(activeNetwork as NetworkId)) {
+        toggleSidebar();
+      } else {
+        const acc = algosdk.generateAccount();
+        const { addr, sk } = acc;
+        const mn = algosdk.secretKeyToMnemonic(sk);
+        localStorage.setItem("@txnlab/use-wallet:v3_mnemonic", mn);
+        const faucet = new SimpleFaucet(
+          new algosdk.Algodv2(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "http://10.0.0.31",
+            4001
+          ),
+          "game list violin lens desert jealous earth prefer bless ski dentist lesson harbor avoid oyster skate episode digital pelican sound clay heavy digital about warm"
+        );
+        await faucet.fundAccount(addr, 2e6);
+      }
       const [activeAccount] = await wallet.connect();
       clearTimeout(connectionTimeout);
       setConnecting(null);
-      navigate(`/airdrop/${activeAccount.address}`);
+
+      // If current page is a wallet page, navigate to the new wallet address page
+      if (isWalletPage && activeAccount) {
+        navigate(`/wallet/${activeAccount.address}`);
+      }
+      //navigate(`/airdrop/${activeAccount.address}`);
     } catch (error) {
       clearTimeout(connectionTimeout);
       setConnecting(null);
@@ -167,6 +202,10 @@ const WalletConnectButton: React.FC = () => {
                     value={activeAccount?.address}
                     onValueChange={(address) => {
                       activeWallet?.setActiveAccount(address);
+                      // If current page is a wallet page, navigate to the new account's wallet page
+                      if (isWalletPage && address) {
+                        navigate(`/wallet/${address}`);
+                      }
                     }}
                   >
                     <SelectTrigger className="w-full bg-[#0a4d62] border-[#1eaedb] text-[#1eaedb] rounded-xl relative">

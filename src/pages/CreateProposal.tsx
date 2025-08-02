@@ -2,44 +2,118 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, FileText, AlertCircle, CheckCircle, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
-import { useWallet } from "@txnlab/use-wallet-react";
+import {
+  ArrowLeft,
+  FileText,
+  AlertCircle,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Twitter,
+  Share2,
+} from "lucide-react";
+import { NetworkId, useWallet } from "@txnlab/use-wallet-react";
 import { useToast, toast } from "@/components/ui/use-toast";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { ToastAction } from "@/components/ui/toast";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import CreateProposalForm from "./CreateProposalForm";
 import CreateProposalPreview from "./CreateProposalPreview";
 import CreateProposalGuidelines from "./CreateProposalGuidelines";
+import { CONTRACT } from "ulujs";
+import algosdk from "algosdk";
+import { getGovernanceAppId } from "@/constants/appIds";
+import { APP_SPEC as PowGovernanceAppSpec } from "@/clients/PowGovernanceClient.ts";
+
+// Custom Modal with rounded backdrop
+const RoundedModal = ({ 
+  open, 
+  onOpenChange, 
+  children 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void; 
+  children: React.ReactNode; 
+}) => {
+  if (!open) return null;
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Full screen backdrop */}
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in-0" />
+      {/* Modal content */}
+      <div className="relative z-10 w-full max-w-md mx-8">
+        {children}
+      </div>
+    </div>
+  );
+};
 
 const proposalSchema = z.object({
-  title: z.string()
+  title: z
+    .string()
     .min(1, "Title is required")
     .max(64, "Title must be 64 characters or less"),
-  description: z.string()
+  description: z
+    .string()
     .min(1, "Description is required")
     .max(512, "Description must be 512 characters or less"),
-  category: z.enum([
-    "Treasury",
-    "Governance",
-    "Infrastructure",
-    "Community",
-    "Development",
-    "Security",
-  ], { required_error: "Category is required" }),
+  category: z.enum(
+    [
+      "Treasury",
+      "Governance",
+      "Infrastructure",
+      "Community",
+      "Development",
+      "Security",
+    ],
+    { required_error: "Category is required" }
+  ),
 });
 
 type ProposalFormData = z.infer<typeof proposalSchema>;
 
 const CreateProposal = () => {
-  const { activeWallet } = useWallet();
+  const {
+    activeAccount,
+    activeWallet,
+    activeNetwork,
+    algodClient,
+    signTransactions,
+  } = useWallet();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [creationSuccessDialogOpen, setCreationSuccessDialogOpen] = useState(false);
+  const [createdProposalData, setCreatedProposalData] = useState<{
+    title: string;
+    id: string;
+  } | null>(null);
+  const navigate = useNavigate();
 
   const form = useForm<ProposalFormData>({
     resolver: zodResolver(proposalSchema),
@@ -53,7 +127,7 @@ const CreateProposal = () => {
   const watchedValues = form.watch();
 
   const handleSubmit = async (data: ProposalFormData) => {
-    if (!activeWallet) {
+    if (!activeAccount) {
       toast({
         title: "Wallet Not Connected",
         description: "Please connect your wallet to create a proposal.",
@@ -65,22 +139,95 @@ const CreateProposal = () => {
     setIsSubmitting(true);
     try {
       // Mock proposal creation transaction
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise((resolve) => setTimeout(resolve, 3000));
       console.log("Creating proposal:", data);
-      
+
       // In real app, this would:
       // 1. Call the governance contract to create the proposal
       // 2. Wait for transaction confirmation
       // 3. Redirect to the new proposal page
-      
-      toast({
-        title: "Proposal Created",
-        description: "Your proposal was created successfully! (Mock)",
-        variant: "default",
+      const algod =
+        activeNetwork === NetworkId.LOCALNET
+          ? new algosdk.Algodv2(
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "http://10.0.0.31",
+              4001
+            )
+          : algodClient;
+      const ci = new CONTRACT(
+        getGovernanceAppId(activeNetwork),
+        algod,
+        undefined,
+        {
+          name: "Governance",
+          description: "Governance",
+          methods: PowGovernanceAppSpec.contract.methods,
+          events: [],
+        },
+        { addr: activeAccount.address, sk: new Uint8Array() }
+      );
+      ci.setEnableRawBytes(true);
+      const proposeR = await ci.propose(
+        new Uint8Array(
+          [...data.title.padEnd(64, "\0")].map((char) => char.charCodeAt(0))
+        ),
+        new Uint8Array(
+          [...data.description.padEnd(512, "\0")].map((char) =>
+            char.charCodeAt(0)
+          )
+        ),
+        0,
+        Math.floor(new Date().getTime() / 1000)
+      );
+      console.log("proposeR", proposeR);
+      if (!proposeR.success) {
+        toast({
+          title: "Proposal Creation Failed",
+          description: "Failed to create proposal. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const stxns = await signTransactions(
+        proposeR.txns.map(
+          (txn: string) =>
+            new Uint8Array(
+              atob(txn)
+                .split("")
+                .map((char) => char.charCodeAt(0))
+            )
+        )
+      );
+      console.log("stxns", stxns);
+      const txid = await algod.sendRawTransaction(stxns).do();
+      console.log("txid", txid);
+
+      // Extract proposal node from the response and convert to base64
+      if (!proposeR.returnValue) {
+        throw new Error("No proposal ID returned from contract");
+      }
+
+      // Convert Uint8Array to hex string
+      const hexString = Array.from(proposeR.returnValue)
+        .map((b) => (b as number).toString(16).padStart(2, "0"))
+        .join("");
+      const proposalNode = hexString;
+      console.log("proposalNode", proposalNode);
+      console.log("hexString", hexString);
+
+      // Store the created proposal data for the success modal
+      setCreatedProposalData({
+        title: data.title,
+        id: proposalNode,
       });
+
+      // Show the success dialog instead of immediately navigating
+      setCreationSuccessDialogOpen(true);
+
       form.reset();
     } catch (error) {
-      console.error('Proposal creation failed:', error);
+      console.error("Proposal creation failed:", error);
       toast({
         title: "Proposal Creation Failed",
         description: "Failed to create proposal. Please try again.",
@@ -89,6 +236,57 @@ const CreateProposal = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const generateTwitterMessage = () => {
+    if (!createdProposalData) return "";
+
+    const proposalTitle =
+      createdProposalData.title.length > 50
+        ? createdProposalData.title.substring(0, 47) + "..."
+        : createdProposalData.title;
+
+    // Construct proposal URL
+    const proposalUrl = `${window.location.origin}/governance/proposals/${createdProposalData.id}`;
+
+    const message = `🚀 Just created a new governance proposal!\n\n"${proposalTitle}"\n\n🗳️ This proposal is now pending activation.\n\nWant to help get it activated? Check it out:\n${proposalUrl}\n\n#Governance #DAO #Web3`;
+
+    return message;
+  };
+
+  const handleShareOnTwitter = () => {
+    const message = generateTwitterMessage();
+
+    // Create a more engaging tweet with clear call-to-action
+    const enhancedMessage = `${message}\n\n🗳️ Community Poll:\nShould this proposal be activated?\n\n✅ Yes - I support this proposal\n❌ No - I oppose this proposal\n\n💡 Tip: You can add a Twitter poll after posting this tweet!`;
+
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      enhancedMessage
+    )}`;
+
+    window.open(twitterUrl, "_blank", "width=600,height=400");
+  };
+
+  const handleShareWithPollInstructions = () => {
+    const message = generateTwitterMessage();
+
+    // Create a shorter message that leaves room for a poll
+    const shortMessage = `${message}\n\n🗳️ What do you think?`;
+
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      shortMessage
+    )}`;
+
+    // Open Twitter and show instructions
+    window.open(twitterUrl, "_blank", "width=600,height=400");
+
+    // Show instructions in a toast
+    toast({
+      title: "Twitter Poll Instructions",
+      description:
+        "After posting, click the poll icon (📊) in Twitter to add a Yes/No poll to your tweet!",
+      variant: "default",
+    });
   };
 
   // --- Animated Hero Section (copied and adapted from Governance.tsx) ---
@@ -100,14 +298,17 @@ const CreateProposal = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900"></div>
         {/* Animated Grid Pattern */}
         <div className="absolute inset-0 opacity-20">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `
               linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
               linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
             `,
-            backgroundSize: '50px 50px',
-            animation: 'gridMove 20s linear infinite'
-          }}></div>
+              backgroundSize: "50px 50px",
+              animation: "gridMove 20s linear infinite",
+            }}
+          ></div>
         </div>
         {/* Animated Particles */}
         <div className="absolute inset-0">
@@ -119,7 +320,7 @@ const CreateProposal = () => {
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,
                 animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${2 + Math.random() * 2}s`
+                animationDuration: `${2 + Math.random() * 2}s`,
               }}
             ></div>
           ))}
@@ -133,7 +334,8 @@ const CreateProposal = () => {
           Create a Proposal
         </h1>
         <p className="text-base sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed drop-shadow-lg mb-4 px-2">
-          Propose new ideas, improvements, or changes. Your voice shapes the future of the ecosystem.
+          Propose new ideas, improvements, or changes. Your voice shapes the
+          future of the ecosystem.
         </p>
         <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 px-2">
           <Button
@@ -151,9 +353,7 @@ const CreateProposal = () => {
             variant="outline"
             className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
           >
-            <Link to="/governance">
-              Governance Home
-            </Link>
+            <Link to="/governance">Governance Home</Link>
           </Button>
         </div>
       </div>
@@ -169,7 +369,8 @@ const CreateProposal = () => {
             <Alert className="mt-8">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                You need to connect your wallet to create a proposal. Please connect your wallet and try again.
+                You need to connect your wallet to create a proposal. Please
+                connect your wallet and try again.
               </AlertDescription>
             </Alert>
           </div>
@@ -185,7 +386,9 @@ const CreateProposal = () => {
         {/* Section Divider and Header */}
         <div className="flex items-center gap-4 my-8">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-          <h2 className="text-2xl font-bold text-white tracking-tight animate-fade-in">Create Proposal</h2>
+          <h2 className="text-2xl font-bold text-white tracking-tight animate-fade-in">
+            Create Proposal
+          </h2>
           <div className="flex-1 h-px bg-gradient-to-l from-transparent via-white/20 to-transparent" />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -210,11 +413,106 @@ const CreateProposal = () => {
             <CreateProposalGuidelines />
           </div>
           {/* Preview (always visible) */}
-          <CreateProposalPreview watchedValues={watchedValues} activeWallet={activeWallet} />
+          <CreateProposalPreview
+            watchedValues={watchedValues}
+            activeWallet={activeWallet}
+          />
         </div>
       </div>
+
+      {/* Proposal Creation Success Modal */}
+      <RoundedModal
+        open={creationSuccessDialogOpen}
+        onOpenChange={setCreationSuccessDialogOpen}
+      >
+        <div className="max-w-md w-full p-6 bg-gray-900/95 backdrop-blur-md border border-white/10 shadow-2xl rounded-3xl">
+          <div className="text-center">
+            <h2 className="text-base sm:text-lg font-semibold text-white mb-4 flex items-center justify-center gap-2">
+              <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-400" />
+              Proposal Created Successfully!
+            </h2>
+          </div>
+          <div className="space-y-4 text-center">
+            {/* Success Animation */}
+            <div className="flex justify-center">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-green-500/20 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-green-400" />
+              </div>
+            </div>
+
+            {/* Success Message */}
+            <div className="space-y-2">
+              <h3 className="text-base sm:text-lg font-semibold text-white">
+                Your proposal is now live!
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-300">
+                "{createdProposalData?.title}"
+              </p>
+              <p className="text-xs text-gray-400">
+                The proposal has been created and is now pending activation.
+                Share it with the community to help get it activated!
+              </p>
+            </div>
+
+            {/* Share Section */}
+            <div className="space-y-3">
+              <div className="text-xs sm:text-sm text-gray-300">
+                Share this proposal with the community:
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={handleShareWithPollInstructions}
+                  className="w-full bg-blue-600 hover:bg-blue-700 rounded-2xl text-xs sm:text-sm"
+                >
+                  <Twitter className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                  Share with Poll Instructions
+                </Button>
+                <Button
+                  onClick={handleShareOnTwitter}
+                  variant="outline"
+                  className="w-full rounded-2xl text-xs sm:text-sm"
+                >
+                  <Share2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                  Share Simple Tweet
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCreationSuccessDialogOpen(false);
+                    if (createdProposalData) {
+                      navigate(`/governance/proposals/${createdProposalData.id}`);
+                    }
+                  }}
+                  className="w-full rounded-2xl text-xs sm:text-sm"
+                >
+                  View Proposal
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setCreationSuccessDialogOpen(false)}
+                  className="w-full rounded-2xl text-xs sm:text-sm"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+
+            {/* Next Steps */}
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3">
+              <div className="text-xs text-blue-300 font-medium mb-1">
+                What's Next?
+              </div>
+              <ul className="text-xs text-blue-400/70 space-y-1 text-left">
+                <li>• Share this proposal to gather community support</li>
+                <li>• Community members can help activate it</li>
+                <li>• Once activated, voting will begin</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </RoundedModal>
     </div>
   );
 };
 
-export default CreateProposal; 
+export default CreateProposal;

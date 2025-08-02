@@ -21,6 +21,7 @@ import {
   TrendingUp,
   Vote,
   BarChart3,
+  Zap,
 } from "lucide-react";
 import WalletConnectButton from "./WalletConnectButton";
 import { useWallet } from "@txnlab/use-wallet-react";
@@ -52,6 +53,11 @@ const AppSidebar: React.FC = () => {
               label: "Wallet",
               to: `/wallet/${activeAccount.address}`,
               icon: Wallet,
+            },
+            {
+              label: "Power UP",
+              to: `/powerup/${activeAccount.address}`,
+              icon: Zap,
             },
             {
               label: "Dashboard",

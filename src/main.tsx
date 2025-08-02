@@ -1,7 +1,11 @@
+import { Buffer } from 'buffer';
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import { APP_VERSION, VERSION_KEY } from './constants/version'
+
+// Make Buffer available globally
+window.Buffer = Buffer;
 
 // Version checking and storage clearing logic
 const checkAndClearStorage = () => {

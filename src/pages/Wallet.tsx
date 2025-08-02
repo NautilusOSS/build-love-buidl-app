@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import PageLayout from "@/components/PageLayout";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { NetworkId, useWallet } from "@txnlab/use-wallet-react";
 import { CONTRACT, abi } from "ulujs";
 import algosdk from "algosdk";
 import BigNumber from "bignumber.js";
+import { APP_SPEC as ATokenAppSpec } from "@/clients/ATokenClient";
+import { getATokenAppId } from "@/constants/appIds";
 
 const Wallet: React.FC = () => {
   const { activeNetwork, activeAccount, setActiveNetwork, signTransactions } =
@@ -12,10 +14,13 @@ const Wallet: React.FC = () => {
   const { address } = useParams();
   const [voiBalance, setVoiBalance] = useState<number>(0);
   const [algoBalance, setAlgoBalance] = useState<number>(0);
+  const [localnetBalance, setLocalnetBalance] = useState<number>(0);
   const [algoARC200Balance, setAlgoARC200Balance] = useState<number>(0);
   const [voiARC200Balance, setVoiARC200Balance] = useState<number>(0);
   const [algoASABalance, setAlgoASABalance] = useState<number>(0);
   const [voiASABalance, setVoiASABalance] = useState<number>(0);
+  const [localnetARC200Balance, setLocalnetARC200Balance] = useState<number>(0);
+  const [testnetARC200Balance, setTestnetARC200Balance] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [transferAmount, setTransferAmount] = useState<string>("");
@@ -61,46 +66,134 @@ const Wallet: React.FC = () => {
     monitoring: false,
     confirmed: false,
   });
+  const [showTransferModal, setShowTransferModal] = useState<boolean>(false);
+  const [modalTransferAmount, setModalTransferAmount] = useState<string>("");
+  const [modalTransferAddress, setModalTransferAddress] = useState<string>("");
+  const [modalTransferLoading, setModalTransferLoading] =
+    useState<boolean>(false);
+  const [modalTransferError, setModalTransferError] = useState<string>("");
+  const [modalTransferSuccess, setModalTransferSuccess] = useState<{
+    txId: string;
+    amount: string;
+    recipient: string;
+  } | null>(null);
+  const [mintLoading, setMintLoading] = useState<boolean>(false);
+  const [mintError, setMintError] = useState<string>("");
+  const [mintSuccess, setMintSuccess] = useState<{
+    txId: string;
+    amount: string;
+  } | null>(null);
 
-  // Calculate combined POW balance
-  const totalPOWBalance =
-    algoARC200Balance + voiARC200Balance + algoASABalance + voiASABalance;
+  // Network settings state
+  const [networkSettings, setNetworkSettings] = useState<{
+    [key in NetworkId]: boolean;
+  }>({
+    [NetworkId.LOCALNET]: true,
+    [NetworkId.TESTNET]: true,
+    [NetworkId.MAINNET]: false,
+    [NetworkId.VOIMAIN]: false,
+  } as { [key in NetworkId]: boolean });
 
   console.log("activeNetwork", activeNetwork);
 
   console.log("voiBalance", voiBalance);
   console.log("algoBalance", algoBalance);
+  console.log("localnetBalance", localnetBalance);
   console.log("algoARC200Balance", algoARC200Balance);
   console.log("voiARC200Balance", voiARC200Balance);
   console.log("algoASABalance", algoASABalance);
   console.log("voiASABalance", voiASABalance);
+  console.log("localnetARC200Balance", localnetARC200Balance);
+  console.log("testnetARC200Balance", testnetARC200Balance);
+
+  // Helper function to detect if current network is localnet
+  const isLocalnet = () => {
+    // Check if the active network configuration points to localhost
+    return activeNetwork && activeNetwork === NetworkId.LOCALNET;
+  };
+
+  const isTestnet = () => {
+    // Check if the active network configuration points to testnet
+    return activeNetwork && activeNetwork === NetworkId.TESTNET;
+  };
+
+  const isMintingAllowed = () => {
+    // Allow minting on both localnet and testnet
+    return isLocalnet() || isTestnet();
+  };
+
+  // Helper function to check if a network is enabled
+  const isNetworkEnabled = (networkId: NetworkId) => {
+    return networkSettings[networkId] || false;
+  };
+
+  // Helper function to get enabled networks
+  const getEnabledNetworks = () => {
+    return Object.entries(networkSettings)
+      .filter(([_, enabled]) => enabled)
+      .map(([networkId]) => networkId as NetworkId);
+  };
+
+  // Calculate combined POW balance (only for enabled networks)
+  const totalPOWBalance =
+    (isNetworkEnabled(NetworkId.MAINNET)
+      ? algoARC200Balance + algoASABalance
+      : 0) +
+    (isNetworkEnabled(NetworkId.VOIMAIN)
+      ? voiARC200Balance + voiASABalance
+      : 0) +
+    (isNetworkEnabled(NetworkId.LOCALNET) ? localnetARC200Balance : 0) +
+    (isNetworkEnabled(NetworkId.TESTNET) ? testnetARC200Balance : 0);
 
   const assetId = (networkId: NetworkId) => {
     if (networkId === NetworkId.MAINNET) {
       return 2994233666;
     } else if (networkId === NetworkId.VOIMAIN) {
       return 40152679;
+    } else {
+      // For localnet, testnet or any other network, return 0 as placeholder
+      return 0;
     }
   };
 
-  const tokenId = (networkId: NetworkId) => {
-    if (networkId === NetworkId.MAINNET) {
-      return 3080081069;
-    } else if (networkId === NetworkId.VOIMAIN) {
-      return 40153155;
-    }
-  };
+  // const tokenId = (networkId: NetworkId) => {
+  //   if (networkId === NetworkId.MAINNET) {
+  //     return 3080081069;
+  //   } else if (networkId === NetworkId.VOIMAIN) {
+  //     return 40153155;
+  //   } else {
+  //     // Localnet ARC200 contract ID
+  //     return 3669;
+  //   }
+  // };
 
   const algodAPI = (networkId: NetworkId) => {
     if (networkId === NetworkId.MAINNET) {
       return "https://mainnet-api.4160.nodely.dev";
     } else if (networkId === NetworkId.VOIMAIN) {
       return "https://mainnet-api.voi.nodely.dev";
+    } else if (networkId === NetworkId.TESTNET) {
+      return "https://testnet-api.4160.nodely.dev";
+    } else {
+      // For localnet or any other network, use localhost
+      return "http://localhost";
+    }
+  };
+
+  const algodPort = (networkId: NetworkId) => {
+    if (networkId === NetworkId.MAINNET) {
+      return 443;
+    } else if (networkId === NetworkId.VOIMAIN) {
+      return 443;
+    } else if (networkId === NetworkId.TESTNET) {
+      return 443;
+    } else {
+      return 4001;
     }
   };
 
   const algod = (networkId: NetworkId) =>
-    new algosdk.Algodv2("", algodAPI(networkId), 443);
+    new algosdk.Algodv2("", algodAPI(networkId), algodPort(networkId));
 
   // Function to monitor for Aramid bridge confirmation transactions
   const waitForAramidConfirmation = async (
@@ -314,7 +407,7 @@ const Wallet: React.FC = () => {
   };
 
   const fetchNetworkBalance = (networkId: NetworkId) => async () => {
-    if (!address) return;
+    if (!address) return 0;
 
     setLoading(true);
     setError(null);
@@ -326,53 +419,180 @@ const Wallet: React.FC = () => {
       const balance = accountInfo.amount;
       return balance / 1e6;
     } catch (error) {
-      console.error("Error fetching VOI balance:", error);
+      console.error(`Error fetching ${networkId} balance:`, error);
       setError("Failed to fetch wallet balance");
+      return 0; // Return 0 instead of undefined to prevent NaN
     } finally {
       setLoading(false);
     }
   };
 
   const fetchARC200Balance = (networkId: NetworkId) => async () => {
-    if (!address) return;
+    if (!address) return 0;
+    const aTokenAppId = getATokenAppId(networkId);
+    if (aTokenAppId === 0) {
+      console.error(`${networkId} AToken app ID is 0`);
+      return 0;
+    }
 
     setLoading(true);
     setError(null);
 
-    const ci = new CONTRACT(
-      tokenId(networkId),
-      algod(networkId),
-      undefined,
-      abi.nt200,
-      {
-        addr: "SDSKGUS5AEIQATOLCSNC4PUK5GK6G6JRWMKUJY5GQRWMNXUTWURVUIQV3U",
-        sk: new Uint8Array(),
-      }
-    );
+    try {
+      const ci = new CONTRACT(
+        aTokenAppId,
+        algod(networkId),
+        undefined,
+        {
+          name: "ARC200",
+          description: "ARC200",
+          methods: ATokenAppSpec.contract.methods,
+          events: [],
+        },
+        {
+          addr: address,
+          sk: new Uint8Array(),
+        }
+      );
 
-    const balanceR = await ci.arc200_balanceOf(address);
-    console.log("balanceR", balanceR);
-    const balance = Number(balanceR.returnValue) / 1e6;
-    return balance;
+      const balanceR = await ci.arc200_balanceOf(address);
+      console.log("balanceR", balanceR);
+      const balance = Number(balanceR.returnValue) / 1e6;
+      return balance;
+    } catch (error) {
+      console.error(`Error fetching ${networkId} ARC200 balance:`, error);
+      setError("Failed to fetch ARC200 balance");
+      return 0; // Return 0 instead of undefined to prevent NaN
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchASABalance = (networkId: NetworkId) => async () => {
+    if (!address) return 0;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const algodClient = algod(networkId);
+      const accountInfo = await algodClient
+        .accountAssetInformation(address, assetId(networkId))
+        .do()
+        .catch((error) => {
+          console.error(`Error fetching ${networkId} ASA balance:`, error);
+          return {
+            "asset-holding": { amount: 0 },
+          };
+        });
+
+      const balance = accountInfo["asset-holding"]["amount"] / 1e6;
+
+      if (isNaN(balance)) {
+        console.error(`${networkId} ASA balance calculation resulted in NaN`);
+        return 0;
+      }
+
+      return balance;
+    } catch (error) {
+      console.error(`Error fetching ${networkId} ASA balance:`, error);
+      setError("Failed to fetch ASA balance");
+      return 0; // Return 0 instead of undefined to prevent NaN
+    } finally {
+      setLoading(false);
+      return 0;
+    }
+  };
+
+  const fetchAlgoBalance = fetchNetworkBalance(NetworkId.MAINNET);
+  const fetchTestnetBalance = fetchNetworkBalance(NetworkId.TESTNET);
+  const fetchVoiBalance = fetchNetworkBalance(NetworkId.VOIMAIN);
+
+  // Custom localnet balance fetch function
+  const fetchLocalnetBalance = async () => {
     if (!address) return;
 
     setLoading(true);
     setError(null);
 
-    const algodClient = algod(networkId);
-    const accountInfo = await algodClient
-      .accountAssetInformation(address, assetId(networkId))
-      .do();
-    const balance = accountInfo["asset-holding"]["amount"] / 1e6;
-    return balance;
+    try {
+      const token =
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const server = "http://10.0.0.31";
+      const port = 4001;
+      const algodClient = new algosdk.Algodv2(token, server, port);
+      const accountInfo = await algodClient.accountInformation(address).do();
+      const balance = accountInfo.amount;
+      return balance / 1e6;
+    } catch (error) {
+      console.error("Error fetching Localnet balance:", error);
+      setError("Failed to fetch localnet balance");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const fetchAlgoBalance = fetchNetworkBalance(NetworkId.MAINNET);
-  const fetchVoiBalance = fetchNetworkBalance(NetworkId.VOIMAIN);
+  // Custom localnet ARC200 balance fetch function
+  const fetchLocalnetARC200Balance = async () => {
+    if (!address) return 0;
+
+    console.log("Fetching localnet ARC200 balance for address:", address);
+
+    try {
+      const token =
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const server = "http://10.0.0.31";
+      const port = 4001;
+      const algodClient = new algosdk.Algodv2(token, server, port);
+
+      console.log("Created algod client for localnet");
+
+      const ci = new CONTRACT(
+        getATokenAppId(NetworkId.LOCALNET),
+        algodClient,
+        undefined,
+        abi.nt200,
+        {
+          addr: address,
+          sk: new Uint8Array(),
+        }
+      );
+
+      console.log("Created CONTRACT instance for localnet ARC200");
+
+      const balanceR = await ci.arc200_balanceOf(address);
+      console.log("localnet balanceR", balanceR);
+
+      if (!balanceR || !balanceR.returnValue) {
+        console.warn("No balance returned from localnet ARC200 contract");
+        return 0;
+      }
+
+      const balance = Number(balanceR.returnValue) / 1e6;
+      console.log("Calculated localnet ARC200 balance:", balance);
+
+      if (isNaN(balance)) {
+        console.error(
+          "Balance calculation resulted in NaN. balanceR.returnValue:",
+          balanceR.returnValue
+        );
+        return 0;
+      }
+
+      return balance;
+    } catch (error) {
+      console.error("Error fetching Localnet ARC200 balance:", error);
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        address,
+      });
+      return 0;
+    }
+  };
+
   const fetchAlgoARC200Balance = fetchARC200Balance(NetworkId.MAINNET);
+  const fetchTestnetARC200Balance = fetchARC200Balance(NetworkId.TESTNET);
   const fetchVoiARC200Balance = fetchARC200Balance(NetworkId.VOIMAIN);
   const fetchAlgoASABalance = fetchASABalance(NetworkId.MAINNET);
   const fetchVoiASABalance = fetchASABalance(NetworkId.VOIMAIN);
@@ -395,6 +615,13 @@ const Wallet: React.FC = () => {
         network: "Algorand",
       },
       {
+        id: "testnet-arc200",
+        name: "Algorand Testnet ARC200",
+        balance: testnetARC200Balance,
+        color: "yellow",
+        network: "Algorand Testnet",
+      },
+      {
         id: "voi-arc200",
         name: "Voi ARC200",
         balance: voiARC200Balance,
@@ -407,6 +634,13 @@ const Wallet: React.FC = () => {
         balance: voiASABalance,
         color: "red",
         network: "Voi",
+      },
+      {
+        id: "localnet-arc200",
+        name: "Localnet ARC200",
+        balance: localnetARC200Balance,
+        color: "purple",
+        network: "Localnet",
       },
     ];
   };
@@ -742,7 +976,7 @@ const Wallet: React.FC = () => {
       console.log(
         `Confirmation transaction: ${confirmationResult.confirmationTxId}`
       );
-      
+
       // Reset form after successful confirmation
       setTimeout(() => {
         resetExternalTransfer();
@@ -1363,101 +1597,156 @@ const Wallet: React.FC = () => {
 
   const refreshAllBalances = async () => {
     try {
-      // Use Promise.allSettled to handle individual failures gracefully
-      const results = await Promise.allSettled([
-        fetchVoiBalance(),
-        fetchAlgoBalance(),
-        fetchAlgoARC200Balance(),
-        fetchVoiARC200Balance(),
-        fetchAlgoASABalance(),
-        fetchVoiASABalance(),
-      ]);
-
-      // Handle each result individually
-      const [
-        voiResult,
-        algoResult,
-        algoARC200Result,
-        voiARC200Result,
-        algoASAResult,
-        voiASAResult,
-      ] = results;
-
-      // Update balances based on success/failure of each fetch
-      if (voiResult.status === "fulfilled" && voiResult.value !== undefined) {
-        setVoiBalance(voiResult.value);
-      } else {
-        console.warn(
-          "Failed to fetch VOI balance:",
-          voiResult.status === "rejected" ? voiResult.reason : "No data"
+      // If localnet is active, only fetch localnet balance
+      if (isLocalnet()) {
+        const [localnetResult, localnetARC200Result] = await Promise.allSettled(
+          [fetchLocalnetBalance(), fetchLocalnetARC200Balance()]
         );
+
+        if (
+          localnetResult.status === "fulfilled" &&
+          localnetResult.value !== undefined
+        ) {
+          setLocalnetBalance(localnetResult.value);
+        } else {
+          setLocalnetBalance(0);
+        }
+
+        if (
+          localnetARC200Result.status === "fulfilled" &&
+          localnetARC200Result.value !== undefined
+        ) {
+          const balance = localnetARC200Result.value;
+          if (isNaN(balance)) {
+            console.error("Localnet ARC200 balance is NaN, setting to 0");
+            setLocalnetARC200Balance(0);
+          } else {
+            setLocalnetARC200Balance(balance);
+          }
+        } else {
+          console.warn(
+            "Localnet ARC200 balance fetch failed:",
+            localnetARC200Result.status === "rejected"
+              ? localnetARC200Result.reason
+              : "No data"
+          );
+          setLocalnetARC200Balance(0);
+        }
+
+        // Set other balances to 0 for localnet
         setVoiBalance(0);
-      }
-
-      if (algoResult.status === "fulfilled" && algoResult.value !== undefined) {
-        setAlgoBalance(algoResult.value);
-      } else {
-        console.warn(
-          "Failed to fetch ALGO balance:",
-          algoResult.status === "rejected" ? algoResult.reason : "No data"
-        );
         setAlgoBalance(0);
-      }
-
-      if (
-        algoARC200Result.status === "fulfilled" &&
-        algoARC200Result.value !== undefined
-      ) {
-        setAlgoARC200Balance(algoARC200Result.value);
-      } else {
-        console.warn(
-          "Failed to fetch Algo ARC200 balance:",
-          algoARC200Result.status === "rejected"
-            ? algoARC200Result.reason
-            : "No data"
-        );
         setAlgoARC200Balance(0);
-      }
-
-      if (
-        voiARC200Result.status === "fulfilled" &&
-        voiARC200Result.value !== undefined
-      ) {
-        setVoiARC200Balance(voiARC200Result.value);
-      } else {
-        console.warn(
-          "Failed to fetch Voi ARC200 balance:",
-          voiARC200Result.status === "rejected"
-            ? voiARC200Result.reason
-            : "No data"
-        );
         setVoiARC200Balance(0);
-      }
-
-      if (
-        algoASAResult.status === "fulfilled" &&
-        algoASAResult.value !== undefined
-      ) {
-        setAlgoASABalance(algoASAResult.value);
-      } else {
-        console.warn(
-          "Failed to fetch Algo ASA balance:",
-          algoASAResult.status === "rejected" ? algoASAResult.reason : "No data"
-        );
         setAlgoASABalance(0);
-      }
-
-      if (
-        voiASAResult.status === "fulfilled" &&
-        voiASAResult.value !== undefined
-      ) {
-        setVoiASABalance(voiASAResult.value);
-      } else {
-        console.warn(
-          "Failed to fetch Voi ASA balance:",
-          voiASAResult.status === "rejected" ? voiASAResult.reason : "No data"
-        );
         setVoiASABalance(0);
+        setTestnetARC200Balance(0);
+      } else {
+        // Build array of balance fetch promises based on enabled networks
+        const balancePromises: Promise<any>[] = [];
+        const balanceTypes: string[] = [];
+
+        // Add balance fetches for enabled networks only
+        if (isNetworkEnabled(NetworkId.VOIMAIN)) {
+          balancePromises.push(fetchVoiBalance());
+          balancePromises.push(fetchVoiARC200Balance());
+          balancePromises.push(fetchVoiASABalance());
+          balanceTypes.push("voi", "voiARC200", "voiASA");
+        }
+        if (isNetworkEnabled(NetworkId.MAINNET)) {
+          balancePromises.push(fetchAlgoBalance());
+          balancePromises.push(fetchAlgoARC200Balance());
+          balancePromises.push(fetchAlgoASABalance());
+          balanceTypes.push("algo", "algoARC200", "algoASA");
+        }
+        if (isNetworkEnabled(NetworkId.TESTNET)) {
+          balancePromises.push(fetchTestnetARC200Balance());
+          balanceTypes.push("testnetARC200");
+        }
+
+        // Use Promise.allSettled to handle individual failures gracefully
+        const results = await Promise.allSettled(balancePromises);
+
+        // Handle each result individually
+        let resultIndex = 0;
+
+        // Process results based on enabled networks
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          const balanceType = balanceTypes[i];
+
+          if (result.status === "fulfilled" && result.value !== undefined) {
+            // Set the appropriate balance based on the type
+            switch (balanceType) {
+              case "voi":
+                setVoiBalance(result.value);
+                break;
+              case "voiARC200":
+                setVoiARC200Balance(result.value);
+                break;
+              case "voiASA":
+                setVoiASABalance(result.value);
+                break;
+              case "algo":
+                setAlgoBalance(result.value);
+                break;
+              case "algoARC200":
+                setAlgoARC200Balance(result.value);
+                break;
+              case "algoASA":
+                setAlgoASABalance(result.value);
+                break;
+              case "testnetARC200":
+                setTestnetARC200Balance(result.value);
+                break;
+            }
+          } else {
+            // Set balance to 0 and log error
+            console.warn(
+              `Failed to fetch ${balanceType} balance:`,
+              result.status === "rejected" ? result.reason : "No data"
+            );
+
+            switch (balanceType) {
+              case "voi":
+                setVoiBalance(0);
+                break;
+              case "voiARC200":
+                setVoiARC200Balance(0);
+                break;
+              case "voiASA":
+                setVoiASABalance(0);
+                break;
+              case "algo":
+                setAlgoBalance(0);
+                break;
+              case "algoARC200":
+                setAlgoARC200Balance(0);
+                break;
+              case "algoASA":
+                setAlgoASABalance(0);
+                break;
+              case "testnetARC200":
+                setTestnetARC200Balance(0);
+                break;
+            }
+          }
+        }
+
+        // Set disabled network balances to 0
+        if (!isNetworkEnabled(NetworkId.VOIMAIN)) {
+          setVoiBalance(0);
+          setVoiARC200Balance(0);
+          setVoiASABalance(0);
+        }
+        if (!isNetworkEnabled(NetworkId.MAINNET)) {
+          setAlgoBalance(0);
+          setAlgoARC200Balance(0);
+          setAlgoASABalance(0);
+        }
+        if (!isNetworkEnabled(NetworkId.TESTNET)) {
+          setTestnetARC200Balance(0);
+        }
       }
     } catch (error) {
       console.error("Error in refreshAllBalances:", error);
@@ -1483,8 +1772,271 @@ const Wallet: React.FC = () => {
     setBridgeConfirmationStatus({ monitoring: false, confirmed: false });
   };
 
+  const handleModalTransfer = async () => {
+    if (!activeAccount) {
+      setModalTransferError(
+        "Wallet not connected. Please connect your wallet first."
+      );
+      return;
+    }
+
+    if (!modalTransferAmount || !modalTransferAddress) {
+      console.log("Missing required fields:", {
+        modalTransferAmount,
+        modalTransferAddress,
+      });
+      setModalTransferError("Please enter both amount and recipient address.");
+      return;
+    }
+
+    setModalTransferLoading(true);
+    try {
+      // Validate address
+      if (!algosdk.isValidAddress(modalTransferAddress)) {
+        throw new Error("Invalid recipient address");
+      }
+
+      // Convert amount to micro units (6 decimals)
+      const amountInMicroUnits = Math.floor(
+        parseFloat(modalTransferAmount) * 1e6
+      );
+
+      console.log("Starting transfer with:", {
+        amount: modalTransferAmount,
+        amountInMicroUnits,
+        recipient: modalTransferAddress,
+        contractId: getATokenAppId(activeNetwork),
+        network: activeNetwork,
+      });
+
+      // Use the active network configuration
+      let algodClient: algosdk.Algodv2;
+      let contractId: number;
+
+      if (activeNetwork === NetworkId.LOCALNET) {
+        // For localnet, use local configuration
+        const token =
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        const server = "http://10.0.0.31";
+        const port = 4001;
+        algodClient = new algosdk.Algodv2(token, server, port);
+        contractId = getATokenAppId(NetworkId.LOCALNET);
+      } else {
+        // For other networks, use standard configuration
+        algodClient = algod(activeNetwork);
+        contractId = getATokenAppId(activeNetwork);
+      }
+
+      console.log("Created algod client for network:", activeNetwork);
+
+      const ci = new CONTRACT(contractId, algodClient, undefined, abi.nt200, {
+        addr: activeAccount.address,
+        sk: new Uint8Array(),
+      });
+
+      console.log("Created contract instance with ID:", contractId);
+
+      // Build transfer transaction
+      ci.setPaymentAmount(19700);
+      const transferTxn = await ci.arc200_transfer(
+        modalTransferAddress,
+        BigInt(amountInMicroUnits)
+      );
+
+      console.log("transferTxn", transferTxn);
+
+      console.log("Transfer transaction built:", transferTxn);
+
+      if (!transferTxn || !transferTxn.txns || transferTxn.txns.length === 0) {
+        throw new Error("Failed to build transfer transaction");
+      }
+
+      // Sign and submit transfer transaction
+      const transferSigned = await signTransactions(
+        transferTxn.txns.map(
+          (txn: string) =>
+            new Uint8Array(
+              atob(txn)
+                .split("")
+                .map((char) => char.charCodeAt(0))
+            )
+        )
+      );
+
+      console.log("Transactions signed, submitting...");
+
+      const { txId } = await algodClient
+        .sendRawTransaction(transferSigned)
+        .do();
+
+      console.log("Transaction submitted with ID:", txId);
+
+      await algosdk.waitForConfirmation(algodClient, txId, 4);
+
+      console.log("Modal transfer completed:", txId);
+
+      // Set success state with transaction details
+      setModalTransferSuccess({
+        txId,
+        amount: modalTransferAmount,
+        recipient: modalTransferAddress,
+      });
+
+      // Reset form fields
+      setModalTransferAmount("");
+      setModalTransferAddress("");
+      setModalTransferError("");
+
+      // Refresh balances
+      await refreshAllBalances();
+
+      // Auto-close modal after 5 seconds
+      setTimeout(() => {
+        setShowTransferModal(false);
+        setModalTransferSuccess(null);
+      }, 5000);
+    } catch (error) {
+      console.error("Modal transfer failed:", error);
+      setModalTransferError(error.message);
+    } finally {
+      setModalTransferLoading(false);
+    }
+  };
+
+      // Handle mint function for localnet and Algorand testnet
+  const handleMint = async () => {
+    if (!activeAccount) {
+      setMintError("Wallet not connected. Please connect your wallet first.");
+      return;
+    }
+
+    if (!isMintingAllowed()) {
+              setMintError("Minting is only allowed on Localnet and Algorand Testnet.");
+      return;
+    }
+
+    setMintLoading(true);
+    setMintError("");
+    setMintSuccess(null);
+
+    try {
+      // Use preset amount of 1000
+      const mintAmount = "1000";
+      // Convert amount to micro units (6 decimals)
+      const amountInMicroUnits = Math.floor(parseFloat(mintAmount) * 1e6);
+
+      // Determine the network and get appropriate configuration
+      const currentNetwork = activeNetwork;
+      console.log("Current network:", currentNetwork);
+      const contractId = getATokenAppId(currentNetwork);
+      console.log("Contract ID:", contractId);
+
+      console.log("Starting mint with:", {
+        amount: mintAmount,
+        amountInMicroUnits,
+        contractId,
+        network: currentNetwork,
+      });
+
+      let algodClient: algosdk.Algodv2;
+      let token: string;
+
+      if (isLocalnet()) {
+        // For localnet ARC200, use local configuration
+        token =
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        const server = "http://10.0.0.31";
+        const port = 4001;
+        algodClient = new algosdk.Algodv2(token, server, port);
+      } else if (isTestnet()) {
+        // For Algorand testnet, use the standard testnet configuration
+        token = ""; // No token needed for testnet
+        algodClient = algod(currentNetwork);
+      } else {
+        throw new Error("Minting is not supported on this network");
+      }
+
+      console.log("Created algod client for network:", currentNetwork);
+
+      const ci = new CONTRACT(
+        contractId,
+        algodClient,
+        undefined,
+        {
+          name: "ARC200",
+          description: "ARC200",
+          methods: ATokenAppSpec.contract.methods,
+          events: [],
+        },
+        {
+          addr: activeAccount.address,
+          sk: new Uint8Array(),
+        }
+      );
+
+      console.log("Created contract instance with ID:", contractId);
+
+      // Build mint transaction
+      ci.setPaymentAmount(19700);
+      const mintTxn = await ci.mint(BigInt(amountInMicroUnits));
+
+      console.log("Mint transaction built:", mintTxn);
+
+      if (!mintTxn || !mintTxn.txns || mintTxn.txns.length === 0) {
+        throw new Error("Failed to build mint transaction");
+      }
+
+      // Sign and submit mint transaction
+      const mintSigned = await signTransactions(
+        mintTxn.txns.map(
+          (txn: string) =>
+            new Uint8Array(
+              atob(txn)
+                .split("")
+                .map((char) => char.charCodeAt(0))
+            )
+        )
+      );
+
+      console.log("Transactions signed, submitting...");
+
+      const { txId } = await algodClient.sendRawTransaction(mintSigned).do();
+
+      console.log("Transaction submitted with ID:", txId);
+
+      await algosdk.waitForConfirmation(algodClient, txId, 4);
+
+      console.log("Mint completed:", txId);
+
+      // Set success state with transaction details
+      setMintSuccess({
+        txId,
+        amount: mintAmount,
+      });
+
+      // Reset error state
+      setMintError("");
+
+      // Refresh balances
+      await refreshAllBalances();
+
+      // Auto-clear success message after 5 seconds
+      setTimeout(() => {
+        setMintSuccess(null);
+      }, 5000);
+    } catch (error) {
+      console.error("Mint failed:", error);
+      setMintError(error.message || "Failed to mint tokens");
+    } finally {
+      setMintLoading(false);
+    }
+  };
+
   // Check if recipient is opted into required assets
-  const checkRecipientOptIn = async (recipientAddress: string, bucketId: string) => {
+  const checkRecipientOptIn = async (
+    recipientAddress: string,
+    bucketId: string
+  ) => {
     if (!recipientAddress || !algosdk.isValidAddress(recipientAddress)) {
       return { optedIn: false, error: "Invalid address" };
     }
@@ -1495,7 +2047,8 @@ const Wallet: React.FC = () => {
         return { optedIn: false, error: "Invalid bucket" };
       }
 
-      const networkId = bucket.network === "Algorand" ? NetworkId.MAINNET : NetworkId.VOIMAIN;
+      const networkId =
+        bucket.network === "Algorand" ? NetworkId.MAINNET : NetworkId.VOIMAIN;
       const algodClient = algod(networkId);
 
       if (bucketId.includes("arc200")) {
@@ -2015,120 +2568,173 @@ const Wallet: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        // Use Promise.allSettled to handle individual failures gracefully
-        const results = await Promise.allSettled([
-          fetchVoiBalance(),
-          fetchAlgoBalance(),
-          fetchAlgoARC200Balance(),
-          fetchVoiARC200Balance(),
-          fetchAlgoASABalance(),
-          fetchVoiASABalance(),
-        ]);
+        // If localnet is active, only fetch localnet balance
+        if (isLocalnet()) {
+          const [localnetResult, localnetARC200Result] =
+            await Promise.allSettled([
+              fetchLocalnetBalance(),
+              fetchLocalnetARC200Balance(),
+            ]);
 
-        // Handle each result individually
-        const [
-          voiResult,
-          algoResult,
-          algoARC200Result,
-          voiARC200Result,
-          algoASAResult,
-          voiASAResult,
-        ] = results;
+          if (
+            localnetResult.status === "fulfilled" &&
+            localnetResult.value !== undefined
+          ) {
+            setLocalnetBalance(localnetResult.value);
+          } else {
+            setLocalnetBalance(0);
+          }
 
-        // Track if any fetches succeeded
-        let hasSuccessfulFetches = false;
+          if (
+            localnetARC200Result.status === "fulfilled" &&
+            localnetARC200Result.value !== undefined
+          ) {
+            const balance = localnetARC200Result.value;
+            if (isNaN(balance)) {
+              console.error("Localnet ARC200 balance is NaN, setting to 0");
+              setLocalnetARC200Balance(0);
+            } else {
+              setLocalnetARC200Balance(balance);
+            }
+          } else {
+            console.warn(
+              "Localnet ARC200 balance fetch failed:",
+              localnetARC200Result.status === "rejected"
+                ? localnetARC200Result.reason
+                : "No data"
+            );
+            setLocalnetARC200Balance(0);
+          }
 
-        // Update balances based on success/failure of each fetch
-        if (voiResult.status === "fulfilled" && voiResult.value !== undefined) {
-          setVoiBalance(voiResult.value);
-          hasSuccessfulFetches = true;
-        } else {
-          console.warn(
-            "Failed to fetch VOI balance:",
-            voiResult.status === "rejected" ? voiResult.reason : "No data"
-          );
+          // Set other balances to 0 for localnet
           setVoiBalance(0);
-        }
-
-        if (
-          algoResult.status === "fulfilled" &&
-          algoResult.value !== undefined
-        ) {
-          setAlgoBalance(algoResult.value);
-          hasSuccessfulFetches = true;
-        } else {
-          console.warn(
-            "Failed to fetch ALGO balance:",
-            algoResult.status === "rejected" ? algoResult.reason : "No data"
-          );
           setAlgoBalance(0);
-        }
-
-        if (
-          algoARC200Result.status === "fulfilled" &&
-          algoARC200Result.value !== undefined
-        ) {
-          setAlgoARC200Balance(algoARC200Result.value);
-          hasSuccessfulFetches = true;
-        } else {
-          console.warn(
-            "Failed to fetch Algo ARC200 balance:",
-            algoARC200Result.status === "rejected"
-              ? algoARC200Result.reason
-              : "No data"
-          );
           setAlgoARC200Balance(0);
-        }
-
-        if (
-          voiARC200Result.status === "fulfilled" &&
-          voiARC200Result.value !== undefined
-        ) {
-          setVoiARC200Balance(voiARC200Result.value);
-          hasSuccessfulFetches = true;
-        } else {
-          console.warn(
-            "Failed to fetch Voi ARC200 balance:",
-            voiARC200Result.status === "rejected"
-              ? voiARC200Result.reason
-              : "No data"
-          );
           setVoiARC200Balance(0);
-        }
-
-        if (
-          algoASAResult.status === "fulfilled" &&
-          algoASAResult.value !== undefined
-        ) {
-          setAlgoASABalance(algoASAResult.value);
-          hasSuccessfulFetches = true;
-        } else {
-          console.warn(
-            "Failed to fetch Algo ASA balance:",
-            algoASAResult.status === "rejected"
-              ? algoASAResult.reason
-              : "No data"
-          );
           setAlgoASABalance(0);
-        }
-
-        if (
-          voiASAResult.status === "fulfilled" &&
-          voiASAResult.value !== undefined
-        ) {
-          setVoiASABalance(voiASAResult.value);
-          hasSuccessfulFetches = true;
-        } else {
-          console.warn(
-            "Failed to fetch Voi ASA balance:",
-            voiASAResult.status === "rejected" ? voiASAResult.reason : "No data"
-          );
           setVoiASABalance(0);
-        }
+          setTestnetARC200Balance(0);
+        } else {
+          // Build array of balance fetch promises based on enabled networks
+          const balancePromises: Promise<any>[] = [];
+          const balanceTypes: string[] = [];
 
-        // Only show error if all fetches failed
-        if (!hasSuccessfulFetches) {
-          setError("Failed to fetch wallet balances");
+          // Add balance fetches for enabled networks only
+          if (isNetworkEnabled(NetworkId.VOIMAIN)) {
+            balancePromises.push(fetchVoiBalance());
+            balancePromises.push(fetchVoiARC200Balance());
+            balancePromises.push(fetchVoiASABalance());
+            balanceTypes.push("voi", "voiARC200", "voiASA");
+          }
+          if (isNetworkEnabled(NetworkId.MAINNET)) {
+            balancePromises.push(fetchAlgoBalance());
+            balancePromises.push(fetchAlgoARC200Balance());
+            balancePromises.push(fetchAlgoASABalance());
+            balanceTypes.push("algo", "algoARC200", "algoASA");
+          }
+          if (isNetworkEnabled(NetworkId.TESTNET)) {
+            balancePromises.push(fetchTestnetARC200Balance());
+            balanceTypes.push("testnetARC200");
+          }
+
+          // Use Promise.allSettled to handle individual failures gracefully
+          const results = await Promise.allSettled(balancePromises);
+
+          // Track if any fetches succeeded
+          let hasSuccessfulFetches = false;
+
+          // Handle each result individually
+          let resultIndex = 0;
+
+          // Process results based on enabled networks
+          for (let i = 0; i < results.length; i++) {
+            const result = results[i];
+            const balanceType = balanceTypes[i];
+
+            if (result.status === "fulfilled" && result.value !== undefined) {
+              // Set the appropriate balance based on the type
+              switch (balanceType) {
+                case "voi":
+                  setVoiBalance(result.value);
+                  hasSuccessfulFetches = true;
+                  break;
+                case "voiARC200":
+                  setVoiARC200Balance(result.value);
+                  hasSuccessfulFetches = true;
+                  break;
+                case "voiASA":
+                  setVoiASABalance(result.value);
+                  hasSuccessfulFetches = true;
+                  break;
+                case "algo":
+                  setAlgoBalance(result.value);
+                  hasSuccessfulFetches = true;
+                  break;
+                case "algoARC200":
+                  setAlgoARC200Balance(result.value);
+                  hasSuccessfulFetches = true;
+                  break;
+                case "algoASA":
+                  setAlgoASABalance(result.value);
+                  hasSuccessfulFetches = true;
+                  break;
+                case "testnetARC200":
+                  setTestnetARC200Balance(result.value);
+                  hasSuccessfulFetches = true;
+                  break;
+              }
+            } else {
+              // Set balance to 0 and log error
+              console.warn(
+                `Failed to fetch ${balanceType} balance:`,
+                result.status === "rejected" ? result.reason : "No data"
+              );
+
+              switch (balanceType) {
+                case "voi":
+                  setVoiBalance(0);
+                  break;
+                case "voiARC200":
+                  setVoiARC200Balance(0);
+                  break;
+                case "voiASA":
+                  setVoiASABalance(0);
+                  break;
+                case "algo":
+                  setAlgoBalance(0);
+                  break;
+                case "algoARC200":
+                  setAlgoARC200Balance(0);
+                  break;
+                case "algoASA":
+                  setAlgoASABalance(0);
+                  break;
+                case "testnetARC200":
+                  setTestnetARC200Balance(0);
+                  break;
+              }
+            }
+          }
+
+          // Set disabled network balances to 0
+          if (!isNetworkEnabled(NetworkId.VOIMAIN)) {
+            setVoiBalance(0);
+            setVoiARC200Balance(0);
+            setVoiASABalance(0);
+          }
+          if (!isNetworkEnabled(NetworkId.MAINNET)) {
+            setAlgoBalance(0);
+            setAlgoARC200Balance(0);
+            setAlgoASABalance(0);
+          }
+          if (!isNetworkEnabled(NetworkId.TESTNET)) {
+            setTestnetARC200Balance(0);
+          }
+
+          // Only show error if all fetches failed
+          if (!hasSuccessfulFetches) {
+            setError("Failed to fetch wallet balances");
+          }
         }
       } catch (error) {
         console.error("Error in initial balance fetch:", error);
@@ -2163,7 +2769,10 @@ const Wallet: React.FC = () => {
     }
 
     setCheckingOptIn(true);
-    const optInStatus: Record<string, { optedIn: boolean; error?: string; balance?: number }> = {};
+    const optInStatus: Record<
+      string,
+      { optedIn: boolean; error?: string; balance?: number }
+    > = {};
 
     try {
       // Check opt-in for all buckets
@@ -2200,6 +2809,27 @@ const Wallet: React.FC = () => {
         <div className="w-full mb-4">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold">Network Token Balances:</h2>
+            <div className="flex gap-2">
+              <Link
+                to={`/powerup/${address}`}
+                className="px-4 py-2 bg-[#1EAEDB] hover:bg-[#1EAEDB]/90 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+                Power UP
+              </Link>
+            </div>
           </div>
 
           {loading ? (
@@ -2219,13 +2849,26 @@ const Wallet: React.FC = () => {
                       setLoading(true);
                       setError(null);
                       try {
-                        const [voiResult, algoResult] = await Promise.all([
-                          fetchVoiBalance(),
-                          fetchAlgoBalance(),
-                        ]);
-                        if (voiResult !== undefined) setVoiBalance(voiResult);
-                        if (algoResult !== undefined)
-                          setAlgoBalance(algoResult);
+                        // If localnet is active, only fetch localnet balance
+                        if (isLocalnet()) {
+                          const localnetResult = await fetchLocalnetBalance();
+                          if (localnetResult !== undefined) {
+                            setLocalnetBalance(localnetResult);
+                          } else {
+                            setLocalnetBalance(0);
+                          }
+                          // Set other balances to 0 for localnet
+                          setVoiBalance(0);
+                          setAlgoBalance(0);
+                        } else {
+                          const [voiResult, algoResult] = await Promise.all([
+                            fetchVoiBalance(),
+                            fetchAlgoBalance(),
+                          ]);
+                          if (voiResult !== undefined) setVoiBalance(voiResult);
+                          if (algoResult !== undefined)
+                            setAlgoBalance(algoResult);
+                        }
                       } catch (error) {
                         setError("Failed to fetch wallet balances");
                       } finally {
@@ -2242,6 +2885,110 @@ const Wallet: React.FC = () => {
             </div>
           ) : (
             <div className="flex flex-col gap-4 w-full">
+              {/* Network Settings Card */}
+              <div className="p-6 rounded-xl border border-gray-200/20 shadow-lg bg-card hover:bg-card/80 transition-colors w-full">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="text-lg font-semibold text-card-foreground">
+                    Network Settings
+                  </div>
+                  <button
+                    onClick={() => {
+                      // Reset to default settings
+                      setNetworkSettings({
+                        [NetworkId.LOCALNET]: true,
+                        [NetworkId.TESTNET]: true,
+                        [NetworkId.MAINNET]: false,
+                        [NetworkId.VOIMAIN]: false,
+                      } as { [key in NetworkId]: boolean });
+                      refreshAllBalances();
+                    }}
+                    className="text-sm text-blue-500 hover:text-blue-400 underline"
+                  >
+                    Reset to Default
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                      <span className="text-card-foreground">Localnet</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={networkSettings[NetworkId.LOCALNET]}
+                      onChange={(e) => {
+                        setNetworkSettings((prev) => ({
+                          ...prev,
+                          [NetworkId.LOCALNET]: e.target.checked,
+                        }));
+                        refreshAllBalances();
+                      }}
+                      className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <span className="text-card-foreground">Algorand Testnet</span>
+                      </div>
+                    <input
+                      type="checkbox"
+                      checked={networkSettings[NetworkId.TESTNET]}
+                      onChange={(e) => {
+                        setNetworkSettings((prev) => ({
+                          ...prev,
+                          [NetworkId.TESTNET]: e.target.checked,
+                        }));
+                        refreshAllBalances();
+                      }}
+                      className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                      <span className="text-card-foreground">
+                        Algorand Mainnet
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={networkSettings[NetworkId.MAINNET]}
+                      onChange={(e) => {
+                        setNetworkSettings((prev) => ({
+                          ...prev,
+                          [NetworkId.MAINNET]: e.target.checked,
+                        }));
+                        refreshAllBalances();
+                      }}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                      <span className="text-card-foreground">Voi Mainnet</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={networkSettings[NetworkId.VOIMAIN]}
+                      onChange={(e) => {
+                        setNetworkSettings((prev) => ({
+                          ...prev,
+                          [NetworkId.VOIMAIN]: e.target.checked,
+                        }));
+                        refreshAllBalances();
+                      }}
+                      className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 text-sm text-card-foreground/60">
+                  Only enabled networks will be fetched for balances. This helps
+                  reduce API calls and focus on the networks you need.
+                </div>
+              </div>
+
               {/* POW Balance Card */}
               <div className="p-6 rounded-xl border border-gray-200/20 shadow-lg bg-card hover:bg-card/80 transition-colors w-full">
                 <div className="flex justify-between mb-2">
@@ -2255,12 +3002,45 @@ const Wallet: React.FC = () => {
                 <div className="w-full bg-gray-200/20 rounded-full h-2.5 relative overflow-hidden">
                   {/* Use percentage-based approach for equal visibility */}
                   {(() => {
-                    const balances = [
-                      { value: algoARC200Balance, color: "bg-blue-500" },
-                      { value: voiARC200Balance, color: "bg-green-500" },
-                      { value: algoASABalance, color: "bg-orange-500" },
-                      { value: voiASABalance, color: "bg-red-500" },
-                    ];
+                    const balances = isLocalnet()
+                      ? [
+                          {
+                            value: localnetARC200Balance,
+                            color: "bg-purple-500",
+                          },
+                        ]
+                      : [
+                          // Only include balances for enabled networks
+                          ...(isNetworkEnabled(NetworkId.MAINNET)
+                            ? [
+                                {
+                                  value: algoARC200Balance,
+                                  color: "bg-blue-500",
+                                },
+                                {
+                                  value: algoASABalance,
+                                  color: "bg-orange-500",
+                                },
+                              ]
+                            : []),
+                          ...(isNetworkEnabled(NetworkId.VOIMAIN)
+                            ? [
+                                {
+                                  value: voiARC200Balance,
+                                  color: "bg-green-500",
+                                },
+                                { value: voiASABalance, color: "bg-red-500" },
+                              ]
+                            : []),
+                          ...(isNetworkEnabled(NetworkId.TESTNET)
+                            ? [
+                                {
+                                  value: testnetARC200Balance,
+                                  color: "bg-yellow-500",
+                                },
+                              ]
+                            : []),
+                        ];
 
                     const totalBalance = balances.reduce(
                       (sum, balance) => sum + balance.value,
@@ -2327,77 +3107,103 @@ const Wallet: React.FC = () => {
                 <div className="mt-2 text-sm text-card-foreground/60">
                   Combined POW balance across all networks
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                    <span className="text-card-foreground/70">
-                      Algo ARC200:
-                    </span>
-                    <span className="text-blue-400 font-medium">
-                      {algoARC200Balance.toLocaleString()}
-                    </span>
+                {/* Balance breakdown - Show different breakdowns based on network settings */}
+                {!isLocalnet() ? (
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    {isNetworkEnabled(NetworkId.MAINNET) && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                          <span className="text-card-foreground/70">
+                            Algo ARC200:
+                          </span>
+                          <span className="text-blue-400 font-medium">
+                            {algoARC200Balance.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                          <span className="text-card-foreground/70">
+                            Algo ASA:
+                          </span>
+                          <span className="text-orange-400 font-medium">
+                            {algoASABalance.toLocaleString()}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    {isNetworkEnabled(NetworkId.VOIMAIN) && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                          <span className="text-card-foreground/70">
+                            Voi ARC200:
+                          </span>
+                          <span className="text-green-400 font-medium">
+                            {voiARC200Balance.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                          <span className="text-card-foreground/70">
+                            Voi ASA:
+                          </span>
+                          <span className="text-red-400 font-medium">
+                            {voiASABalance.toLocaleString()}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    {isNetworkEnabled(NetworkId.TESTNET) && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <span className="text-card-foreground/70">
+                          Algorand Testnet ARC200:
+                        </span>
+                        <span className="text-yellow-400 font-medium">
+                          {testnetARC200Balance.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                    <span className="text-card-foreground/70">Voi ARC200:</span>
-                    <span className="text-green-400 font-medium">
-                      {voiARC200Balance.toLocaleString()}
-                    </span>
+                ) : (
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    {isNetworkEnabled(NetworkId.LOCALNET) && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                        <span className="text-card-foreground/70">
+                          Localnet ARC200:
+                        </span>
+                        <span className="text-purple-400 font-medium">
+                          {localnetARC200Balance.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {isNetworkEnabled(NetworkId.TESTNET) && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <span className="text-card-foreground/70">
+                          Algorand Testnet ARC200:
+                        </span>
+                        <span className="text-yellow-400 font-medium">
+                          {testnetARC200Balance.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                    <span className="text-card-foreground/70">Algo ASA:</span>
-                    <span className="text-orange-400 font-medium">
-                      {algoASABalance.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                    <span className="text-card-foreground/70">Voi ASA:</span>
-                    <span className="text-red-400 font-medium">
-                      {voiASABalance.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                <div className="p-6 rounded-xl border border-gray-200/20 shadow-lg bg-card hover:bg-card/80 transition-colors w-full">
-                  <div className="flex justify-between mb-2">
-                    <div className="text-lg font-semibold text-card-foreground">
-                      VOI
-                    </div>
-                    <div className="text-lg text-card-foreground">
-                      {voiBalance.toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="w-full bg-gray-200/20 rounded-full h-2.5">
-                    <div
-                      className="h-2.5 rounded-full bg-blue-500"
-                      style={{
-                        width: `${Math.max(
-                          1,
-                          Math.min((voiBalance / 1000) * 100, 100)
-                        )}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <div className="mt-2 text-sm text-card-foreground/60">
-                    Available balance (excluding minimum required)
-                  </div>
-                  <div className="mt-4 flex justify-center">
+                )}
+                {/* Localnet/Algorand Testnet ARC200 Transfer and Mint Buttons - Only show when on localnet or testnet */}
+                {isMintingAllowed() && (
+                  <div className="mt-4 flex justify-center gap-3">
                     <button
                       onClick={() => {
-                        const popup = window.open(
-                          "https://www.ibuyvoi.com/",
-                          "buyVoi",
-                          "width=800,height=600,scrollbars=yes,resizable=yes,status=yes,location=yes,toolbar=no,menubar=no"
-                        );
-                        if (popup) {
-                          popup.focus();
-                        }
+                        setShowTransferModal(true);
+                        setModalTransferError("");
+                        setModalTransferSuccess(null);
+                        setModalTransferAmount("");
+                        setModalTransferAddress("");
                       }}
-                      className="w-32 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                      className="w-32 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
                     >
                       <svg
                         className="w-4 h-4"
@@ -2409,30 +3215,196 @@ const Wallet: React.FC = () => {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
                         />
                       </svg>
-                      Buy VOI
+                      Transfer
+                    </button>
+                    <button
+                      onClick={handleMint}
+                      disabled={mintLoading}
+                      className="w-32 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                      {mintLoading ? (
+                        <svg
+                          className="w-4 h-4 animate-spin"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
+                        </svg>
+                      ) : (
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                      )}
+                      {mintLoading ? "Minting..." : "Mint 1000"}
                     </button>
                   </div>
-                </div>
+                )}
 
+                {/* Mint Messages - Only show when on localnet or testnet */}
+                {isMintingAllowed() && (
+                  <div className="mt-4 space-y-3">
+                    {/* Error Message */}
+                    {mintError && (
+                      <div className="text-red-400 text-sm bg-red-900/20 border border-red-500/30 rounded-lg px-3 py-2">
+                        {mintError}
+                      </div>
+                    )}
+
+                    {/* Success Message */}
+                    {mintSuccess && (
+                      <div className="text-green-400 text-sm bg-green-900/20 border border-green-500/30 rounded-lg px-3 py-2">
+                        Successfully minted {mintSuccess.amount} POW tokens!
+                        <br />
+                        Transaction ID: {mintSuccess.txId}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* VOI and ALGO Balance Cards - Only show when NOT on localnet */}
+              {!isLocalnet() && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                  <div className="p-6 rounded-xl border border-gray-200/20 shadow-lg bg-card hover:bg-card/80 transition-colors w-full">
+                    <div className="flex justify-between mb-2">
+                      <div className="text-lg font-semibold text-card-foreground">
+                        VOI
+                      </div>
+                      <div className="text-lg text-card-foreground">
+                        {voiBalance.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-200/20 rounded-full h-2.5">
+                      <div
+                        className="h-2.5 rounded-full bg-blue-500"
+                        style={{
+                          width: `${Math.max(
+                            1,
+                            Math.min((voiBalance / 1000) * 100, 100)
+                          )}%`,
+                        }}
+                      ></div>
+                    </div>
+                    <div className="mt-2 text-sm text-card-foreground/60">
+                      Available balance (excluding minimum required)
+                    </div>
+                    <div className="mt-4 flex justify-center">
+                      <button
+                        onClick={() => {
+                          const popup = window.open(
+                            "https://www.ibuyvoi.com/",
+                            "buyVoi",
+                            "width=800,height=600,scrollbars=yes,resizable=yes,status=yes,location=yes,toolbar=no,menubar=no"
+                          );
+                          if (popup) {
+                            popup.focus();
+                          }
+                        }}
+                        className="w-32 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                        Buy VOI
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-6 rounded-xl border border-gray-200/20 shadow-lg bg-card hover:bg-card/80 transition-colors w-full">
+                    <div className="flex justify-between mb-2">
+                      <div className="text-lg font-semibold text-card-foreground">
+                        ALGO
+                      </div>
+                      <div className="text-lg text-card-foreground">
+                        {algoBalance.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-200/20 rounded-full h-2.5">
+                      <div
+                        className="h-2.5 rounded-full bg-green-500"
+                        style={{
+                          width: `${Math.max(
+                            1,
+                            Math.min((algoBalance / 1000) * 100, 100)
+                          )}%`,
+                        }}
+                      ></div>
+                    </div>
+                    <div className="mt-2 text-sm text-card-foreground/60">
+                      Available balance (excluding minimum required)
+                    </div>
+                    <div className="mt-4 flex justify-center">
+                      <button
+                        disabled
+                        className="w-32 px-4 py-2 bg-gray-500 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 cursor-not-allowed opacity-60"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                        Buy ALGO
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Localnet Balance Card - Only show when active network is localnet */}
+              {isLocalnet() && (
                 <div className="p-6 rounded-xl border border-gray-200/20 shadow-lg bg-card hover:bg-card/80 transition-colors w-full">
                   <div className="flex justify-between mb-2">
                     <div className="text-lg font-semibold text-card-foreground">
-                      ALGO
+                      LOCALNET
                     </div>
                     <div className="text-lg text-card-foreground">
-                      {algoBalance.toLocaleString()}
+                      {localnetBalance.toLocaleString()}
                     </div>
                   </div>
                   <div className="w-full bg-gray-200/20 rounded-full h-2.5">
                     <div
-                      className="h-2.5 rounded-full bg-green-500"
+                      className="h-2.5 rounded-full bg-purple-500"
                       style={{
                         width: `${Math.max(
                           1,
-                          Math.min((algoBalance / 1000) * 100, 100)
+                          Math.min((localnetBalance / 1000) * 100, 100)
                         )}%`,
                       }}
                     ></div>
@@ -2440,29 +3412,8 @@ const Wallet: React.FC = () => {
                   <div className="mt-2 text-sm text-card-foreground/60">
                     Available balance (excluding minimum required)
                   </div>
-                  <div className="mt-4 flex justify-center">
-                    <button
-                      disabled
-                      className="w-32 px-4 py-2 bg-gray-500 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 cursor-not-allowed opacity-60"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                        />
-                      </svg>
-                      Buy ALGO
-                    </button>
-                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Bridge Confirmation Status */}
               {(bridgeConfirmationStatus.monitoring ||
@@ -2620,195 +3571,120 @@ const Wallet: React.FC = () => {
                 </div>
               )}
 
-              {/* POW Transfer Interface - Only show for connected user's own wallet */}
-              {showTransferInterface && availableSourceBuckets.length >= 0 && (
-                <div className="p-6 rounded-xl border border-gray-200/20 shadow-lg bg-card w-full">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-card-foreground">
-                      Internal Transfer
-                    </h3>
-                    <button
-                      onClick={resetTransfer}
-                      className="text-sm text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
-                    >
-                      Reset
-                    </button>
-                  </div>
-
-                  {/* Step Indicator */}
-                  <div className="flex items-center justify-center mb-6">
-                    <div className="flex items-center space-x-2">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          transferStep === "select-from"
-                            ? "bg-purple-600 text-white"
-                            : transferFrom
-                            ? "bg-green-600 text-white"
-                            : "bg-gray-600 text-gray-300"
-                        }`}
+                              {/* POW Transfer Interface - Only show for connected user's own wallet and NOT on localnet, and only when Mainnet is enabled */}
+              {showTransferInterface &&
+                availableSourceBuckets.length >= 0 &&
+                !isLocalnet() &&
+                (isNetworkEnabled(NetworkId.MAINNET) || isNetworkEnabled(NetworkId.VOIMAIN)) && (
+                  <div className="p-6 rounded-xl border border-gray-200/20 shadow-lg bg-card w-full">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold text-card-foreground">
+                        Internal Transfer
+                      </h3>
+                      <button
+                        onClick={resetTransfer}
+                        className="text-sm text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
                       >
-                        {transferFrom ? "✓" : "1"}
-                      </div>
-                      <div className="w-8 h-2 bg-gray-600 rounded"></div>
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          transferStep === "select-to"
-                            ? "bg-purple-600 text-white"
-                            : transferTo
-                            ? "bg-green-600 text-white"
-                            : "bg-gray-600 text-gray-300"
-                        }`}
-                      >
-                        {transferTo ? "✓" : "2"}
-                      </div>
-                      <div className="w-8 h-2 bg-gray-600 rounded"></div>
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          transferStep === "enter-amount"
-                            ? "bg-purple-600 text-white"
-                            : transferAmount
-                            ? "bg-green-600 text-white"
-                            : "bg-gray-600 text-gray-300"
-                        }`}
-                      >
-                        {transferAmount ? "✓" : "3"}
-                      </div>
-                      {(() => {
-                        const fromType = transferFrom.includes("arc200")
-                          ? "arc200"
-                          : "asa";
-                        const toType = transferTo.includes("arc200")
-                          ? "arc200"
-                          : "asa";
-                        const isCrossNetwork =
-                          transferFrom &&
-                          transferTo &&
-                          getBucketById(transferFrom)?.network !==
-                            getBucketById(transferTo)?.network;
-                        const isARC200ToASA =
-                          fromType === "arc200" &&
-                          toType === "asa" &&
-                          isCrossNetwork;
-
-                        return isARC200ToASA ? (
-                          <>
-                            <div className="w-8 h-2 bg-gray-600 rounded"></div>
-                            <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                                transferStep === "bridge-transfer"
-                                  ? "bg-purple-600 text-white"
-                                  : "bg-gray-600 text-gray-300"
-                              }`}
-                            >
-                              4
-                            </div>
-                          </>
-                        ) : null;
-                      })()}
+                        Reset
+                      </button>
                     </div>
-                  </div>
 
-                  {/* Step 1: Select Source */}
-                  {transferStep === "select-from" && (
-                    <div className="text-center">
-                      <h4 className="text-lg font-medium mb-4">
-                        Step 1: Select Source Bucket
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                        {availableSourceBuckets.map((bucket) => {
-                          const isOnCorrectNetwork = !needsNetworkSwitch(
-                            bucket.id
-                          );
-                          return (
-                            <button
-                              key={bucket.id}
-                              onClick={() => {
-                                if (isOnCorrectNetwork) {
-                                  setTransferFrom(bucket.id);
-                                  setTransferStep("select-to");
-                                }
-                              }}
-                              disabled={!isOnCorrectNetwork}
-                              className={`p-4 rounded-xl border-2 transition-colors relative ${
-                                isOnCorrectNetwork
-                                  ? "border-gray-600 hover:border-purple-500 bg-gray-800/50 hover:bg-gray-800/80"
-                                  : "border-gray-700 bg-gray-800/30 cursor-not-allowed opacity-50"
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className={`w-4 h-4 rounded-full bg-${bucket.color}-500`}
-                                ></div>
-                                <div className="text-left">
-                                  <div className="font-medium text-card-foreground">
-                                    {bucket.name}
-                                  </div>
-                                  <div className="text-sm text-card-foreground/70">
-                                    {bucket.balance.toLocaleString()} POW
-                                  </div>
-                                  <div className="text-xs text-card-foreground/50">
-                                    {bucket.network}
-                                  </div>
-                                </div>
+                    {/* Step Indicator */}
+                    <div className="flex items-center justify-center mb-6">
+                      <div className="flex items-center space-x-2">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            transferStep === "select-from"
+                              ? "bg-purple-600 text-white"
+                              : transferFrom
+                              ? "bg-green-600 text-white"
+                              : "bg-gray-600 text-gray-300"
+                          }`}
+                        >
+                          {transferFrom ? "✓" : "1"}
+                        </div>
+                        <div className="w-8 h-2 bg-gray-600 rounded"></div>
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            transferStep === "select-to"
+                              ? "bg-purple-600 text-white"
+                              : transferTo
+                              ? "bg-green-600 text-white"
+                              : "bg-gray-600 text-gray-300"
+                          }`}
+                        >
+                          {transferTo ? "✓" : "2"}
+                        </div>
+                        <div className="w-8 h-2 bg-gray-600 rounded"></div>
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            transferStep === "enter-amount"
+                              ? "bg-purple-600 text-white"
+                              : transferAmount
+                              ? "bg-green-600 text-white"
+                              : "bg-gray-600 text-gray-300"
+                          }`}
+                        >
+                          {transferAmount ? "✓" : "3"}
+                        </div>
+                        {(() => {
+                          const fromType = transferFrom.includes("arc200")
+                            ? "arc200"
+                            : "asa";
+                          const toType = transferTo.includes("arc200")
+                            ? "arc200"
+                            : "asa";
+                          const isCrossNetwork =
+                            transferFrom &&
+                            transferTo &&
+                            getBucketById(transferFrom)?.network !==
+                              getBucketById(transferTo)?.network;
+                          const isARC200ToASA =
+                            fromType === "arc200" &&
+                            toType === "asa" &&
+                            isCrossNetwork;
+
+                          return isARC200ToASA ? (
+                            <>
+                              <div className="w-8 h-2 bg-gray-600 rounded"></div>
+                              <div
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                                  transferStep === "bridge-transfer"
+                                    ? "bg-purple-600 text-white"
+                                    : "bg-gray-600 text-gray-300"
+                                }`}
+                              >
+                                4
                               </div>
-
-                              {/* Switch Network Overlay */}
-                              {!isOnCorrectNetwork && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
-                                  <div className="text-center">
-                                    <div className="text-xs font-medium text-white mb-1">
-                                      Switch Network
-                                    </div>
-                                    <div className="text-xs text-gray-300">
-                                      {bucket.network}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })}
+                            </>
+                          ) : null;
+                        })()}
                       </div>
                     </div>
-                  )}
 
-                  {/* Step 2: Select Destination */}
-                  {transferStep === "select-to" && (
-                    <div className="text-center">
-                      <h4 className="text-lg font-medium mb-4">
-                        Step 2: Select Destination Bucket
-                      </h4>
-                      <div className="mb-4 p-3 bg-purple-600/20 rounded-lg">
-                        <p className="text-sm text-card-foreground/80">
-                          From:{" "}
-                          <span className="font-medium text-purple-400">
-                            {getBucketById(transferFrom)?.name}
-                          </span>
-                          <span className="text-xs text-card-foreground/60 ml-2">
-                            ({getBucketById(transferFrom)?.network})
-                          </span>
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                        {allBuckets
-                          .filter((bucket) => bucket.id !== transferFrom)
-                          .map((bucket) => {
-                            const isAllowed = isTransferAllowed(
-                              transferFrom,
+                    {/* Step 1: Select Source */}
+                    {transferStep === "select-from" && (
+                      <div className="text-center">
+                        <h4 className="text-lg font-medium mb-4">
+                          Step 1: Select Source Bucket
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                          {availableSourceBuckets.map((bucket) => {
+                            const isOnCorrectNetwork = !needsNetworkSwitch(
                               bucket.id
                             );
                             return (
                               <button
                                 key={bucket.id}
                                 onClick={() => {
-                                  if (isAllowed) {
-                                    setTransferTo(bucket.id);
-                                    setTransferStep("enter-amount");
+                                  if (isOnCorrectNetwork) {
+                                    setTransferFrom(bucket.id);
+                                    setTransferStep("select-to");
                                   }
                                 }}
-                                disabled={!isAllowed}
+                                disabled={!isOnCorrectNetwork}
                                 className={`p-4 rounded-xl border-2 transition-colors relative ${
-                                  isAllowed
+                                  isOnCorrectNetwork
                                     ? "border-gray-600 hover:border-purple-500 bg-gray-800/50 hover:bg-gray-800/80"
                                     : "border-gray-700 bg-gray-800/30 cursor-not-allowed opacity-50"
                                 }`}
@@ -2830,44 +3706,15 @@ const Wallet: React.FC = () => {
                                   </div>
                                 </div>
 
-                                {/* Disabled Transfer Overlay */}
-                                {!isAllowed && (
+                                {/* Switch Network Overlay */}
+                                {!isOnCorrectNetwork && (
                                   <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
                                     <div className="text-center">
                                       <div className="text-xs font-medium text-white mb-1">
-                                        Not Supported
+                                        Switch Network
                                       </div>
                                       <div className="text-xs text-gray-300">
-                                        {(() => {
-                                          const fromType = bucket.id.includes(
-                                            "arc200"
-                                          )
-                                            ? "ARC200"
-                                            : "ASA";
-                                          const toType = transferFrom.includes(
-                                            "arc200"
-                                          )
-                                            ? "ARC200"
-                                            : "ASA";
-                                          if (
-                                            fromType === "ARC200" &&
-                                            toType === "ARC200"
-                                          ) {
-                                            return "Cross-Network ARC200";
-                                          } else if (
-                                            fromType === "ASA" &&
-                                            toType === "ARC200"
-                                          ) {
-                                            return "ASA → ARC200";
-                                          } else if (
-                                            fromType === "ARC200" &&
-                                            toType === "ASA"
-                                          ) {
-                                            return "ARC200 → ASA";
-                                          } else {
-                                            return "Cross-Network";
-                                          }
-                                        })()}
+                                        {bucket.network}
                                       </div>
                                     </div>
                                   </div>
@@ -2875,759 +3722,894 @@ const Wallet: React.FC = () => {
                               </button>
                             );
                           })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Step 3: Enter Amount */}
-                  {transferStep === "enter-amount" && (
-                    <div className="text-center relative">
-                      {/* Network Switch Overlay */}
-                      {needsNetworkSwitch(transferFrom) && (
-                        <div className="absolute inset-0 bg-black/80 rounded-xl flex items-center justify-center z-10">
-                          <div className="text-center p-6 max-w-sm">
-                            <div className="text-2xl mb-4">🔄</div>
-                            <h4 className="text-lg font-medium text-white mb-2">
-                              Switch Network Required
-                            </h4>
-                            <p className="text-sm text-gray-300 mb-4">
-                              To transfer from{" "}
-                              {getBucketById(transferFrom)?.name}, you need to
-                              switch to the{" "}
-                              {getBucketById(transferFrom)?.network} network.
-                            </p>
-                            <button
-                              onClick={() => {
-                                const requiredNetwork =
-                                  getRequiredNetwork(transferFrom);
-                                if (requiredNetwork) {
-                                  setActiveNetwork(requiredNetwork);
-                                }
-                              }}
-                              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium"
-                            >
-                              Switch to {getBucketById(transferFrom)?.network}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      <h4 className="text-lg font-medium mb-4">
-                        Step 3: Enter Transfer Amount
-                      </h4>
-                      <div className="mb-4 p-3 bg-purple-600/20 rounded-lg">
-                        <p className="text-sm text-card-foreground/80">
-                          From:{" "}
-                          <span className="font-medium text-purple-400">
-                            {getBucketById(transferFrom)?.name}
-                          </span>
-                          <span className="text-xs text-card-foreground/60 ml-2">
-                            ({getBucketById(transferFrom)?.network})
-                          </span>
-                          <span className="mx-2">→</span>
-                          To:{" "}
-                          <span className="font-medium text-purple-400">
-                            {getBucketById(transferTo)?.name}
-                          </span>
-                          <span className="text-xs text-card-foreground/60 ml-2">
-                            ({getBucketById(transferTo)?.network})
-                          </span>
-                        </p>
-                        {getBucketById(transferFrom)?.network !==
-                          getBucketById(transferTo)?.network && (
-                          <p className="text-xs text-yellow-400 mt-1">
-                            ⚠️ Cross-network transfer - may require additional
-                            steps and fees
-                          </p>
-                        )}
-                        {!isTransferAllowed(transferFrom, transferTo) && (
-                          <p className="text-xs text-red-400 mt-1">
-                            ❌ Cross-network transfers are not yet supported
-                          </p>
-                        )}
-                      </div>
-                      <div className="max-w-md mx-auto">
-                        <div className="flex flex-col gap-2">
-                          <label className="text-sm font-medium text-card-foreground/70">
-                            Amount (POW)
-                          </label>
-                          <input
-                            type="number"
-                            placeholder="Enter amount"
-                            value={transferAmount}
-                            onChange={(e) => {
-                              setTransferAmount(e.target.value);
-                              // Auto-advance to bridge step for ARC200 to ASA cross-network transfers
-                              if (
-                                e.target.value &&
-                                parseFloat(e.target.value) > 0
-                              ) {
-                                const fromType = transferFrom.includes("arc200")
-                                  ? "arc200"
-                                  : "asa";
-                                const toType = transferTo.includes("arc200")
-                                  ? "arc200"
-                                  : "asa";
-                                const isCrossNetwork =
-                                  getBucketById(transferFrom)?.network !==
-                                  getBucketById(transferTo)?.network;
-                                const isARC200ToASA =
-                                  fromType === "arc200" &&
-                                  toType === "asa" &&
-                                  isCrossNetwork;
-
-                                if (isARC200ToASA) {
-                                  setTimeout(
-                                    () => setTransferStep("bridge-transfer"),
-                                    500
-                                  );
-                                }
-                              }
-                            }}
-                            className="px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-card-foreground text-center text-lg"
-                            min="0"
-                            step="0.01"
-                            autoFocus
-                          />
-                          <div className="text-xs text-card-foreground/60">
-                            Available:{" "}
-                            {getBucketById(
-                              transferFrom
-                            )?.balance.toLocaleString()}{" "}
-                            POW
-                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Step 4: Bridge Transfer (ARC200 to ASA cross-network only) */}
-                  {transferStep === "bridge-transfer" && (
-                    <div className="text-center">
-                      <div className="flex justify-between items-center mb-4">
-                        <button
-                          onClick={() => setTransferStep("enter-amount")}
-                          className="text-sm text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
-                        >
-                          ← Back
-                        </button>
-                        <h4 className="text-lg font-medium">
-                          Step 4: Bridge Transfer
+                    {/* Step 2: Select Destination */}
+                    {transferStep === "select-to" && (
+                      <div className="text-center">
+                        <h4 className="text-lg font-medium mb-4">
+                          Step 2: Select Destination Bucket
                         </h4>
-                        <div className="w-12"></div>{" "}
-                        {/* Spacer for centering */}
-                      </div>
-                      <div className="mb-4 p-3 bg-purple-600/20 rounded-lg">
-                        <p className="text-sm text-card-foreground/80">
-                          <span className="font-medium text-purple-400">
-                            {getBucketById(transferFrom)?.name}
-                          </span>
-                          <span className="text-xs text-card-foreground/60 ml-2">
-                            ({getBucketById(transferFrom)?.network})
-                          </span>
-                          <span className="mx-2">→</span>
-                          <span className="font-medium text-purple-400">
-                            {getBucketById(transferTo)?.name}
-                          </span>
-                          <span className="text-xs text-card-foreground/60 ml-2">
-                            ({getBucketById(transferTo)?.network})
-                          </span>
-                        </p>
-                        <p className="text-xs text-yellow-400 mt-1">
-                          ⚠️ This transfer requires bridging tokens between
-                          networks
-                        </p>
-                      </div>
-                      <div className="max-w-md mx-auto">
-                        <div className="text-sm text-card-foreground/70 mb-4">
-                          <p>
-                            Amount:{" "}
-                            <span className="font-medium">
-                              {transferAmount} POW
+                        <div className="mb-4 p-3 bg-purple-600/20 rounded-lg">
+                          <p className="text-sm text-card-foreground/80">
+                            From:{" "}
+                            <span className="font-medium text-purple-400">
+                              {getBucketById(transferFrom)?.name}
+                            </span>
+                            <span className="text-xs text-card-foreground/60 ml-2">
+                              ({getBucketById(transferFrom)?.network})
                             </span>
                           </p>
-                          <p className="text-xs text-card-foreground/60 mt-1">
-                            Bridge fee: ~0.1% (
-                            {(parseFloat(transferAmount) * 0.001).toFixed(4)}{" "}
-                            POW)
-                          </p>
                         </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Transfer Button - Show in final step */}
-                  {((transferStep === "enter-amount" &&
-                    !needsNetworkSwitch(transferFrom)) ||
-                    transferStep === "bridge-transfer") && (
-                    <div className="mt-6 flex justify-center">
-                      <button
-                        onClick={handleTransfer}
-                        disabled={
-                          !transferAmount ||
-                          transferLoading ||
-                          !isTransferAllowed(transferFrom, transferTo)
-                        }
-                        className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2 font-medium"
-                      >
-                        {transferLoading ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            Transferring...
-                          </>
-                        ) : !isTransferAllowed(transferFrom, transferTo) ? (
-                          "Transfer Not Supported"
-                        ) : transferStep === "bridge-transfer" ? (
-                          "Start Bridge Transfer"
-                        ) : (
-                          "Transfer POW"
-                        )}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Transfer Info */}
-                  <div className="mt-4 p-3 bg-gray-800/50 rounded-lg">
-                    <p className="text-sm text-card-foreground/70">
-                      <strong>Note:</strong> Same-network transfers (ARC200 ↔
-                      ASA) are typically faster and cheaper. Cross-network ASA
-                      transfers and ARC200 → ASA transfers are supported but may
-                      require additional steps and bridge fees. Cross-network
-                      ARC200 → ARC200 transfers are not supported as ARC200
-                      tokens are network-specific.
-                    </p>
-                    <p className="text-xs text-card-foreground/60 mt-2">
-                      <strong>
-                        Cross Network Transfers powered by Aramid Bridge
-                      </strong>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* External Transfer Interface - Only show for connected user's own wallet */}
-              {showTransferInterface && availableSourceBuckets.length >= 0 && (
-                <div className="p-6 rounded-xl border border-gray-200/20 shadow-lg bg-card w-full">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-card-foreground">
-                      External Transfer
-                    </h3>
-                    <button
-                      onClick={resetExternalTransfer}
-                      className="text-sm text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
-                    >
-                      Reset
-                    </button>
-                  </div>
-
-                  {/* Step Indicator */}
-                  <div className="flex items-center justify-center mb-6">
-                    <div className="flex items-center space-x-2">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          externalTransferStep === "select-token"
-                            ? "bg-purple-600 text-white"
-                            : externalTransferToken
-                            ? "bg-green-600 text-white"
-                            : "bg-gray-600 text-gray-300"
-                        }`}
-                      >
-                        {externalTransferToken ? "✓" : "1"}
-                      </div>
-                      <div className="w-8 h-2 bg-gray-600 rounded"></div>
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          externalTransferStep === "enter-amount"
-                            ? "bg-purple-600 text-white"
-                            : externalTransferAmount
-                            ? "bg-green-600 text-white"
-                            : "bg-gray-600 text-gray-300"
-                        }`}
-                      >
-                        {externalTransferAmount ? "✓" : "2"}
-                      </div>
-                      <div className="w-8 h-2 bg-gray-600 rounded"></div>
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          externalTransferStep === "select-recipient"
-                            ? "bg-purple-600 text-white"
-                            : externalTransferRecipient
-                            ? "bg-green-600 text-white"
-                            : "bg-gray-600 text-gray-300"
-                        }`}
-                      >
-                        {externalTransferRecipient ? "✓" : "3"}
-                      </div>
-                      <div className="w-8 h-2 bg-gray-600 rounded"></div>
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          externalTransferStep === "select-destination"
-                            ? "bg-purple-600 text-white"
-                            : externalTransferDestination
-                            ? "bg-green-600 text-white"
-                            : "bg-gray-600 text-gray-300"
-                        }`}
-                      >
-                        {externalTransferDestination ? "✓" : "4"}
-                      </div>
-                      <div className="w-8 h-2 bg-gray-600 rounded"></div>
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          externalTransferStep === "confirm"
-                            ? "bg-purple-600 text-white"
-                            : "bg-gray-600 text-gray-300"
-                        }`}
-                      >
-                        5
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Step 1: Select Token */}
-                  {externalTransferStep === "select-token" && (
-                    <div className="text-center">
-                      <h4 className="text-lg font-medium mb-4">
-                        Step 1: Select Token to Transfer
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                        {allBuckets.map((bucket) => {
-                          const isOnCorrectNetwork = !needsNetworkSwitch(
-                            bucket.id
-                          );
-                          const hasBalance = bucket.balance > 0;
-                          const isSelectable = isOnCorrectNetwork && hasBalance;
-
-                          return (
-                            <button
-                              key={bucket.id}
-                              onClick={() => {
-                                if (isSelectable) {
-                                  setExternalTransferToken(bucket.id);
-                                  setExternalTransferStep("enter-amount");
-                                }
-                              }}
-                              disabled={!isSelectable}
-                              className={`p-4 rounded-xl border-2 transition-colors relative ${
-                                isSelectable
-                                  ? "border-gray-600 hover:border-purple-500 bg-gray-800/50 hover:bg-gray-800/80"
-                                  : "border-gray-700 bg-gray-800/30 cursor-not-allowed opacity-50"
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className={`w-4 h-4 rounded-full bg-${bucket.color}-500`}
-                                ></div>
-                                <div className="text-left">
-                                  <div className="font-medium text-card-foreground">
-                                    {bucket.name}
-                                  </div>
-                                  <div className="text-sm text-card-foreground/70">
-                                    {bucket.balance.toLocaleString()} POW
-                                  </div>
-                                  <div className="text-xs text-card-foreground/50">
-                                    {bucket.network}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Overlay for disabled states */}
-                              {!isSelectable && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
-                                  <div className="text-center">
-                                    <div className="text-xs font-medium text-white mb-1">
-                                      {!hasBalance
-                                        ? "No Balance"
-                                        : "Switch Network"}
-                                    </div>
-                                    <div className="text-xs text-gray-300">
-                                      {!hasBalance
-                                        ? "0 POW available"
-                                        : bucket.network}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                          {allBuckets
+                            .filter((bucket) => bucket.id !== transferFrom)
+                            .map((bucket) => {
+                              const isAllowed = isTransferAllowed(
+                                transferFrom,
+                                bucket.id
+                              );
+                              return (
+                                <button
+                                  key={bucket.id}
+                                  onClick={() => {
+                                    if (isAllowed) {
+                                      setTransferTo(bucket.id);
+                                      setTransferStep("enter-amount");
+                                    }
+                                  }}
+                                  disabled={!isAllowed}
+                                  className={`p-4 rounded-xl border-2 transition-colors relative ${
+                                    isAllowed
+                                      ? "border-gray-600 hover:border-purple-500 bg-gray-800/50 hover:bg-gray-800/80"
+                                      : "border-gray-700 bg-gray-800/30 cursor-not-allowed opacity-50"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div
+                                      className={`w-4 h-4 rounded-full bg-${bucket.color}-500`}
+                                    ></div>
+                                    <div className="text-left">
+                                      <div className="font-medium text-card-foreground">
+                                        {bucket.name}
+                                      </div>
+                                      <div className="text-sm text-card-foreground/70">
+                                        {bucket.balance.toLocaleString()} POW
+                                      </div>
+                                      <div className="text-xs text-card-foreground/50">
+                                        {bucket.network}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
 
-                  {/* Step 2: Enter Amount */}
-                  {externalTransferStep === "enter-amount" && (
-                    <div className="text-center">
-                      {/* Network Switch Overlay */}
-                      {needsNetworkSwitch(externalTransferToken) && (
-                        <div className="absolute inset-0 bg-black/80 rounded-xl flex items-center justify-center z-10">
-                          <div className="text-center p-6 max-w-sm">
-                            <div className="text-2xl mb-4">🔄</div>
-                            <h4 className="text-lg font-medium text-white mb-2">
-                              Switch Network Required
-                            </h4>
-                            <p className="text-sm text-gray-300 mb-4">
-                              To transfer{" "}
-                              {getBucketById(externalTransferToken)?.name}, you
-                              need to switch to the{" "}
-                              {getBucketById(externalTransferToken)?.network}{" "}
-                              network.
-                            </p>
-                            <button
-                              onClick={() => {
-                                const requiredNetwork = getRequiredNetwork(
-                                  externalTransferToken
-                                );
-                                if (requiredNetwork) {
-                                  setActiveNetwork(requiredNetwork);
-                                }
-                              }}
-                              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium"
-                            >
-                              Switch to{" "}
-                              {getBucketById(externalTransferToken)?.network}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      <h4 className="text-lg font-medium mb-4">
-                        Step 2: Enter Transfer Amount
-                      </h4>
-                      <div className="mb-4 p-3 bg-purple-600/20 rounded-lg">
-                        <p className="text-sm text-card-foreground/80">
-                          Token:{" "}
-                          <span className="font-medium text-purple-400">
-                            {getBucketById(externalTransferToken)?.name}
-                          </span>
-                          <span className="text-xs text-card-foreground/60 ml-2">
-                            ({getBucketById(externalTransferToken)?.network})
-                          </span>
-                        </p>
-                      </div>
-                      <div className="max-w-md mx-auto">
-                        <div className="flex flex-col gap-2">
-                          <label className="text-sm font-medium text-card-foreground/70">
-                            Amount (POW)
-                          </label>
-                          <input
-                            type="number"
-                            placeholder="Enter amount"
-                            value={externalTransferAmount}
-                            onChange={(e) =>
-                              setExternalTransferAmount(e.target.value)
-                            }
-                            className="px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-card-foreground text-center text-lg"
-                            min="0"
-                            step="0.01"
-                            autoFocus
-                          />
-                          <div className="text-xs text-card-foreground/60">
-                            Available:{" "}
-                            {getBucketById(
-                              externalTransferToken
-                            )?.balance.toLocaleString()}{" "}
-                            POW
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Step 3: Select Recipient */}
-                  {externalTransferStep === "select-recipient" && (
-                    <div className="text-center">
-                      <div className="flex justify-between items-center mb-4">
-                        <button
-                          onClick={() =>
-                            setExternalTransferStep("enter-amount")
-                          }
-                          className="text-sm text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
-                        >
-                          ← Back
-                        </button>
-                        <h4 className="text-lg font-medium">
-                          Step 3: Enter Recipient Address
-                        </h4>
-                        <div className="w-12"></div>
-                      </div>
-                      <div className="mb-4 p-3 bg-purple-600/20 rounded-lg">
-                        <p className="text-sm text-card-foreground/80">
-                          <span className="font-medium text-purple-400">
-                            {getBucketById(externalTransferToken)?.name}
-                          </span>
-                          <span className="text-xs text-card-foreground/60 ml-2">
-                            ({getBucketById(externalTransferToken)?.network})
-                          </span>
-                          <span className="mx-2">→</span>
-                          <span className="font-medium text-purple-400">
-                            {externalTransferAmount} POW
-                          </span>
-                        </p>
-                      </div>
-                      <div className="max-w-md mx-auto">
-                        <div className="flex flex-col gap-2">
-                          <label className="text-sm font-medium text-card-foreground/70">
-                            Recipient Address
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Enter wallet address"
-                            value={externalTransferRecipient}
-                            onChange={(e) =>
-                              setExternalTransferRecipient(e.target.value)
-                            }
-                            className="px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-card-foreground text-center text-sm font-mono"
-                            autoFocus
-                          />
-                          <div className="text-xs text-card-foreground/60">
-                            Enter the recipient's wallet address
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Step 4: Select Destination */}
-                  {externalTransferStep === "select-destination" && (
-                    <div className="text-center">
-                      <div className="flex justify-between items-center mb-4">
-                        <button
-                          onClick={() =>
-                            setExternalTransferStep("select-recipient")
-                          }
-                          className="text-sm text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
-                        >
-                          ← Back
-                        </button>
-                        <h4 className="text-lg font-medium">
-                          Step 4: Select Destination Token
-                        </h4>
-                        <div className="w-12"></div>
-                      </div>
-                      <div className="mb-4 p-3 bg-purple-600/20 rounded-lg">
-                        <p className="text-sm text-card-foreground/80">
-                          <span className="font-medium text-purple-400">
-                            {getBucketById(externalTransferToken)?.name}
-                          </span>
-                          <span className="text-xs text-card-foreground/60 ml-2">
-                            ({getBucketById(externalTransferToken)?.network})
-                          </span>
-                          <span className="mx-2">→</span>
-                          <span className="font-medium text-purple-400">
-                            {externalTransferRecipient.slice(0, 8)}...
-                            {externalTransferRecipient.slice(-6)}
-                          </span>
-                          <span className="mx-2">→</span>
-                          <span className="font-medium text-purple-400">
-                            {externalTransferAmount} POW
-                          </span>
-                        </p>
-                        <p className="text-xs text-card-foreground/60 mt-1">
-                          Choose how the recipient will receive the tokens
-                        </p>
-                        <p className="text-xs text-yellow-400 mt-2">
-                          ⚠️ Recipients must be opted into the destination token to receive transfers
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                        {allBuckets.map((bucket) => {
-                          const isAllowed = isTransferAllowed(
-                            externalTransferToken,
-                            bucket.id
-                          );
-                          const recipientBalance = recipientBalances[bucket.id];
-                          const optInStatus = recipientOptInStatus[bucket.id];
-                          const isOptedIn = optInStatus?.optedIn ?? false;
-                          const canSelect = isAllowed && isOptedIn;
-
-                          return (
-                            <button
-                              key={bucket.id}
-                              onClick={() => {
-                                if (canSelect) {
-                                  setExternalTransferDestination(bucket.id);
-                                  setExternalTransferStep("confirm");
-                                }
-                              }}
-                              disabled={!canSelect}
-                              className={`p-4 rounded-xl border-2 transition-colors relative ${
-                                canSelect
-                                  ? "border-gray-600 hover:border-purple-500 bg-gray-800/50 hover:bg-gray-800/80"
-                                  : "border-gray-700 bg-gray-800/30 cursor-not-allowed opacity-50"
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className={`w-4 h-4 rounded-full bg-${bucket.color}-500`}
-                                ></div>
-                                <div className="text-left">
-                                  <div className="font-medium text-card-foreground">
-                                    {bucket.name}
-                                  </div>
-                                  {!bucket.id.includes("arc200") && (
-                                    <div className="text-sm text-card-foreground/70">
-                                      {checkingOptIn || loadingRecipientBalances ? (
-                                        <span className="flex items-center gap-1">
-                                          <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
-                                          Checking...
-                                        </span>
-                                      ) : optInStatus ? (
-                                        isOptedIn ? (
-                                          <span className="text-green-400">
-                                            ✓ Opted In
-                                          </span>
-                                        ) : (
-                                          <span className="text-red-400">
-                                            ✗ Not Opted In
-                                          </span>
-                                        )
-                                      ) : (
-                                        "Unknown"
-                                      )}
-                                    </div>
-                                  )}
-                                  <div className="text-xs text-card-foreground/50">
-                                    {bucket.network}
-                                  </div>
-                                  <div className="text-xs text-card-foreground/40">
-                                    {bucket.id.includes("arc200")
-                                      ? "Recipient's balance"
-                                      : isOptedIn
-                                      ? "Recipient's balance"
-                                      : "Opt-in required"}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Disabled Transfer Overlay */}
-                              {!canSelect && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
-                                  <div className="text-center">
-                                    <div className="text-xs font-medium text-white mb-1">
-                                      {!isAllowed ? "Not Supported" : "Not Opted In"}
-                                    </div>
-                                    <div className="text-xs text-gray-300">
-                                      {!isAllowed ? (
-                                        (() => {
-                                          const fromType =
-                                            externalTransferToken.includes(
+                                  {/* Disabled Transfer Overlay */}
+                                  {!isAllowed && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
+                                      <div className="text-center">
+                                        <div className="text-xs font-medium text-white mb-1">
+                                          Not Supported
+                                        </div>
+                                        <div className="text-xs text-gray-300">
+                                          {(() => {
+                                            const fromType = bucket.id.includes(
                                               "arc200"
                                             )
                                               ? "ARC200"
                                               : "ASA";
-                                          const toType = bucket.id.includes(
-                                            "arc200"
-                                          )
-                                            ? "ARC200"
-                                            : "ASA";
-                                          if (
-                                            fromType === "ARC200" &&
-                                            toType === "ARC200"
-                                          ) {
-                                            return "Cross-Network ARC200";
-                                          } else if (
-                                            fromType === "ASA" &&
-                                            toType === "ARC200"
-                                          ) {
-                                            return "ASA → ARC200";
-                                          } else if (
-                                            fromType === "ARC200" &&
-                                            toType === "ASA"
-                                          ) {
-                                            return "ARC200 → ASA";
-                                          } else {
-                                            return "Cross-Network";
-                                          }
-                                        })()
-                                      ) : (
-                                        "Recipient must opt-in first"
-                                      )}
+                                            const toType =
+                                              transferFrom.includes("arc200")
+                                                ? "ARC200"
+                                                : "ASA";
+                                            if (
+                                              fromType === "ARC200" &&
+                                              toType === "ARC200"
+                                            ) {
+                                              return "Cross-Network ARC200";
+                                            } else if (
+                                              fromType === "ASA" &&
+                                              toType === "ARC200"
+                                            ) {
+                                              return "ASA → ARC200";
+                                            } else if (
+                                              fromType === "ARC200" &&
+                                              toType === "ASA"
+                                            ) {
+                                              return "ARC200 → ASA";
+                                            } else {
+                                              return "Cross-Network";
+                                            }
+                                          })()}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 3: Enter Amount */}
+                    {transferStep === "enter-amount" && (
+                      <div className="text-center relative">
+                        {/* Network Switch Overlay */}
+                        {needsNetworkSwitch(transferFrom) && (
+                          <div className="absolute inset-0 bg-black/80 rounded-xl flex items-center justify-center z-10">
+                            <div className="text-center p-6 max-w-sm">
+                              <div className="text-2xl mb-4">🔄</div>
+                              <h4 className="text-lg font-medium text-white mb-2">
+                                Switch Network Required
+                              </h4>
+                              <p className="text-sm text-gray-300 mb-4">
+                                To transfer from{" "}
+                                {getBucketById(transferFrom)?.name}, you need to
+                                switch to the{" "}
+                                {getBucketById(transferFrom)?.network} network.
+                              </p>
+                              <button
+                                onClick={() => {
+                                  const requiredNetwork =
+                                    getRequiredNetwork(transferFrom);
+                                  if (requiredNetwork) {
+                                    setActiveNetwork(requiredNetwork);
+                                  }
+                                }}
+                                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium"
+                              >
+                                Switch to {getBucketById(transferFrom)?.network}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        <h4 className="text-lg font-medium mb-4">
+                          Step 3: Enter Transfer Amount
+                        </h4>
+                        <div className="mb-4 p-3 bg-purple-600/20 rounded-lg">
+                          <p className="text-sm text-card-foreground/80">
+                            From:{" "}
+                            <span className="font-medium text-purple-400">
+                              {getBucketById(transferFrom)?.name}
+                            </span>
+                            <span className="text-xs text-card-foreground/60 ml-2">
+                              ({getBucketById(transferFrom)?.network})
+                            </span>
+                            <span className="mx-2">→</span>
+                            To:{" "}
+                            <span className="font-medium text-purple-400">
+                              {getBucketById(transferTo)?.name}
+                            </span>
+                            <span className="text-xs text-card-foreground/60 ml-2">
+                              ({getBucketById(transferTo)?.network})
+                            </span>
+                          </p>
+                          {getBucketById(transferFrom)?.network !==
+                            getBucketById(transferTo)?.network && (
+                            <p className="text-xs text-yellow-400 mt-1">
+                              ⚠️ Cross-network transfer - may require additional
+                              steps and fees
+                            </p>
+                          )}
+                          {!isTransferAllowed(transferFrom, transferTo) && (
+                            <p className="text-xs text-red-400 mt-1">
+                              ❌ Cross-network transfers are not yet supported
+                            </p>
+                          )}
+                        </div>
+                        <div className="max-w-md mx-auto">
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-card-foreground/70">
+                              Amount (POW)
+                            </label>
+                            <input
+                              type="number"
+                              placeholder="Enter amount"
+                              value={transferAmount}
+                              onChange={(e) => {
+                                setTransferAmount(e.target.value);
+                                // Auto-advance to bridge step for ARC200 to ASA cross-network transfers
+                                if (
+                                  e.target.value &&
+                                  parseFloat(e.target.value) > 0
+                                ) {
+                                  const fromType = transferFrom.includes(
+                                    "arc200"
+                                  )
+                                    ? "arc200"
+                                    : "asa";
+                                  const toType = transferTo.includes("arc200")
+                                    ? "arc200"
+                                    : "asa";
+                                  const isCrossNetwork =
+                                    getBucketById(transferFrom)?.network !==
+                                    getBucketById(transferTo)?.network;
+                                  const isARC200ToASA =
+                                    fromType === "arc200" &&
+                                    toType === "asa" &&
+                                    isCrossNetwork;
+
+                                  if (isARC200ToASA) {
+                                    setTimeout(
+                                      () => setTransferStep("bridge-transfer"),
+                                      500
+                                    );
+                                  }
+                                }
+                              }}
+                              className="px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-card-foreground text-center text-lg"
+                              min="0"
+                              step="0.01"
+                              autoFocus
+                            />
+                            <div className="text-xs text-card-foreground/60">
+                              Available:{" "}
+                              {getBucketById(
+                                transferFrom
+                              )?.balance.toLocaleString()}{" "}
+                              POW
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 4: Bridge Transfer (ARC200 to ASA cross-network only) */}
+                    {transferStep === "bridge-transfer" && (
+                      <div className="text-center">
+                        <div className="flex justify-between items-center mb-4">
+                          <button
+                            onClick={() => setTransferStep("enter-amount")}
+                            className="text-sm text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
+                          >
+                            ← Back
+                          </button>
+                          <h4 className="text-lg font-medium">
+                            Step 4: Bridge Transfer
+                          </h4>
+                          <div className="w-12"></div>{" "}
+                          {/* Spacer for centering */}
+                        </div>
+                        <div className="mb-4 p-3 bg-purple-600/20 rounded-lg">
+                          <p className="text-sm text-card-foreground/80">
+                            <span className="font-medium text-purple-400">
+                              {getBucketById(transferFrom)?.name}
+                            </span>
+                            <span className="text-xs text-card-foreground/60 ml-2">
+                              ({getBucketById(transferFrom)?.network})
+                            </span>
+                            <span className="mx-2">→</span>
+                            <span className="font-medium text-purple-400">
+                              {getBucketById(transferTo)?.name}
+                            </span>
+                            <span className="text-xs text-card-foreground/60 ml-2">
+                              ({getBucketById(transferTo)?.network})
+                            </span>
+                          </p>
+                          <p className="text-xs text-yellow-400 mt-1">
+                            ⚠️ This transfer requires bridging tokens between
+                            networks
+                          </p>
+                        </div>
+                        <div className="max-w-md mx-auto">
+                          <div className="text-sm text-card-foreground/70 mb-4">
+                            <p>
+                              Amount:{" "}
+                              <span className="font-medium">
+                                {transferAmount} POW
+                              </span>
+                            </p>
+                            <p className="text-xs text-card-foreground/60 mt-1">
+                              Bridge fee: ~0.1% (
+                              {(parseFloat(transferAmount) * 0.001).toFixed(4)}{" "}
+                              POW)
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Transfer Button - Show in final step */}
+                    {((transferStep === "enter-amount" &&
+                      !needsNetworkSwitch(transferFrom)) ||
+                      transferStep === "bridge-transfer") && (
+                      <div className="mt-6 flex justify-center">
+                        <button
+                          onClick={handleTransfer}
+                          disabled={
+                            !transferAmount ||
+                            transferLoading ||
+                            !isTransferAllowed(transferFrom, transferTo)
+                          }
+                          className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2 font-medium"
+                        >
+                          {transferLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              Transferring...
+                            </>
+                          ) : !isTransferAllowed(transferFrom, transferTo) ? (
+                            "Transfer Not Supported"
+                          ) : transferStep === "bridge-transfer" ? (
+                            "Start Bridge Transfer"
+                          ) : (
+                            "Transfer POW"
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Transfer Info */}
+                    <div className="mt-4 p-3 bg-gray-800/50 rounded-lg">
+                      <p className="text-sm text-card-foreground/70">
+                        <strong>Note:</strong> Same-network transfers (ARC200 ↔
+                        ASA) are typically faster and cheaper. Cross-network ASA
+                        transfers and ARC200 → ASA transfers are supported but
+                        may require additional steps and bridge fees.
+                        Cross-network ARC200 → ARC200 transfers are not
+                        supported as ARC200 tokens are network-specific.
+                      </p>
+                      <p className="text-xs text-card-foreground/60 mt-2">
+                        <strong>
+                          Cross Network Transfers powered by Aramid Bridge
+                        </strong>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+              {/* External Transfer Interface - Only show for connected user's own wallet and NOT on localnet, and only when Mainnet is enabled */}
+              {showTransferInterface &&
+                availableSourceBuckets.length >= 0 &&
+                !isLocalnet() &&
+                (isNetworkEnabled(NetworkId.MAINNET) || isNetworkEnabled(NetworkId.VOIMAIN)) && (
+                  <div className="p-6 rounded-xl border border-gray-200/20 shadow-lg bg-card w-full">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold text-card-foreground">
+                        External Transfer
+                      </h3>
+                      <button
+                        onClick={resetExternalTransfer}
+                        className="text-sm text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
+                      >
+                        Reset
+                      </button>
+                    </div>
+
+                    {/* Step Indicator */}
+                    <div className="flex items-center justify-center mb-6">
+                      <div className="flex items-center space-x-2">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            externalTransferStep === "select-token"
+                              ? "bg-purple-600 text-white"
+                              : externalTransferToken
+                              ? "bg-green-600 text-white"
+                              : "bg-gray-600 text-gray-300"
+                          }`}
+                        >
+                          {externalTransferToken ? "✓" : "1"}
+                        </div>
+                        <div className="w-8 h-2 bg-gray-600 rounded"></div>
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            externalTransferStep === "enter-amount"
+                              ? "bg-purple-600 text-white"
+                              : externalTransferAmount
+                              ? "bg-green-600 text-white"
+                              : "bg-gray-600 text-gray-300"
+                          }`}
+                        >
+                          {externalTransferAmount ? "✓" : "2"}
+                        </div>
+                        <div className="w-8 h-2 bg-gray-600 rounded"></div>
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            externalTransferStep === "select-recipient"
+                              ? "bg-purple-600 text-white"
+                              : externalTransferRecipient
+                              ? "bg-green-600 text-white"
+                              : "bg-gray-600 text-gray-300"
+                          }`}
+                        >
+                          {externalTransferRecipient ? "✓" : "3"}
+                        </div>
+                        <div className="w-8 h-2 bg-gray-600 rounded"></div>
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            externalTransferStep === "select-destination"
+                              ? "bg-purple-600 text-white"
+                              : externalTransferDestination
+                              ? "bg-green-600 text-white"
+                              : "bg-gray-600 text-gray-300"
+                          }`}
+                        >
+                          {externalTransferDestination ? "✓" : "4"}
+                        </div>
+                        <div className="w-8 h-2 bg-gray-600 rounded"></div>
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            externalTransferStep === "confirm"
+                              ? "bg-purple-600 text-white"
+                              : "bg-gray-600 text-gray-300"
+                          }`}
+                        >
+                          5
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 1: Select Token */}
+                    {externalTransferStep === "select-token" && (
+                      <div className="text-center">
+                        <h4 className="text-lg font-medium mb-4">
+                          Step 1: Select Token to Transfer
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                          {allBuckets.map((bucket) => {
+                            const isOnCorrectNetwork = !needsNetworkSwitch(
+                              bucket.id
+                            );
+                            const hasBalance = bucket.balance > 0;
+                            const isSelectable =
+                              isOnCorrectNetwork && hasBalance;
+
+                            return (
+                              <button
+                                key={bucket.id}
+                                onClick={() => {
+                                  if (isSelectable) {
+                                    setExternalTransferToken(bucket.id);
+                                    setExternalTransferStep("enter-amount");
+                                  }
+                                }}
+                                disabled={!isSelectable}
+                                className={`p-4 rounded-xl border-2 transition-colors relative ${
+                                  isSelectable
+                                    ? "border-gray-600 hover:border-purple-500 bg-gray-800/50 hover:bg-gray-800/80"
+                                    : "border-gray-700 bg-gray-800/30 cursor-not-allowed opacity-50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`w-4 h-4 rounded-full bg-${bucket.color}-500`}
+                                  ></div>
+                                  <div className="text-left">
+                                    <div className="font-medium text-card-foreground">
+                                      {bucket.name}
+                                    </div>
+                                    <div className="text-sm text-card-foreground/70">
+                                      {bucket.balance.toLocaleString()} POW
+                                    </div>
+                                    <div className="text-xs text-card-foreground/50">
+                                      {bucket.network}
                                     </div>
                                   </div>
                                 </div>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
 
-                  {/* Step 5: Confirm */}
-                  {externalTransferStep === "confirm" && (
-                    <div className="text-center">
-                      <div className="flex justify-between items-center mb-4">
+                                {/* Overlay for disabled states */}
+                                {!isSelectable && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
+                                    <div className="text-center">
+                                      <div className="text-xs font-medium text-white mb-1">
+                                        {!hasBalance
+                                          ? "No Balance"
+                                          : "Switch Network"}
+                                      </div>
+                                      <div className="text-xs text-gray-300">
+                                        {!hasBalance
+                                          ? "0 POW available"
+                                          : bucket.network}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 2: Enter Amount */}
+                    {externalTransferStep === "enter-amount" && (
+                      <div className="text-center">
+                        {/* Network Switch Overlay */}
+                        {needsNetworkSwitch(externalTransferToken) && (
+                          <div className="absolute inset-0 bg-black/80 rounded-xl flex items-center justify-center z-10">
+                            <div className="text-center p-6 max-w-sm">
+                              <div className="text-2xl mb-4">🔄</div>
+                              <h4 className="text-lg font-medium text-white mb-2">
+                                Switch Network Required
+                              </h4>
+                              <p className="text-sm text-gray-300 mb-4">
+                                To transfer{" "}
+                                {getBucketById(externalTransferToken)?.name},
+                                you need to switch to the{" "}
+                                {getBucketById(externalTransferToken)?.network}{" "}
+                                network.
+                              </p>
+                              <button
+                                onClick={() => {
+                                  const requiredNetwork = getRequiredNetwork(
+                                    externalTransferToken
+                                  );
+                                  if (requiredNetwork) {
+                                    setActiveNetwork(requiredNetwork);
+                                  }
+                                }}
+                                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium"
+                              >
+                                Switch to{" "}
+                                {getBucketById(externalTransferToken)?.network}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        <h4 className="text-lg font-medium mb-4">
+                          Step 2: Enter Transfer Amount
+                        </h4>
+                        <div className="mb-4 p-3 bg-purple-600/20 rounded-lg">
+                          <p className="text-sm text-card-foreground/80">
+                            Token:{" "}
+                            <span className="font-medium text-purple-400">
+                              {getBucketById(externalTransferToken)?.name}
+                            </span>
+                            <span className="text-xs text-card-foreground/60 ml-2">
+                              ({getBucketById(externalTransferToken)?.network})
+                            </span>
+                          </p>
+                        </div>
+                        <div className="max-w-md mx-auto">
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-card-foreground/70">
+                              Amount (POW)
+                            </label>
+                            <input
+                              type="number"
+                              placeholder="Enter amount"
+                              value={externalTransferAmount}
+                              onChange={(e) =>
+                                setExternalTransferAmount(e.target.value)
+                              }
+                              className="px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-card-foreground text-center text-lg"
+                              min="0"
+                              step="0.01"
+                              autoFocus
+                            />
+                            <div className="text-xs text-card-foreground/60">
+                              Available:{" "}
+                              {getBucketById(
+                                externalTransferToken
+                              )?.balance.toLocaleString()}{" "}
+                              POW
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 3: Select Recipient */}
+                    {externalTransferStep === "select-recipient" && (
+                      <div className="text-center">
+                        <div className="flex justify-between items-center mb-4">
+                          <button
+                            onClick={() =>
+                              setExternalTransferStep("enter-amount")
+                            }
+                            className="text-sm text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
+                          >
+                            ← Back
+                          </button>
+                          <h4 className="text-lg font-medium">
+                            Step 3: Enter Recipient Address
+                          </h4>
+                          <div className="w-12"></div>
+                        </div>
+                        <div className="mb-4 p-3 bg-purple-600/20 rounded-lg">
+                          <p className="text-sm text-card-foreground/80">
+                            <span className="font-medium text-purple-400">
+                              {getBucketById(externalTransferToken)?.name}
+                            </span>
+                            <span className="text-xs text-card-foreground/60 ml-2">
+                              ({getBucketById(externalTransferToken)?.network})
+                            </span>
+                            <span className="mx-2">→</span>
+                            <span className="font-medium text-purple-400">
+                              {externalTransferAmount} POW
+                            </span>
+                          </p>
+                        </div>
+                        <div className="max-w-md mx-auto">
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-card-foreground/70">
+                              Recipient Address
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Enter wallet address"
+                              value={externalTransferRecipient}
+                              onChange={(e) =>
+                                setExternalTransferRecipient(e.target.value)
+                              }
+                              className="px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-card-foreground text-center text-sm font-mono"
+                              autoFocus
+                            />
+                            <div className="text-xs text-card-foreground/60">
+                              Enter the recipient's wallet address
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 4: Select Destination */}
+                    {externalTransferStep === "select-destination" && (
+                      <div className="text-center">
+                        <div className="flex justify-between items-center mb-4">
+                          <button
+                            onClick={() =>
+                              setExternalTransferStep("select-recipient")
+                            }
+                            className="text-sm text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
+                          >
+                            ← Back
+                          </button>
+                          <h4 className="text-lg font-medium">
+                            Step 4: Select Destination Token
+                          </h4>
+                          <div className="w-12"></div>
+                        </div>
+                        <div className="mb-4 p-3 bg-purple-600/20 rounded-lg">
+                          <p className="text-sm text-card-foreground/80">
+                            <span className="font-medium text-purple-400">
+                              {getBucketById(externalTransferToken)?.name}
+                            </span>
+                            <span className="text-xs text-card-foreground/60 ml-2">
+                              ({getBucketById(externalTransferToken)?.network})
+                            </span>
+                            <span className="mx-2">→</span>
+                            <span className="font-medium text-purple-400">
+                              {externalTransferRecipient.slice(0, 8)}...
+                              {externalTransferRecipient.slice(-6)}
+                            </span>
+                            <span className="mx-2">→</span>
+                            <span className="font-medium text-purple-400">
+                              {externalTransferAmount} POW
+                            </span>
+                          </p>
+                          <p className="text-xs text-card-foreground/60 mt-1">
+                            Choose how the recipient will receive the tokens
+                          </p>
+                          <p className="text-xs text-yellow-400 mt-2">
+                            ⚠️ Recipients must be opted into the destination
+                            token to receive transfers
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                          {allBuckets.map((bucket) => {
+                            const isAllowed = isTransferAllowed(
+                              externalTransferToken,
+                              bucket.id
+                            );
+                            const recipientBalance =
+                              recipientBalances[bucket.id];
+                            const optInStatus = recipientOptInStatus[bucket.id];
+                            const isOptedIn = optInStatus?.optedIn ?? false;
+                            const canSelect = isAllowed && isOptedIn;
+
+                            return (
+                              <button
+                                key={bucket.id}
+                                onClick={() => {
+                                  if (canSelect) {
+                                    setExternalTransferDestination(bucket.id);
+                                    setExternalTransferStep("confirm");
+                                  }
+                                }}
+                                disabled={!canSelect}
+                                className={`p-4 rounded-xl border-2 transition-colors relative ${
+                                  canSelect
+                                    ? "border-gray-600 hover:border-purple-500 bg-gray-800/50 hover:bg-gray-800/80"
+                                    : "border-gray-700 bg-gray-800/30 cursor-not-allowed opacity-50"
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`w-4 h-4 rounded-full bg-${bucket.color}-500`}
+                                  ></div>
+                                  <div className="text-left">
+                                    <div className="font-medium text-card-foreground">
+                                      {bucket.name}
+                                    </div>
+                                    {!bucket.id.includes("arc200") && (
+                                      <div className="text-sm text-card-foreground/70">
+                                        {checkingOptIn ||
+                                        loadingRecipientBalances ? (
+                                          <span className="flex items-center gap-1">
+                                            <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
+                                            Checking...
+                                          </span>
+                                        ) : optInStatus ? (
+                                          isOptedIn ? (
+                                            <span className="text-green-400">
+                                              ✓ Opted In
+                                            </span>
+                                          ) : (
+                                            <span className="text-red-400">
+                                              ✗ Not Opted In
+                                            </span>
+                                          )
+                                        ) : (
+                                          "Unknown"
+                                        )}
+                                      </div>
+                                    )}
+                                    <div className="text-xs text-card-foreground/50">
+                                      {bucket.network}
+                                    </div>
+                                    <div className="text-xs text-card-foreground/40">
+                                      {bucket.id.includes("arc200")
+                                        ? "Recipient's balance"
+                                        : isOptedIn
+                                        ? "Recipient's balance"
+                                        : "Opt-in required"}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Disabled Transfer Overlay */}
+                                {!canSelect && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
+                                    <div className="text-center">
+                                      <div className="text-xs font-medium text-white mb-1">
+                                        {!isAllowed
+                                          ? "Not Supported"
+                                          : "Not Opted In"}
+                                      </div>
+                                      <div className="text-xs text-gray-300">
+                                        {!isAllowed
+                                          ? (() => {
+                                              const fromType =
+                                                externalTransferToken.includes(
+                                                  "arc200"
+                                                )
+                                                  ? "ARC200"
+                                                  : "ASA";
+                                              const toType = bucket.id.includes(
+                                                "arc200"
+                                              )
+                                                ? "ARC200"
+                                                : "ASA";
+                                              if (
+                                                fromType === "ARC200" &&
+                                                toType === "ARC200"
+                                              ) {
+                                                return "Cross-Network ARC200";
+                                              } else if (
+                                                fromType === "ASA" &&
+                                                toType === "ARC200"
+                                              ) {
+                                                return "ASA → ARC200";
+                                              } else if (
+                                                fromType === "ARC200" &&
+                                                toType === "ASA"
+                                              ) {
+                                                return "ARC200 → ASA";
+                                              } else {
+                                                return "Cross-Network";
+                                              }
+                                            })()
+                                          : "Recipient must opt-in first"}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 5: Confirm */}
+                    {externalTransferStep === "confirm" && (
+                      <div className="text-center">
+                        <div className="flex justify-between items-center mb-4">
+                          <button
+                            onClick={() =>
+                              setExternalTransferStep("select-destination")
+                            }
+                            className="text-sm text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
+                          >
+                            ← Back
+                          </button>
+                          <h4 className="text-lg font-medium">
+                            Step 5: Confirm Transfer
+                          </h4>
+                          <div className="w-12"></div>
+                        </div>
+                        <div className="mb-6 p-4 bg-purple-600/20 rounded-lg max-w-md mx-auto">
+                          <div className="text-sm text-card-foreground/80 space-y-2">
+                            <div className="flex justify-between">
+                              <span>From Token:</span>
+                              <span className="font-medium text-purple-400">
+                                {getBucketById(externalTransferToken)?.name}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>To Token:</span>
+                              <span className="font-medium text-purple-400">
+                                {
+                                  getBucketById(externalTransferDestination)
+                                    ?.name
+                                }
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Amount:</span>
+                              <span className="font-medium text-purple-400">
+                                {externalTransferAmount} POW
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>From Network:</span>
+                              <span className="font-medium text-purple-400">
+                                {getBucketById(externalTransferToken)?.network}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>To Network:</span>
+                              <span className="font-medium text-purple-400">
+                                {
+                                  getBucketById(externalTransferDestination)
+                                    ?.network
+                                }
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Recipient:</span>
+                              <span className="font-medium text-purple-400 font-mono text-xs">
+                                {externalTransferRecipient.slice(0, 8)}...
+                                {externalTransferRecipient.slice(-6)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Navigation Buttons */}
+                    {externalTransferStep === "enter-amount" &&
+                      !needsNetworkSwitch(externalTransferToken) && (
+                        <div className="mt-6 flex justify-center">
+                          <button
+                            onClick={() =>
+                              setExternalTransferStep("select-recipient")
+                            }
+                            disabled={
+                              !externalTransferAmount ||
+                              parseFloat(externalTransferAmount) <= 0
+                            }
+                            className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+                          >
+                            Continue
+                          </button>
+                        </div>
+                      )}
+
+                    {externalTransferStep === "select-recipient" && (
+                      <div className="mt-6 flex justify-center">
                         <button
                           onClick={() =>
                             setExternalTransferStep("select-destination")
                           }
-                          className="text-sm text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
-                        >
-                          ← Back
-                        </button>
-                        <h4 className="text-lg font-medium">
-                          Step 5: Confirm Transfer
-                        </h4>
-                        <div className="w-12"></div>
-                      </div>
-                      <div className="mb-6 p-4 bg-purple-600/20 rounded-lg max-w-md mx-auto">
-                        <div className="text-sm text-card-foreground/80 space-y-2">
-                          <div className="flex justify-between">
-                            <span>From Token:</span>
-                            <span className="font-medium text-purple-400">
-                              {getBucketById(externalTransferToken)?.name}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>To Token:</span>
-                            <span className="font-medium text-purple-400">
-                              {getBucketById(externalTransferDestination)?.name}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Amount:</span>
-                            <span className="font-medium text-purple-400">
-                              {externalTransferAmount} POW
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>From Network:</span>
-                            <span className="font-medium text-purple-400">
-                              {getBucketById(externalTransferToken)?.network}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>To Network:</span>
-                            <span className="font-medium text-purple-400">
-                              {
-                                getBucketById(externalTransferDestination)
-                                  ?.network
-                              }
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Recipient:</span>
-                            <span className="font-medium text-purple-400 font-mono text-xs">
-                              {externalTransferRecipient.slice(0, 8)}...
-                              {externalTransferRecipient.slice(-6)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Navigation Buttons */}
-                  {externalTransferStep === "enter-amount" &&
-                    !needsNetworkSwitch(externalTransferToken) && (
-                      <div className="mt-6 flex justify-center">
-                        <button
-                          onClick={() =>
-                            setExternalTransferStep("select-recipient")
-                          }
                           disabled={
-                            !externalTransferAmount ||
-                            parseFloat(externalTransferAmount) <= 0
+                            !externalTransferRecipient ||
+                            !algosdk.isValidAddress(externalTransferRecipient)
                           }
                           className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
                         >
@@ -3636,70 +4618,389 @@ const Wallet: React.FC = () => {
                       </div>
                     )}
 
-                  {externalTransferStep === "select-recipient" && (
-                    <div className="mt-6 flex justify-center">
-                      <button
-                        onClick={() =>
-                          setExternalTransferStep("select-destination")
-                        }
-                        disabled={
-                          !externalTransferRecipient ||
-                          !algosdk.isValidAddress(externalTransferRecipient)
-                        }
-                        className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
-                      >
-                        Continue
-                      </button>
-                    </div>
-                  )}
+                    {externalTransferStep === "select-destination" && (
+                      <div className="mt-6 flex justify-center">
+                        <button
+                          onClick={() => setExternalTransferStep("confirm")}
+                          disabled={!externalTransferDestination}
+                          className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+                        >
+                          Continue
+                        </button>
+                      </div>
+                    )}
 
-                  {externalTransferStep === "select-destination" && (
-                    <div className="mt-6 flex justify-center">
-                      <button
-                        onClick={() => setExternalTransferStep("confirm")}
-                        disabled={!externalTransferDestination}
-                        className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
-                      >
-                        Continue
-                      </button>
-                    </div>
-                  )}
+                    {/* Transfer Button - Show in final step */}
+                    {externalTransferStep === "confirm" && (
+                      <div className="mt-6 flex justify-center">
+                        <button
+                          onClick={handleExternalTransfer}
+                          disabled={externalTransferLoading}
+                          className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2 font-medium"
+                        >
+                          {externalTransferLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              Transferring...
+                            </>
+                          ) : (
+                            "Send Transfer"
+                          )}
+                        </button>
+                      </div>
+                    )}
 
-                  {/* Transfer Button - Show in final step */}
-                  {externalTransferStep === "confirm" && (
-                    <div className="mt-6 flex justify-center">
-                      <button
-                        onClick={handleExternalTransfer}
-                        disabled={externalTransferLoading}
-                        className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2 font-medium"
-                      >
-                        {externalTransferLoading ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            Transferring...
-                          </>
-                        ) : (
-                          "Send Transfer"
-                        )}
-                      </button>
+                    {/* Transfer Info */}
+                    <div className="mt-4 p-3 bg-gray-800/50 rounded-lg">
+                      <p className="text-sm text-card-foreground/70">
+                        <strong>Note:</strong> External transfers send POW
+                        tokens to other wallet addresses. Make sure to
+                        double-check the recipient address before confirming the
+                        transfer. Transfers are irreversible once confirmed.
+                      </p>
                     </div>
-                  )}
-
-                  {/* Transfer Info */}
-                  <div className="mt-4 p-3 bg-gray-800/50 rounded-lg">
-                    <p className="text-sm text-card-foreground/70">
-                      <strong>Note:</strong> External transfers send POW tokens
-                      to other wallet addresses. Make sure to double-check the
-                      recipient address before confirming the transfer.
-                      Transfers are irreversible once confirmed.
-                    </p>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Transfer Modal */}
+      {showTransferModal && (
+        <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
+          <div className="bg-card border border-gray-200/20 rounded-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-card-foreground">
+                Transfer POW Tokens
+              </h3>
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Transfer Success Confirmation */}
+              {modalTransferSuccess && (
+                <div className="p-4 bg-green-600/20 border border-green-500/30 rounded-lg">
+                  <div className="text-center">
+                    <div className="flex items-center justify-center mb-3">
+                      <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                        <svg
+                          className="w-5 h-5 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <h4 className="text-lg font-semibold text-green-400 mb-2">
+                      Transfer Successful!
+                    </h4>
+                    <div className="text-sm text-green-300 space-y-1">
+                      <div>
+                        <span className="font-medium">Amount:</span>{" "}
+                        {modalTransferSuccess.amount} POW
+                      </div>
+                      <div>
+                        <span className="font-medium">Recipient:</span>{" "}
+                        {modalTransferSuccess.recipient.slice(0, 8)}...
+                        {modalTransferSuccess.recipient.slice(-6)}
+                      </div>
+                      <div>
+                        <span className="font-medium">Transaction ID:</span>{" "}
+                        <span className="font-mono text-xs">
+                          {modalTransferSuccess.txId.slice(0, 8)}...
+                          {modalTransferSuccess.txId.slice(-6)}
+                        </span>
+                        <br />
+                        <a
+                          href={(() => {
+                            switch (activeNetwork) {
+                              case NetworkId.LOCALNET:
+                                return `https://lora.algokit.io/localnet/transaction/${modalTransferSuccess.txId}`;
+                              case NetworkId.TESTNET:
+                                return `https://testnet.algoexplorer.io/tx/${modalTransferSuccess.txId}`;
+                              case NetworkId.MAINNET:
+                                return `https://algoexplorer.io/tx/${modalTransferSuccess.txId}`;
+                              case NetworkId.VOIMAIN:
+                                return `https://explorer.voi.network/tx/${modalTransferSuccess.txId}`;
+                              default:
+                                return `https://algoexplorer.io/tx/${modalTransferSuccess.txId}`;
+                            }
+                          })()}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 underline text-xs inline-flex items-center gap-1 mt-1"
+                        >
+                          <svg
+                            className="w-3 h-3"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                            />
+                          </svg>
+                          View on Explorer
+                        </a>
+                      </div>
+                    </div>
+                    <div className="text-xs text-green-200 mt-3">
+                      Modal will close automatically in a few seconds...
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Wallet Connection Warning */}
+              {!activeAccount && (
+                <div className="p-3 bg-red-600/20 border border-red-500/30 rounded-lg">
+                  <div className="text-sm text-red-400">
+                    <div className="flex items-center gap-2 mb-1">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                        />
+                      </svg>
+                      <span className="font-medium">Wallet Not Connected</span>
+                    </div>
+                    <div className="text-xs text-red-300">
+                      Please connect your wallet to perform transfers.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Form Content - Only show when not in success state */}
+              {!modalTransferSuccess && (
+                <>
+                  {/* Current Balance Info */}
+                  <div className="p-3 bg-purple-600/20 rounded-lg">
+                    <div className="text-sm text-card-foreground/80">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                        <span className="font-medium">
+                                                     {activeNetwork === NetworkId.LOCALNET
+                             ? "Localnet"
+                             : activeNetwork === NetworkId.TESTNET
+                             ? "Algorand Testnet"
+                             : activeNetwork === NetworkId.MAINNET
+                             ? "Algorand Mainnet"
+                             : activeNetwork === NetworkId.VOIMAIN
+                             ? "Voi Mainnet"
+                             : "Network"}{" "}
+                           ARC200 Balance
+                        </span>
+                      </div>
+                      <div className="text-lg font-semibold text-purple-400">
+                        {(() => {
+                          switch (activeNetwork) {
+                            case NetworkId.LOCALNET:
+                              return localnetARC200Balance.toLocaleString();
+                            case NetworkId.TESTNET:
+                              return testnetARC200Balance.toLocaleString();
+                            case NetworkId.MAINNET:
+                              return algoARC200Balance.toLocaleString();
+                            case NetworkId.VOIMAIN:
+                              return voiARC200Balance.toLocaleString();
+                            default:
+                              return "0";
+                          }
+                        })()}{" "}
+                        POW
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recipient Address Input */}
+                  <div>
+                    <label className="text-sm font-medium text-card-foreground/70 mb-2 block">
+                      Recipient Address
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter wallet address"
+                      value={modalTransferAddress}
+                      onChange={(e) => setModalTransferAddress(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-card-foreground text-sm font-mono focus:border-purple-500 focus:outline-none transition-colors"
+                      autoFocus
+                    />
+                    <div className="text-xs text-card-foreground/60 mt-1">
+                      Enter the recipient's wallet address
+                    </div>
+                  </div>
+
+                  {/* Amount Input */}
+                  <div>
+                    <label className="text-sm font-medium text-card-foreground/70 mb-2 block">
+                      Amount (POW)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="Enter amount"
+                      value={modalTransferAmount}
+                      onChange={(e) => setModalTransferAmount(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-card-foreground text-center text-lg focus:border-purple-500 focus:outline-none transition-colors"
+                      min="0"
+                      step="0.01"
+                    />
+                    <div className="text-xs text-card-foreground/60 mt-1">
+                      Available:{" "}
+                      {(() => {
+                        switch (activeNetwork) {
+                          case NetworkId.LOCALNET:
+                            return localnetARC200Balance.toLocaleString();
+                          case NetworkId.TESTNET:
+                            return testnetARC200Balance.toLocaleString();
+                          case NetworkId.MAINNET:
+                            return algoARC200Balance.toLocaleString();
+                          case NetworkId.VOIMAIN:
+                            return voiARC200Balance.toLocaleString();
+                          default:
+                            return "0";
+                        }
+                      })()}{" "}
+                      POW
+                    </div>
+                  </div>
+
+                  {/* Transfer Button */}
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={handleModalTransfer}
+                      disabled={
+                        !activeAccount ||
+                        !modalTransferAmount ||
+                        !modalTransferAddress ||
+                        modalTransferLoading ||
+                        !algosdk.isValidAddress(modalTransferAddress) ||
+                        parseFloat(modalTransferAmount) <= 0 ||
+                        parseFloat(modalTransferAmount) >
+                          (() => {
+                            switch (activeNetwork) {
+                              case NetworkId.LOCALNET:
+                                return localnetARC200Balance;
+                              case NetworkId.TESTNET:
+                                return testnetARC200Balance;
+                              case NetworkId.MAINNET:
+                                return algoARC200Balance;
+                              case NetworkId.VOIMAIN:
+                                return voiARC200Balance;
+                              default:
+                                return 0;
+                            }
+                          })()
+                      }
+                      className="flex-1 px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+                    >
+                      {modalTransferLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Transferring...
+                        </>
+                      ) : (
+                        <>
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                            />
+                          </svg>
+                          Send Transfer
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setShowTransferModal(false)}
+                      className="px-4 py-3 text-card-foreground/60 hover:text-card-foreground/80 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Validation Messages - Only show when not in success state */}
+              {!modalTransferSuccess && (
+                <>
+                  {!activeAccount && (
+                    <div className="text-xs text-red-400">
+                      Wallet not connected. Please connect your wallet first.
+                    </div>
+                  )}
+                  {modalTransferAddress &&
+                    !algosdk.isValidAddress(modalTransferAddress) && (
+                      <div className="text-xs text-red-400">
+                        Please enter a valid wallet address
+                      </div>
+                    )}
+                  {modalTransferAmount &&
+                    parseFloat(modalTransferAmount) > localnetARC200Balance && (
+                      <div className="text-xs text-red-400">
+                        Amount exceeds available balance
+                      </div>
+                    )}
+                  {modalTransferAmount &&
+                    parseFloat(modalTransferAmount) <= 0 && (
+                      <div className="text-xs text-red-400">
+                        Amount must be greater than 0
+                      </div>
+                    )}
+
+                  {/* Transfer Error Message */}
+                  {modalTransferError && (
+                    <div className="text-xs text-red-400 bg-red-400/10 p-2 rounded">
+                      {modalTransferError}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   );
 };

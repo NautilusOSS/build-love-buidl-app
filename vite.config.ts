@@ -7,6 +7,7 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   define: {
     global: "globalThis",
+    Buffer: ["buffer", "Buffer"],
   },
   server: {
     host: "::",
