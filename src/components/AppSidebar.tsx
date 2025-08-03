@@ -12,63 +12,64 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  Gift,
   X,
   Home,
-  HeartHandshake,
   Menu,
   Wallet,
-  TrendingUp,
   Vote,
-  BarChart3,
   Zap,
+  Flame,
+  ShoppingCart,
 } from "lucide-react";
 import WalletConnectButton from "./WalletConnectButton";
 import { useWallet } from "@txnlab/use-wallet-react";
-
-const baseNavItems = [
-  { label: "Home", to: "/airdrop", icon: Home },
-  { label: "About", to: "/about", icon: HeartHandshake },
-  { label: "Trading", to: "/trading", icon: TrendingUp },
-  { label: "Governance", to: "/governance", icon: Vote },
-];
+import { useFeatureFlags } from "@/constants/featureFlags";
 
 const AppSidebar: React.FC = () => {
   const { activeAccount, activeWalletAddresses } = useWallet();
   const location = useLocation();
   const { toggleSidebar, setOpen, setOpenMobile, isMobile, openMobile } =
     useSidebar();
+  const { isGovernanceEnabled, isWalletEnabled, isPowerUpEnabled, isStoreEnabled } =
+    useFeatureFlags();
 
-  const navItems = useMemo(
-    () => [
-      ...baseNavItems,
-      ...(activeAccount
-        ? [
-            {
-              label: "Airdrop",
-              to: `/airdrop/${activeWalletAddresses.join(",")}`,
-              icon: Gift,
-            },
-            {
-              label: "Wallet",
-              to: `/wallet/${activeAccount.address}`,
-              icon: Wallet,
-            },
-            {
-              label: "Power UP",
-              to: `/powerup/${activeAccount.address}`,
-              icon: Zap,
-            },
-            {
-              label: "Dashboard",
-              to: "/governance/dashboard",
-              icon: BarChart3,
-            },
-          ]
-        : []),
-    ],
-    [activeAccount]
-  );
+  const navItems = useMemo(() => {
+    const items = [{ label: "Home", to: "/", icon: Home }];
+
+    // Add governance navigation if enabled
+    if (isGovernanceEnabled()) {
+      items.push({ label: "Blap Blap Blap", to: "/governance", icon: Vote });
+    }
+
+    // Add wallet and power up navigation if user is connected and features are enabled
+    if (activeAccount) {
+      if (isWalletEnabled()) {
+        items.push({
+          label: "Wallet",
+          to: `/wallet/${activeAccount.address}`,
+          icon: Wallet,
+        });
+      }
+
+      if (isPowerUpEnabled()) {
+        items.push({
+          label: "Power UP",
+          to: `/blapuup/${activeAccount.address}`,
+          icon: Zap,
+        });
+      }
+
+      if (isStoreEnabled()) {
+        items.push({
+          label: "Store",
+          to: "/store",
+          icon: ShoppingCart,
+        });
+      }
+    }
+
+    return items;
+  }, [activeAccount, isGovernanceEnabled, isWalletEnabled, isPowerUpEnabled, isStoreEnabled]);
 
   const handleCloseSidebar = () => {
     if (isMobile) {
@@ -126,86 +127,113 @@ const AppSidebar: React.FC = () => {
   }, [isMobile, setOpen, setOpenMobile]);
 
   return (
-    <Sidebar data-sidebar>
-      <SidebarContent>
-        {/* Header with close button */}
-        <div className="flex items-center justify-between p-4 border-b border-[#0088ff33]">
+    <Sidebar 
+      data-sidebar 
+      className="bg-black border-r border-orange-500/30 shadow-2xl shadow-orange-500/10"
+    >
+      <SidebarContent className="bg-black">
+        {/* Header - Compact bold orange style */}
+        <div className="flex items-center justify-between p-3 border-b-2 border-orange-500 bg-gradient-to-r from-black via-gray-900 to-black">
           <div className="flex items-center gap-2">
-            <Menu className="h-5 w-5 text-[#1EAEDB]" />
-            <span className="font-semibold text-[#1EAEDB]">POW App</span>
+            <div className="flex flex-col">
+              <span className="font-black text-lg text-white tracking-tight">
+                BLAPU
+              </span>
+              <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider">
+                Hub
+              </span>
+            </div>
             {isMobile && (
-              <span className="text-xs text-[#1EAEDB] opacity-60">
-                (Tap outside to close)
+              <span className="text-[10px] text-orange-400 ml-2 font-bold bg-orange-500/20 px-2 py-0.5 rounded border border-orange-500/40">
+                TAP
               </span>
             )}
           </div>
           <button
             onClick={handleCloseSidebar}
-            className="p-2 rounded-md hover:bg-[#0088ff22] hover:scale-110 transition-all duration-200 group"
+            className="px-3 py-2 bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 rounded-lg transition-all duration-200 shadow-lg shadow-orange-500/50 hover:shadow-orange-500/70 flex items-center gap-2 group border-2 border-orange-400"
             aria-label="Close sidebar"
             title={isMobile ? "Close sidebar" : "Close sidebar (ESC)"}
           >
-            <X className="h-4 w-4 text-[#1EAEDB] group-hover:text-[#00eeff]" />
+            <X className="h-4 w-4 text-white group-hover:scale-110 transition-transform" />
+            <span className="text-white font-bold text-xs uppercase tracking-wide">Close</span>
           </button>
         </div>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
+        <SidebarGroup className="mt-3">
+          <SidebarGroupContent className="mt-2">
+            <SidebarMenu className="space-y-1">
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.label} data-sidebar="menu-item">
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.to}
+                    className={`px-3 py-2 text-xs font-bold rounded-md transition-all duration-200 group ${
+                      location.pathname === item.to 
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-black shadow-lg shadow-orange-500/50 border-2 border-orange-400' 
+                        : 'text-gray-300 hover:bg-gradient-to-r hover:from-orange-500/20 hover:to-orange-600/20 hover:text-white border border-transparent hover:border-orange-500/50'
+                    }`}
                   >
-                    <Link to={item.to} onClick={handleNavItemClick}>
-                      <item.icon className="mr-2" />
-                      <span>{item.label}</span>
+                    <Link to={item.to} onClick={handleNavItemClick} className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded-sm flex items-center justify-center transition-all duration-200 ${
+                        location.pathname === item.to 
+                          ? 'bg-black/30' 
+                          : 'bg-orange-500/20 group-hover:bg-orange-500/30'
+                      }`}>
+                        <item.icon className={`h-3 w-3 ${
+                          location.pathname === item.to ? 'text-black' : 'text-current'
+                        }`} />
+                      </div>
+                      <span className={`font-bold uppercase tracking-wide text-[11px] ${
+                        location.pathname === item.to ? 'text-black font-black' : ''
+                      }`}>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-              <SidebarMenuItem data-sidebar="menu-item">
+              <SidebarMenuItem data-sidebar="menu-item" className="mt-2">
                 <SidebarMenuButton
                   onClick={handleCloseSidebar}
                   isActive={false}
-                  className="border-0"
+                  className="px-3 py-2 text-xs font-bold text-gray-300 hover:bg-gradient-to-r hover:from-orange-500/20 hover:to-orange-600/20 hover:text-white rounded-md transition-all duration-200 border border-orange-500/30 hover:border-orange-500/60"
                 >
-                  <X className="mr-2" />
-                  <span>Close Sidebar</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-sm bg-orange-500/20 flex items-center justify-center">
+                      <X className="h-3 w-3" />
+                    </div>
+                    <span className="font-bold uppercase tracking-wide text-[11px]">Close</span>
+                  </div>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        {/* Add WalletConnect button after nav */}
-        <WalletConnectButton />
+        
+        {/* WalletConnect section - compact */}
+        <div className="px-3 py-3 mt-3">
+          <div className="bg-gradient-to-r from-gray-900 to-black rounded-md border border-orange-500/50 p-2 shadow-lg shadow-orange-500/20">
+            <WalletConnectButton />
+          </div>
+        </div>
 
-        {/* Footer with helpful information */}
-        <div className="mt-auto p-4 border-t border-[#0088ff33]">
-          <div className="text-xs text-[#1EAEDB] opacity-70 space-y-1">
-            <div className="flex items-center justify-between">
-              <span>Keyboard shortcuts:</span>
+        {/* Footer - Compact shortcuts */}
+        <div className="mt-auto p-3 border-t border-orange-500/30">
+          <div className="text-[10px] text-gray-400 space-y-2">
+            <div className="font-black text-orange-400 mb-2 tracking-widest uppercase">
+              Keys
             </div>
-            <div className="text-[10px] space-y-1">
-              <div>
-                •{" "}
-                <kbd className="px-1 py-0.5 bg-[#0088ff22] rounded text-[8px]">
-                  ⌘
-                </kbd>{" "}
-                +{" "}
-                <kbd className="px-1 py-0.5 bg-[#0088ff22] rounded text-[8px]">
-                  B
-                </kbd>{" "}
-                Toggle sidebar
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-sm flex items-center justify-center shadow-lg shadow-orange-500/50">
+                  <span className="text-white text-[8px] font-black">⌘B</span>
+                </div>
+                <span className="text-gray-300 font-bold uppercase tracking-wide text-[9px]">Toggle</span>
               </div>
-              <div>
-                •{" "}
-                <kbd className="px-1 py-0.5 bg-[#0088ff22] rounded text-[8px]">
-                  ESC
-                </kbd>{" "}
-                Close sidebar
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-sm flex items-center justify-center shadow-lg shadow-orange-500/50">
+                  <span className="text-white text-[8px] font-black">ESC</span>
+                </div>
+                <span className="text-gray-300 font-bold uppercase tracking-wide text-[9px]">Close</span>
               </div>
             </div>
           </div>

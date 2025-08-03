@@ -86,18 +86,39 @@ const proposalSchema = z.object({
     .max(512, "Description must be 512 characters or less"),
   category: z.enum(
     [
-      "Treasury",
-      "Governance",
-      "Infrastructure",
-      "Community",
-      "Development",
-      "Security",
+      "Treasury Shenanigans",
+      "Number Go Up (Tokenomics)",
+      "Govna Stuff (Governance)",
+      "Protocol Wizardry",
+      "Pacts with Other Degens (Partnerships)",
+      "Hype Machine (Marketing)",
+      "Science or Scam? (Experimental)",
+      "Buildoors' Corner (Tooling)",
+      "Sprouting Ideas (New Stuff)",
+      "Do Tasks, Get Bags (Bounties)",
     ],
     { required_error: "Category is required" }
   ),
 });
 
 type ProposalFormData = z.infer<typeof proposalSchema>;
+
+// Map category strings to contract category IDs
+const getCategoryId = (category: string): number => {
+  const categoryMap: Record<string, number> = {
+    "Treasury Shenanigans": 1, // Treasury
+    "Number Go Up (Tokenomics)": 2, // Protocol Parameters
+    "Govna Stuff (Governance)": 0, // General
+    "Protocol Wizardry": 5, // Technical
+    "Pacts with Other Degens (Partnerships)": 4, // Community
+    "Hype Machine (Marketing)": 4, // Community
+    "Science or Scam? (Experimental)": 3, // Security
+    "Buildoors' Corner (Tooling)": 5, // Technical
+    "Sprouting Ideas (New Stuff)": 0, // General
+    "Do Tasks, Get Bags (Bounties)": 4, // Community
+  };
+  return categoryMap[category] || 0;
+};
 
 const CreateProposal = () => {
   const {
@@ -176,7 +197,7 @@ const CreateProposal = () => {
             char.charCodeAt(0)
           )
         ),
-        0,
+        getCategoryId(data.category),
         Math.floor(new Date().getTime() / 1000)
       );
       console.log("proposeR", proposeR);
@@ -289,33 +310,35 @@ const CreateProposal = () => {
     });
   };
 
-  // --- Animated Hero Section (copied and adapted from Governance.tsx) ---
+  // --- Animated Hero Section (matching Governance.tsx style) ---
   const HeroSection = (
-    <div className="relative min-h-[40vh] sm:min-h-[50vh] flex items-center justify-center overflow-hidden w-full py-4 sm:py-8 md:py-16 md:pt-24 pb-8 sm:pb-16 md:pb-24">
+    <div className="relative min-h-[40vh] sm:min-h-[50vh] flex items-center justify-center overflow-hidden w-full py-4 sm:py-6 md:py-8 pb-4 sm:pb-6 md:pb-8">
       {/* Animated Background */}
       <div className="absolute inset-0 w-full h-full">
-        {/* Gradient Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900"></div>
+        {/* Dark Gradient Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-slate-900 to-black"></div>
+
         {/* Animated Grid Pattern */}
-        <div className="absolute inset-0 opacity-20">
+        <div className="absolute inset-0 opacity-10">
           <div
             className="absolute inset-0"
             style={{
               backgroundImage: `
-              linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
+              linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
             `,
               backgroundSize: "50px 50px",
               animation: "gridMove 20s linear infinite",
             }}
           ></div>
         </div>
+
         {/* Animated Particles */}
         <div className="absolute inset-0">
-          {[...Array(20)].map((_, i) => (
+          {[...Array(10)].map((_, i) => (
             <div
               key={i}
-              className="absolute w-1 h-1 bg-blue-400/30 rounded-full animate-pulse"
+              className="absolute w-1 h-1 bg-gray-400/20 rounded-full animate-pulse"
               style={{
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,
@@ -325,35 +348,48 @@ const CreateProposal = () => {
             ></div>
           ))}
         </div>
+
         {/* Overlay for better text readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/5 to-black/30"></div>
       </div>
+
       {/* Hero Content */}
-      <div className="relative z-10 text-center px-2 sm:px-4 max-w-3xl mx-auto w-full">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white drop-shadow-2xl leading-tight mb-4">
-          Create a Proposal
-        </h1>
-        <p className="text-base sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed drop-shadow-lg mb-4 px-2">
-          Propose new ideas, improvements, or changes. Your voice shapes the
-          future of the ecosystem.
+      <div className="relative z-10 text-center px-2 sm:px-4 max-w-4xl mx-auto w-full">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white drop-shadow-2xl leading-tight">
+            Create Blapposal
+          </h1>
+          <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-full bg-gradient-to-r from-gray-700 to-gray-600 text-white shadow-lg backdrop-blur-sm border border-gray-500/30">
+            <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-sm sm:text-base font-semibold">
+              Drop Your Ideas
+            </span>
+          </div>
+        </div>
+
+        <p className="text-sm sm:text-base md:text-lg text-white/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg mb-4 sm:mb-6 px-2">
+          Time to unleash your inner governance degenerate. Drop half-baked proposals, 
+          spam YES votes, and steer this flaming rocket ship straight into the moon. 
+          Your voice shapes the future—make it count.
         </p>
+
+        {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 px-2">
           <Button
             asChild
-            variant="outline"
-            className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+            className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-bold bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-800 hover:to-gray-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full sm:w-auto"
           >
             <Link to="/governance/proposals">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Proposals
+              Back to Blapposals
             </Link>
           </Button>
           <Button
             asChild
             variant="outline"
-            className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+            className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-bold border-2 border-white/30 text-white hover:bg-white/10 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
           >
-            <Link to="/governance">Governance Home</Link>
+            <Link to="/governance">Govna's Room</Link>
           </Button>
         </div>
       </div>
@@ -362,11 +398,11 @@ const CreateProposal = () => {
 
   if (!activeWallet) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-950 via-purple-950 to-indigo-950">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black">
         {HeroSection}
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto">
-            <Alert className="mt-8">
+            <Alert className="mt-8 bg-red-900/20 border-red-500/30">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 You need to connect your wallet to create a proposal. Please
@@ -380,25 +416,26 @@ const CreateProposal = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-950 via-purple-950 to-indigo-950">
+    <div className="space-y-8">
       {HeroSection}
-      <div className="container mx-auto px-4 pb-16">
+      {/* Main Content */}
+      <div className="container mx-auto px-4 space-y-8">
         {/* Section Divider and Header */}
         <div className="flex items-center gap-4 my-8">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           <h2 className="text-2xl font-bold text-white tracking-tight animate-fade-in">
-            Create Proposal
+            Create Blapposal
           </h2>
           <div className="flex-1 h-px bg-gradient-to-l from-transparent via-white/20 to-transparent" />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Form */}
           <div className="space-y-8">
-            <Card className="bg-white/5 border border-white/10 shadow-lg rounded-3xl">
+            <Card className="bg-white/5 border border-white/10 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-white">
                   <FileText className="h-5 w-5" />
-                  New Proposal
+                  New Blapposal
                 </CardTitle>
               </CardHeader>
               <CardContent>

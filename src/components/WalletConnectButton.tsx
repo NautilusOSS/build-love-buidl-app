@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Wallet, Power } from "lucide-react";
 import { useWallet, NetworkId, WalletId } from "@txnlab/use-wallet-react";
@@ -14,76 +14,70 @@ import { useSidebar } from "./ui/sidebar";
 import algosdk from "algosdk";
 import { SimpleFaucet } from "@/service/simple-faucet";
 
-const WalletConnectButton: React.FC = () => {
+// Constants
+const NETWORKS = [
+  { id: NetworkId.MAINNET, name: "Algorand" },
+  { id: NetworkId.TESTNET, name: "Algorand Testnet" },
+  { id: NetworkId.VOIMAIN, name: "Voi" },
+  { id: NetworkId.LOCALNET, name: "Localnet" },
+] as const;
+
+const NETWORK_WALLETS = {
+  [NetworkId.MAINNET]: [
+    { id: WalletId.PERA, name: "Pera" },
+    { id: WalletId.DEFLY, name: "Defly" },
+    { id: WalletId.KIBISIS, name: "Kibisis" },
+    { id: WalletId.LUTE, name: "Lute" },
+    { id: WalletId.BIATEC, name: "Biatec" },
+    { id: WalletId.WALLETCONNECT, name: "WalletConnect" },
+  ],
+  [NetworkId.TESTNET]: [
+    { id: WalletId.KIBISIS, name: "Kibisis" },
+    { id: WalletId.LUTE, name: "Lute" },
+  ],
+  [NetworkId.VOIMAIN]: [
+    { id: WalletId.KIBISIS, name: "Kibisis" },
+    { id: WalletId.LUTE, name: "Lute" },
+    { id: WalletId.BIATEC, name: "Biatec" },
+    { id: WalletId.WALLETCONNECT, name: "WalletConnect" },
+  ],
+  [NetworkId.LOCALNET]: [{ id: WalletId.MNEMONIC, name: "Mnemonic" }],
+} as const;
+
+// Types
+interface Wallet {
+  id: string;
+  metadata: { name: string };
+  connect: () => Promise<any[]>;
+  disconnect: () => void;
+  setActiveAccount: (address: string) => void;
+}
+
+// Custom hooks
+const useWalletConnection = () => {
   const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();
   const [connecting, setConnecting] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const {
-    activeAccount,
-    wallets,
-    activeWallet,
-    activeWalletAccounts,
-    activeNetwork,
-    setActiveNetwork,
-    algodClient,
-  } = useWallet();
+  const [error, setError] = useState<string | null>(null);
+  const { activeWallet, activeNetwork } = useWallet();
 
-  // Check if current page is a wallet page
   const isWalletPage = location.pathname.startsWith("/wallet/");
 
-  // Add networks array
-  const networks = [
-    { id: NetworkId.MAINNET, name: "Algorand" },
-    { id: NetworkId.TESTNET, name: "Algorand Testnet" },
-    { id: NetworkId.VOIMAIN, name: "Voi" },
-    { id: NetworkId.LOCALNET, name: "Localnet" },
-  ];
-
-  const networkWallets = {
-    [NetworkId.MAINNET]: [
-      { id: WalletId.PERA, name: "Pera" },
-      { id: WalletId.DEFLY, name: "Defly" },
-      { id: WalletId.KIBISIS, name: "Kibisis" },
-      { id: WalletId.LUTE, name: "Lute" },
-      { id: WalletId.BIATEC, name: "Biatec" },
-      { id: WalletId.WALLETCONNECT, name: "WalletConnect" },
-    ],
-    [NetworkId.TESTNET]: [
-      { id: WalletId.KIBISIS, name: "Kibisis" },
-      { id: WalletId.LUTE, name: "Lute" },
-    ],
-    [NetworkId.VOIMAIN]: [
-      { id: WalletId.KIBISIS, name: "Kibisis" },
-      { id: WalletId.LUTE, name: "Lute" },
-      { id: WalletId.BIATEC, name: "Biatec" },
-      { id: WalletId.WALLETCONNECT, name: "WalletConnect" },
-    ],
-    [NetworkId.LOCALNET]: [{ id: WalletId.MNEMONIC, name: "Mnemonic" }],
-  };
-
-  // Filter wallets based on active network
-  const availableWallets = wallets.filter((wallet) =>
-    networkWallets[activeNetwork as NetworkId].some(
-      (networkWallet) => networkWallet.id === wallet.id
-    )
-  );
-
-  // Function to handle wallet connection with requirement check
-  const handleWalletConnect = async (wallet: any) => {
-    // Proceed with normal wallet connection
+  const handleWalletConnect = async (wallet: Wallet) => {
     setConnecting(wallet.id);
+    setError(null);
+    
     if (wallet.id === activeWallet?.id) {
       activeWallet?.disconnect();
       setConnecting(null);
       return;
     }
 
-    // Set a 30-second timeout for wallet connection
     const connectionTimeout = setTimeout(() => {
       setConnecting(null);
-    }, 5000);
+      setError("Connection timeout. Please try again.");
+    }, 10000); // Increased timeout to 10 seconds
 
     try {
       if (![NetworkId.LOCALNET].includes(activeNetwork as NetworkId)) {
@@ -103,68 +97,141 @@ const WalletConnectButton: React.FC = () => {
         );
         await faucet.fundAccount(addr, 2e6);
       }
+      
       const [activeAccount] = await wallet.connect();
       clearTimeout(connectionTimeout);
       setConnecting(null);
 
-      // If current page is a wallet page, navigate to the new wallet address page
       if (isWalletPage && activeAccount) {
         navigate(`/wallet/${activeAccount.address}`);
       }
-      //navigate(`/airdrop/${activeAccount.address}`);
     } catch (error) {
       clearTimeout(connectionTimeout);
       setConnecting(null);
+      const errorMessage = error instanceof Error ? error.message : "Wallet connection failed";
+      setError(errorMessage);
       console.error("Wallet connection failed:", error);
     }
   };
+
+  return { connecting, error, handleWalletConnect, isWalletPage };
+};
+
+const useAccountSelection = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { activeWallet, activeAccount } = useWallet();
+
+  const isWalletPage = location.pathname.startsWith("/wallet/");
+
+  const handleAccountChange = (address: string) => {
+    activeWallet?.setActiveAccount(address);
+    if (isWalletPage && address) {
+      navigate(`/wallet/${address}`);
+    }
+  };
+
+  return { searchQuery, setSearchQuery, handleAccountChange };
+};
+
+const WalletConnectButton: React.FC = React.memo(() => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { connecting, error, handleWalletConnect, isWalletPage } = useWalletConnection();
+  const { searchQuery, setSearchQuery, handleAccountChange } = useAccountSelection();
+  
+  const {
+    activeAccount,
+    wallets,
+    activeWallet,
+    activeWalletAccounts,
+    activeNetwork,
+    setActiveNetwork,
+    algodClient,
+  } = useWallet();
+
+  // Memoize filtered wallets to prevent unnecessary re-computations
+  const availableWallets = useMemo(() => 
+    wallets.filter((wallet) =>
+      NETWORK_WALLETS[activeNetwork as NetworkId].some(
+        (networkWallet) => networkWallet.id === wallet.id
+      )
+    ), [wallets, activeNetwork]
+  );
+
+  // Memoize loading state
+  const isLoadingWallets = useMemo(() => wallets.length === 0, [wallets.length]);
+
+  // Memoize filtered accounts for search
+  const filteredAccounts = useMemo(() => 
+    activeWalletAccounts?.filter((account) =>
+      account.address.toLowerCase().includes(searchQuery.toLowerCase())
+    ) || [], [activeWalletAccounts, searchQuery]
+  );
 
   const handleConnect = () => {
     // This function is no longer needed since wallets show automatically when not connected
   };
 
   return (
-    <div className="mb-3 mt-10 px-4 flex flex-col items-start">
+    <div className="mb-2 mt-6 px-3 flex flex-col items-start">
       <Button
         variant="secondary"
-        className="w-full flex items-center gap-2 border border-[#1eaedb] shadow-glow text-white bg-[#0a4d62] hover:bg-[#0d6179] focus:ring-2 focus:ring-[#1eaedb] focus:ring-offset-2 transition rounded-xl"
+        className="w-full flex items-center gap-2 border border-[#1eaedb] shadow-glow text-white bg-[#0a4d62] hover:bg-[#0d6179] focus:ring-2 focus:ring-[#1eaedb] focus:ring-offset-2 transition rounded-xl py-2"
         onClick={handleConnect}
         aria-label={activeAccount ? "Disconnect wallet" : "Connect wallet"}
+        disabled={isLoadingWallets}
       >
-        <Wallet className="mr-2" />
-        {activeAccount
-          ? `Connected: ${activeAccount.address.slice(
-              0,
-              5
-            )}...${activeAccount.address.slice(-4)}`
-          : "Connect Wallet"}
+        <Wallet className="mr-1 h-4 w-4" />
+        {isLoadingWallets ? (
+          <>
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span className="text-xs">Loading...</span>
+          </>
+        ) : activeAccount ? (
+          <span className="text-xs">
+            {activeAccount.address.slice(0, 5)}...{activeAccount.address.slice(-4)}
+          </span>
+        ) : (
+          <span className="text-xs">Connect Wallet</span>
+        )}
       </Button>
-      <span className="text-xs mt-1 text-[#1eaedb] select-none">
-        {activeAccount
-          ? `Wallet connected to ${
-              networks.find((n) => n.id === activeNetwork)?.name ||
-              activeNetwork
-            }`
-          : "No wallet connected"}
-      </span>
-      <div className="mt-2 w-full">
-        {/* Network Selector moved above wallets */}
+      
+      <div className="flex items-center justify-between w-full mt-1">
+        <span className="text-[10px] text-[#1eaedb] select-none">
+          {isLoadingWallets
+            ? "Initializing..."
+            : activeAccount
+            ? `${NETWORKS.find((n) => n.id === activeNetwork)?.name || activeNetwork}`
+            : "No wallet connected"}
+        </span>
+        
+        {/* Error Display - Compact */}
+        {error && (
+          <span className="text-[10px] text-red-400 ml-2">{error}</span>
+        )}
+      </div>
+      
+      <div className="mt-1 w-full">
+        {/* Network Selector */}
         <Select
           value={activeNetwork}
           onValueChange={(networkId) => {
             activeWallet?.disconnect();
             setActiveNetwork(networkId as NetworkId);
           }}
+          disabled={isLoadingWallets}
         >
-          <SelectTrigger className="w-full bg-[#0a4d62] border-[#1eaedb] text-[#1eaedb] rounded-xl relative">
-            <SelectValue placeholder="Select network" />
+          <SelectTrigger className="w-full bg-[#0a4d62] border-[#1eaedb] text-[#1eaedb] rounded-lg relative h-8 text-xs disabled:opacity-50">
+            <SelectValue placeholder={isLoadingWallets ? "Loading..." : "Network"} />
           </SelectTrigger>
-          <SelectContent className="bg-[#0a4d62] border-[#1eaedb] z-[9999] rounded-xl relative">
-            {networks.map((network) => (
+          <SelectContent className="bg-[#0a4d62] border-[#1eaedb] z-[9999] rounded-lg relative">
+            {NETWORKS.map((network) => (
               <SelectItem
                 key={network.id}
                 value={network.id}
-                className="text-[#1eaedb] hover:bg-[#0d6179] focus:bg-[#0d6179]"
+                className="text-[#1eaedb] hover:bg-[#0d6179] focus:bg-[#0d6179] text-xs"
               >
                 {network.name}
               </SelectItem>
@@ -172,79 +239,79 @@ const WalletConnectButton: React.FC = () => {
           </SelectContent>
         </Select>
 
-        {/* Add margin below network selector */}
-        <div className="mt-2">
-          {availableWallets.map((wallet) => (
-            <div key={wallet.id}>
-              <Button
-                onClick={() => handleWalletConnect(wallet)}
-                disabled={!!connecting}
-                className="w-full flex justify-between items-center rounded-xl"
-              >
-                <div className="flex items-center gap-2">
-                  {wallet.metadata.name}
-                  {wallet.id === activeWallet?.id && (
-                    <span className="text-xs text-[#1eaedb] select-none">
-                      Active
-                    </span>
-                  )}
-                  {connecting === wallet.id && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {wallet.id === activeWallet?.id && <Power />}
-                </div>
-              </Button>
-              {wallet.id === activeWallet?.id && activeWalletAccounts && (
-                <div className="ml-4 mt-2 space-y-2">
-                  <Select
-                    value={activeAccount?.address}
-                    onValueChange={(address) => {
-                      activeWallet?.setActiveAccount(address);
-                      // If current page is a wallet page, navigate to the new account's wallet page
-                      if (isWalletPage && address) {
-                        navigate(`/wallet/${address}`);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-full bg-[#0a4d62] border-[#1eaedb] text-[#1eaedb] rounded-xl relative">
-                      <SelectValue placeholder="Select account" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#0a4d62] border-[#1eaedb] z-[9999] backdrop-blur-none rounded-xl relative">
-                      <input
-                        className="flex w-full rounded-xl h-8 px-2 py-1 mb-2 bg-[#0d6179] text-[#1eaedb] border border-[#1eaedb] focus:outline-none focus:ring-2 focus:ring-[#1eaedb]"
-                        placeholder="Search addresses..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      />
-                      {activeWalletAccounts
-                        .filter((account) =>
-                          account.address
-                            .toLowerCase()
-                            .includes(searchQuery.toLowerCase())
-                        )
-                        .map((account) => (
-                          <SelectItem
-                            key={account.address}
-                            value={account.address}
-                            className="text-[#1eaedb] hover:bg-[#0d6179] focus:bg-[#0d6179]"
-                          >
-                            {account.address.slice(0, 5)}...
-                            {account.address.slice(-4)}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+        {/* Wallets List - Compact */}
+        <div className="mt-1">
+          {isLoadingWallets ? (
+            <div className="flex items-center justify-center py-2">
+              <Loader2 className="h-3 w-3 animate-spin text-[#1eaedb]" />
+              <span className="ml-1 text-[10px] text-[#1eaedb]">Loading wallets...</span>
             </div>
-          ))}
+          ) : availableWallets.length === 0 ? (
+            <div className="text-center py-2">
+              <p className="text-[10px] text-gray-400">No wallets available</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {availableWallets.map((wallet) => (
+                <div key={wallet.id}>
+                  <Button
+                    onClick={() => handleWalletConnect(wallet)}
+                    disabled={!!connecting}
+                    className="w-full flex justify-between items-center rounded-lg bg-[#0a4d62] border-[#1eaedb] text-[#1eaedb] hover:bg-[#0d6179] disabled:opacity-50 disabled:cursor-not-allowed h-7 text-xs"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px]">{wallet.metadata.name}</span>
+                      {wallet.id === activeWallet?.id && (
+                        <span className="text-[8px] text-[#1eaedb] bg-[#1eaedb]/20 px-1 rounded">
+                          Active
+                        </span>
+                      )}
+                      {connecting === wallet.id && (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      )}
+                    </div>
+                    {wallet.id === activeWallet?.id && <Power className="h-3 w-3" />}
+                  </Button>
+                  
+                  {/* Account Selector - Compact */}
+                  {wallet.id === activeWallet?.id && activeWalletAccounts && (
+                    <div className="ml-3 mt-1">
+                      <Select
+                        value={activeAccount?.address}
+                        onValueChange={handleAccountChange}
+                      >
+                        <SelectTrigger className="w-full bg-[#0a4d62] border-[#1eaedb] text-[#1eaedb] rounded-lg relative h-6 text-[10px]">
+                          <SelectValue placeholder="Account" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#0a4d62] border-[#1eaedb] z-[9999] backdrop-blur-none rounded-lg relative">
+                          <input
+                            className="flex w-full rounded-lg h-6 px-2 py-1 mb-1 bg-[#0d6179] text-[#1eaedb] border border-[#1eaedb] focus:outline-none focus:ring-1 focus:ring-[#1eaedb] text-[10px]"
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          />
+                          {filteredAccounts.map((account) => (
+                            <SelectItem
+                              key={account.address}
+                              value={account.address}
+                              className="text-[#1eaedb] hover:bg-[#0d6179] focus:bg-[#0d6179] text-[10px]"
+                            >
+                              {account.address.slice(0, 4)}...{account.address.slice(-3)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
-};
+});
 
 export default WalletConnectButton;

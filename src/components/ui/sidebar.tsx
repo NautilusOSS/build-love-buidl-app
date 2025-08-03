@@ -297,11 +297,9 @@ const SidebarTrigger = React.forwardRef<
     >
       <Menu size={32} />
       {breadcrumb ? (
-        <div className="flex items-center gap-2 font-medium">
-          {breadcrumb}
-        </div>
+        <div className="flex items-center gap-2 font-medium">{breadcrumb}</div>
       ) : (
-        <span className="font-semibold">POW</span>
+        <span className="font-semibold">&nbsp;</span>
       )}
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
@@ -456,8 +454,8 @@ const SidebarContentRefactored = React.forwardRef<
         "flex min-h-0 flex-1 flex-col gap-2 overflow-auto",
         "group-data-[collapsible=icon]:overflow-hidden",
         "transition-colors duration-500",
-        isAtTop 
-          ? "bg-transparent" 
+        isAtTop
+          ? "bg-transparent"
           : "[mask-image:linear-gradient(to_bottom,transparent_0%,black_5%,black_95%,transparent_100%)]",
         className
       )}
@@ -568,13 +566,13 @@ SidebarMenuItem.displayName = "SidebarMenuItem";
 
 const sidebarAnimations = {
   "animate-subtle-pulse": {
-    "0%, 100%": { 
-      boxShadow: "0 2px 32px 0 rgba(0, 238, 255, 0.2)"
+    "0%, 100%": {
+      boxShadow: "0 2px 32px 0 rgba(0, 238, 255, 0.2)",
     },
-    "50%": { 
-      boxShadow: "0 2px 32px 0 rgba(0, 238, 255, 0.3)"
-    }
-  }
+    "50%": {
+      boxShadow: "0 2px 32px 0 rgba(0, 238, 255, 0.3)",
+    },
+  },
 };
 
 const sidebarMenuButtonVariants = cva(

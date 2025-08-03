@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Users, Vote, Search, Filter, Plus } from "lucide-react";
+import { Calendar, Users, Vote, Search, Filter, Plus, TrendingUp, Clock, CheckCircle, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useWallet } from "@txnlab/use-wallet-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -18,7 +18,7 @@ const mockProposals = [
     title: "Increase Treasury Allocation for Development",
     description: "Proposal to increase the treasury allocation from 10% to 15% to fund additional development initiatives and community projects.",
     status: "active",
-    category: "Treasury",
+    category: "Treasury Shenanigans",
     author: "0x1234...5678",
     createdAt: "2024-01-15",
     totalVotes: 45,
@@ -33,7 +33,7 @@ const mockProposals = [
     title: "Update Governance Parameters",
     description: "Adjust voting period from 7 days to 5 days and quorum threshold from 1000 to 800 tokens.",
     status: "succeeded",
-    category: "Governance",
+    category: "Govna Stuff (Governance)",
     author: "0x8765...4321",
     createdAt: "2024-01-10",
     totalVotes: 89,
@@ -48,7 +48,7 @@ const mockProposals = [
     title: "Add New Validator Node",
     description: "Proposal to onboard a new validator node to improve network decentralization and performance.",
     status: "pending",
-    category: "Infrastructure",
+    category: "Protocol Wizardry",
     author: "0x9876...5432",
     createdAt: "2024-01-12",
     totalVotes: 0,
@@ -63,7 +63,7 @@ const mockProposals = [
     title: "Implement Fee Reduction",
     description: "Reduce transaction fees by 20% to improve user experience and increase adoption.",
     status: "defeated",
-    category: "Development",
+    category: "Number Go Up (Tokenomics)",
     author: "0x1111...2222",
     createdAt: "2024-01-08",
     totalVotes: 67,
@@ -78,7 +78,7 @@ const mockProposals = [
     title: "Community Grant Program",
     description: "Establish a community grant program to fund innovative projects and initiatives.",
     status: "executed",
-    category: "Community",
+    category: "Pacts with Other Degens (Partnerships)",
     author: "0x5432...8765",
     createdAt: "2024-01-05",
     totalVotes: 123,
@@ -89,6 +89,14 @@ const mockProposals = [
     userVote: null
   }
 ];
+
+// Mock stats for consistency with Governance page
+const mockStats = {
+  totalProposals: 24,
+  activeProposals: 3,
+  totalVoters: 156,
+  participationRate: 78,
+};
 
 const getStatusVariant = (status: string) => {
   switch (status) {
@@ -129,12 +137,16 @@ const formatDate = (dateString: string) => {
 
 const getCategoryColor = (category: string) => {
   switch (category) {
-    case "Treasury": return "bg-blue-500/20 text-blue-300 border-blue-500/30";
-    case "Governance": return "bg-purple-500/20 text-purple-300 border-purple-500/30";
-    case "Infrastructure": return "bg-green-500/20 text-green-300 border-green-500/30";
-    case "Community": return "bg-orange-500/20 text-orange-300 border-orange-500/30";
-    case "Development": return "bg-indigo-500/20 text-indigo-300 border-indigo-500/30";
-    case "Security": return "bg-red-500/20 text-red-300 border-red-500/30";
+    case "Treasury Shenanigans": return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+    case "Number Go Up (Tokenomics)": return "bg-purple-500/20 text-purple-300 border-purple-500/30";
+    case "Protocol Wizardry": return "bg-green-500/20 text-green-300 border-green-500/30";
+    case "Pacts with Other Degens (Partnerships)": return "bg-orange-500/20 text-orange-300 border-orange-500/30";
+    case "Hype Machine (Marketing)": return "bg-pink-500/20 text-pink-300 border-pink-500/30";
+    case "Govna Stuff (Governance)": return "bg-indigo-500/20 text-indigo-300 border-indigo-500/30";
+    case "Science or Scam? (Experimental)": return "bg-red-500/20 text-red-300 border-red-500/30";
+    case "Buildoors' Corner (Tooling)": return "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
+    case "Sprouting Ideas (New Stuff)": return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+    case "Do Tasks, Get Bags (Bounties)": return "bg-yellow-500/20 text-yellow-300 border-yellow-500/30";
     default: return "bg-gray-500/20 text-gray-300 border-gray-500/30";
   }
 };
@@ -228,60 +240,77 @@ const ProposalsList = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-950 via-purple-950 to-indigo-950">
-      {/* Hero Section */}
-      <div className="relative min-h-[40vh] sm:min-h-[50vh] flex items-center justify-center overflow-hidden w-full py-4 sm:py-8 md:py-16 md:pt-24 pb-8 sm:pb-16 md:pb-24">
+    <div className="space-y-8">
+      {/* Hero Section with Governance Theme */}
+      <div className="relative min-h-[40vh] sm:min-h-[50vh] flex items-center justify-center overflow-hidden w-full py-4 sm:py-6 md:py-8 pb-4 sm:pb-6 md:pb-8">
         {/* Animated Background */}
         <div className="absolute inset-0 w-full h-full">
-          {/* Gradient Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900"></div>
+          {/* Dark Gradient Background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-slate-900 to-black"></div>
+
           {/* Animated Grid Pattern */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `
-                linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
+          <div className="absolute inset-0 opacity-10">
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `
+                linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
               `,
-              backgroundSize: '50px 50px',
-              animation: 'gridMove 20s linear infinite'
-            }}></div>
+                backgroundSize: "50px 50px",
+                animation: "gridMove 20s linear infinite",
+              }}
+            ></div>
           </div>
+
           {/* Animated Particles */}
           <div className="absolute inset-0">
-            {[...Array(20)].map((_, i) => (
+            {[...Array(10)].map((_, i) => (
               <div
                 key={i}
-                className="absolute w-1 h-1 bg-blue-400/30 rounded-full animate-pulse"
+                className="absolute w-1 h-1 bg-gray-400/20 rounded-full animate-pulse"
                 style={{
                   left: `${Math.random() * 100}%`,
                   top: `${Math.random() * 100}%`,
                   animationDelay: `${Math.random() * 3}s`,
-                  animationDuration: `${2 + Math.random() * 2}s`
+                  animationDuration: `${2 + Math.random() * 2}s`,
                 }}
               ></div>
             ))}
           </div>
+
           {/* Overlay for better text readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/5 to-black/30"></div>
         </div>
+
         {/* Hero Content */}
-        <div className="relative z-10 text-center px-2 sm:px-4 max-w-3xl mx-auto w-full">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white drop-shadow-2xl leading-tight mb-4">
-            All Proposals
-          </h1>
-          <p className="text-base sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed drop-shadow-lg mb-4 px-2">
-            Browse and participate in governance proposals.
+        <div className="relative z-10 text-center px-2 sm:px-4 max-w-4xl mx-auto w-full">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white drop-shadow-2xl leading-tight">
+              All Blapposals
+            </h1>
+            <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-full bg-gradient-to-r from-gray-700 to-gray-600 text-white shadow-lg backdrop-blur-sm border border-gray-500/30">
+              <Vote className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="text-sm sm:text-base font-semibold">
+                Browse & Vote
+              </span>
+            </div>
+          </div>
+
+          <p className="text-sm sm:text-base md:text-lg text-white/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg mb-4 sm:mb-6 px-2">
+            Browse and participate in governance proposals. Find proposals that matter to you and cast your vote to shape the future of the protocol.
           </p>
+
+          {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 px-2">
             {activeWallet && (
               <Button
                 asChild
-                variant="outline"
-                className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+                className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-bold bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-800 hover:to-gray-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full sm:w-auto"
               >
                 <Link to="/governance/proposals/create">
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Proposal
+                  Create Blapposal
                 </Link>
               </Button>
             )}
@@ -289,77 +318,150 @@ const ProposalsList = () => {
         </div>
       </div>
 
-      {/* Section Divider and Header */}
-      <div className="container mx-auto px-4 pb-8">
+      {/* Main Content */}
+      <div className="container mx-auto px-4 space-y-8">
+        {/* Quick Stats Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="border-0 bg-gradient-to-br from-blue-900/60 to-blue-800/40 shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-blue-400" />
+                Total Blapposals
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-300">
+                {mockStats.totalProposals}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                All time proposals created
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 bg-gradient-to-br from-green-900/60 to-green-800/40 shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Clock className="w-5 h-5 text-green-400" />
+                Active Blapposals
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-300">
+                {mockStats.activeProposals}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Currently open for voting
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 bg-gradient-to-br from-purple-900/60 to-purple-800/40 shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-400" />
+                Total Voters
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-300">
+                {mockStats.totalVoters}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Unique addresses voted
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 bg-gradient-to-br from-indigo-900/60 to-indigo-800/40 shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-indigo-400" />
+                Participation Rate
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-indigo-300">
+                {mockStats.participationRate}%
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Average voter turnout
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Section Divider and Header */}
         <div className="flex items-center gap-4 my-8">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-          <h2 className="text-2xl font-bold text-white tracking-tight animate-fade-in">All Proposals</h2>
+          <h2 className="text-2xl font-bold text-white tracking-tight animate-fade-in">All Blapposals</h2>
           <div className="flex-1 h-px bg-gradient-to-l from-transparent via-white/20 to-transparent" />
         </div>
 
-        {/* Filters & Search */}
-        <Card className="bg-white/5 border border-white/10 shadow-lg rounded-3xl mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Filter className="h-5 w-5" />
-              Filters & Search
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search proposals..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-white/10 border-white/10 text-white placeholder:text-gray-400 rounded-2xl focus:ring-2 focus:ring-blue-500/50"
-                />
-              </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="bg-white/10 border-white/10 text-white rounded-2xl focus:ring-2 focus:ring-blue-500/50">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-900 border-white/10">
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="succeeded">Succeeded</SelectItem>
-                  <SelectItem value="defeated">Defeated</SelectItem>
-                  <SelectItem value="executed">Executed</SelectItem>
-                  <SelectItem value="canceled">Canceled</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="bg-white/10 border-white/10 text-white rounded-2xl focus:ring-2 focus:ring-blue-500/50">
-                  <SelectValue placeholder="Filter by category" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-900 border-white/10">
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map(category => (
-                    <SelectItem key={category} value={category}>{category}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="bg-white/10 border-white/10 text-white rounded-2xl focus:ring-2 focus:ring-blue-500/50">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-900 border-white/10">
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="oldest">Oldest First</SelectItem>
-                  <SelectItem value="most-votes">Most Votes</SelectItem>
-                  <SelectItem value="least-votes">Least Votes</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Search and Filter Section */}
+        <div className="space-y-4">
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search proposals by title, description, or category..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-400 rounded-2xl focus:ring-2 focus:ring-blue-500/50"
+            />
+          </div>
 
-        {/* Results Count */}
-        <div className="text-sm text-gray-400 mb-4">
-          Showing {filteredProposals.length} of {mockProposals.length} proposals
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="bg-white/5 border-white/10 text-white rounded-2xl focus:ring-2 focus:ring-blue-500/50">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-900 border-white/10">
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="succeeded">Succeeded</SelectItem>
+                <SelectItem value="defeated">Defeated</SelectItem>
+                <SelectItem value="canceled">Canceled</SelectItem>
+                <SelectItem value="expired">Expired</SelectItem>
+                <SelectItem value="executed">Executed</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="bg-white/5 border-white/10 text-white rounded-2xl focus:ring-2 focus:ring-blue-500/50">
+                <BookOpen className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by category" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-900 border-white/10">
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map(category => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="bg-white/5 border-white/10 text-white rounded-2xl focus:ring-2 focus:ring-blue-500/50">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-900 border-white/10">
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="most-votes">Most Votes</SelectItem>
+                <SelectItem value="least-votes">Least Votes</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Results count */}
+            <div className="flex items-center justify-center sm:justify-end flex-1">
+              <span className="text-sm text-gray-400">
+                {filteredProposals.length} of {mockProposals.length} blapposals
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Proposals Grid */}

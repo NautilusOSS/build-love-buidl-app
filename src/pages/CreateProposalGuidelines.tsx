@@ -5,12 +5,12 @@ import { ChevronDown } from "lucide-react";
 import React from "react";
 
 const CreateProposalGuidelines: React.FC = () => (
-  <Card className="bg-white/5 border border-white/10 shadow-lg rounded-3xl">
+  <Card className="bg-white/5 border border-white/10 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
     <Collapsible defaultOpen={typeof window !== 'undefined' ? window.innerWidth >= 1024 : true}>
       <CardHeader className="flex flex-row items-center justify-between cursor-pointer select-none">
         <CollapsibleTrigger asChild>
           <button className="flex items-center gap-2 group">
-            <CardTitle className="text-white">Proposal Guidelines</CardTitle>
+            <CardTitle className="text-white">Blapposal Guidelines</CardTitle>
             <span className="transition-transform group-data-[state=open]:rotate-180">
               <ChevronDown className="h-5 w-5 text-white" />
             </span>
@@ -21,7 +21,7 @@ const CreateProposalGuidelines: React.FC = () => (
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <h4 className="font-medium text-white">Title Requirements</h4>
-            <ul className="text-sm text-muted-foreground space-y-1">
+            <ul className="text-sm text-gray-400 space-y-1">
               <li>• Maximum 64 characters</li>
               <li>• Clear and descriptive</li>
               <li>• Avoid technical jargon</li>
@@ -30,7 +30,7 @@ const CreateProposalGuidelines: React.FC = () => (
           <Separator />
           <div className="space-y-2">
             <h4 className="font-medium text-white">Description Requirements</h4>
-            <ul className="text-sm text-muted-foreground space-y-1">
+            <ul className="text-sm text-gray-400 space-y-1">
               <li>• Maximum 512 characters</li>
               <li>• Explain the proposal clearly</li>
               <li>• Include rationale and expected outcomes</li>
@@ -39,8 +39,8 @@ const CreateProposalGuidelines: React.FC = () => (
           </div>
           <Separator />
           <div className="space-y-2">
-            <h4 className="font-medium text-white">Proposal Process</h4>
-            <ul className="text-sm text-muted-foreground space-y-1">
+            <h4 className="font-medium text-white">Blapposal Process</h4>
+            <ul className="text-sm text-gray-400 space-y-1">
               <li>• Proposals require activation by voters</li>
               <li>• Voting period: 7 days</li>
               <li>• Quorum: 1,000 tokens</li>

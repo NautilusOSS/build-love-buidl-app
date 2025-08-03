@@ -60,12 +60,12 @@ const PROPOSAL_STATUS = {
 
 // Proposal categories
 const PROPOSAL_CATEGORIES = {
-  0: "General",
-  1: "Treasury",
-  2: "Protocol Parameters",
-  3: "Security",
-  4: "Community",
-  5: "Technical",
+  0: "Govna Stuff (Governance)",
+  1: "Treasury Shenanigans",
+  2: "Number Go Up (Tokenomics)",
+  3: "Science or Scam? (Experimental)",
+  4: "Pacts with Other Degens (Partnerships)",
+  5: "Protocol Wizardry",
 } as const;
 
 // UI-friendly proposal interface
@@ -98,7 +98,10 @@ export interface GlobalState {
 }
 
 // Helper function to convert contract proposal to UI format
-const convertProposalToUI = (proposal: Proposal, aggregatedGlobalState?: GlobalState): UIProposal => {
+const convertProposalToUI = (
+  proposal: Proposal,
+  aggregatedGlobalState?: GlobalState
+): UIProposal => {
   const status =
     PROPOSAL_STATUS[
       Number(proposal.proposalStatus) as keyof typeof PROPOSAL_STATUS
@@ -122,8 +125,8 @@ const convertProposalToUI = (proposal: Proposal, aggregatedGlobalState?: GlobalS
 
   const currentPower = Number(proposal.proposalTotalPower);
   // Use aggregated global state for required power calculation if available
-  const requiredPower = aggregatedGlobalState?.totalVoterCount 
-    ? aggregatedGlobalState.totalVoterCount.asNumber() 
+  const requiredPower = aggregatedGlobalState?.totalVoterCount
+    ? aggregatedGlobalState.totalVoterCount.asNumber()
     : Number(proposal.proposalActivationPower);
 
   // Calculate if proposal is expired (pending proposals that didn't reach activation power)
@@ -210,7 +213,7 @@ const mockProposals = {
     description:
       "Proposal to increase the treasury allocation from 10% to 15% to fund additional development initiatives and community projects.",
     status: "active",
-    category: "Treasury",
+    category: "Treasury Shenanigans",
     author: "0x1234...5678",
     createdAt: "2024-01-15",
     totalVotes: 45,
@@ -224,7 +227,7 @@ const mockProposals = {
     description:
       "Adjust voting period from 7 days to 5 days and quorum threshold from 1000 to 800 tokens.",
     status: "succeeded",
-    category: "Protocol Parameters",
+    category: "Govna Stuff (Governance)",
     author: "0x8765...4321",
     createdAt: "2024-01-10",
     totalVotes: 89,
@@ -238,7 +241,7 @@ const mockProposals = {
     description:
       "Proposal to onboard a new validator node to improve network decentralization and performance.",
     status: "pending",
-    category: "Technical",
+    category: "Protocol Wizardry",
     author: "0x9876...5432",
     createdAt: "2024-01-12",
     totalVotes: 0,
@@ -254,7 +257,7 @@ const mockProposals = {
     description:
       "Expand the community grant program to support more developer initiatives and educational content creation.",
     status: "defeated",
-    category: "Community",
+    category: "Pacts with Other Degens (Partnerships)",
     author: "0x5432...8765",
     createdAt: "2024-01-05",
     totalVotes: 67,
@@ -268,7 +271,7 @@ const mockProposals = {
     description:
       "Proposal to implement a cross-chain bridge to enable interoperability with other blockchain networks.",
     status: "active",
-    category: "Technical",
+    category: "Protocol Wizardry",
     author: "0x1111...2222",
     createdAt: "2024-01-18",
     totalVotes: 23,
@@ -282,7 +285,7 @@ const mockProposals = {
     description:
       "Allocate funds for comprehensive security audits of smart contracts and infrastructure.",
     status: "pending",
-    category: "Security",
+    category: "Science or Scam? (Experimental)",
     author: "0x3333...4444",
     createdAt: "2024-01-20",
     totalVotes: 0,
@@ -298,7 +301,7 @@ const mockProposals = {
     description:
       "Reduce transaction fees by 20% to improve user experience and increase adoption.",
     status: "executed",
-    category: "Development",
+    category: "Number Go Up (Tokenomics)",
     author: "0x4444...5555",
     createdAt: "2024-01-08",
     totalVotes: 123,
@@ -312,7 +315,7 @@ const mockProposals = {
     description:
       "Diversify the DAO treasury holdings to reduce risk and improve yield.",
     status: "canceled",
-    category: "Treasury",
+    category: "Treasury Shenanigans",
     author: "0x5555...6666",
     createdAt: "2024-01-22",
     totalVotes: 0,
@@ -325,7 +328,7 @@ const mockProposals = {
     description:
       "Create a comprehensive developer documentation portal to improve developer experience.",
     status: "expired",
-    category: "Community",
+    category: "Pacts with Other Degens (Partnerships)",
     author: "0x6666...7777",
     createdAt: "2024-01-25",
     totalVotes: 0,
@@ -342,7 +345,7 @@ const mockProposals = {
     description:
       "Implement a new governance token distribution mechanism to improve decentralization.",
     status: "queued",
-    category: "Governance",
+    category: "Govna Stuff (Governance)",
     author: "0x7777...8888",
     createdAt: "2024-01-28",
     totalVotes: 156,
@@ -398,18 +401,26 @@ const getStatusLabel = (status: string) => {
 
 const getCategoryColor = (category: string) => {
   switch (category) {
-    case "Treasury":
+    case "Treasury Shenanigans":
       return "bg-blue-500/20 text-blue-300 border-blue-500/30";
-    case "Protocol Parameters":
+    case "Number Go Up (Tokenomics)":
       return "bg-purple-500/20 text-purple-300 border-purple-500/30";
-    case "Technical":
+    case "Protocol Wizardry":
       return "bg-green-500/20 text-green-300 border-green-500/30";
-    case "Community":
+    case "Pacts with Other Degens (Partnerships)":
       return "bg-orange-500/20 text-orange-300 border-orange-500/30";
-    case "General":
+    case "Hype Machine (Marketing)":
+      return "bg-pink-500/20 text-pink-300 border-pink-500/30";
+    case "Govna Stuff (Governance)":
       return "bg-indigo-500/20 text-indigo-300 border-indigo-500/30";
-    case "Security":
+    case "Science or Scam? (Experimental)":
       return "bg-red-500/20 text-red-300 border-red-500/30";
+    case "Buildoors' Corner (Tooling)":
+      return "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
+    case "Sprouting Ideas (New Stuff)":
+      return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+    case "Do Tasks, Get Bags (Bounties)":
+      return "bg-yellow-500/20 text-yellow-300 border-yellow-500/30";
     default:
       return "bg-gray-500/20 text-gray-300 border-gray-500/30";
   }
@@ -462,17 +473,20 @@ const Governance = () => {
   const [globalState, setGlobalState] = useState<GlobalState | null>(null);
   const [participationRate, setParticipationRate] = useState(0);
   const [userVotes, setUserVotes] = useState<Record<string, "yes" | "no">>({});
-  
+
   // Network settings state
-  const [networkSettings, setNetworkSettings] = useState<{ [key in NetworkId]: boolean }>({
+  const [networkSettings, setNetworkSettings] = useState<{
+    [key in NetworkId]: boolean;
+  }>({
     [NetworkId.LOCALNET]: true,
-    [NetworkId.TESTNET]: true,
+    [NetworkId.TESTNET]: false,
     [NetworkId.MAINNET]: false,
     [NetworkId.VOIMAIN]: false,
   } as { [key in NetworkId]: boolean });
 
   // Flag to indicate if active network is not enabled
-  const [activeNetworkNotEnabled, setActiveNetworkNotEnabled] = useState<boolean>(false);
+  const [activeNetworkNotEnabled, setActiveNetworkNotEnabled] =
+    useState<boolean>(false);
 
   const isNetworkEnabled = (networkId: NetworkId) => {
     return networkSettings[networkId] || false;
@@ -575,13 +589,13 @@ const Governance = () => {
     const fetchGlobalState = async () => {
       // Check if active network is enabled
       setActiveNetworkNotEnabled(!isNetworkEnabled(activeNetwork));
-      
+
       if (!activeNetwork || !algod) return;
-      
+
       // Get all enabled networks
       const enabledNetworks = getEnabledNetworks();
       console.log("Fetching proposals from enabled networks:", enabledNetworks);
-      
+
       try {
         let allProposals: UIProposal[] = [];
         let aggregatedGlobalState: GlobalState = {
@@ -590,12 +604,12 @@ const Governance = () => {
           totalVoterCount: { asNumber: () => 0 },
           totalParticipatingVoters: { asNumber: () => 0 },
         };
-        
+
         let totalProposals = 0;
         let totalActiveProposals = 0;
         let totalVoters = 0;
         let totalParticipatingVoters = 0;
-        
+
         // Fetch proposals from all enabled networks
         for (const networkId of enabledNetworks) {
           try {
@@ -617,7 +631,7 @@ const Governance = () => {
               // Skip networks without governance contracts
               continue;
             }
-            
+
             // Create indexer for this network
             let networkIndexer;
             if (networkId === NetworkId.LOCALNET) {
@@ -633,13 +647,15 @@ const Governance = () => {
                 443
               );
             }
-            
+
             const governanceAppId = getGovernanceAppId(networkId);
             if (governanceAppId === 0) {
-              console.log(`Skipping network ${networkId} - no governance app ID`);
+              console.log(
+                `Skipping network ${networkId} - no governance app ID`
+              );
               continue;
             }
-            
+
             const client = new PowGovernanceClient(
               {
                 id: governanceAppId,
@@ -647,9 +663,9 @@ const Governance = () => {
               },
               networkAlgod
             );
-            
+
             const state = await client.getGlobalState();
-            
+
             // Aggregate global state from all networks
             if (state.proposalCount) {
               totalProposals += state.proposalCount.asNumber();
@@ -661,24 +677,32 @@ const Governance = () => {
               totalVoters += state.totalVoterCount.asNumber();
             }
             if (state.totalParticipatingVoters) {
-              totalParticipatingVoters += state.totalParticipatingVoters.asNumber();
+              totalParticipatingVoters +=
+                state.totalParticipatingVoters.asNumber();
             }
-            
+
             // Set global state and participation rate based on aggregated data
             if (networkId === enabledNetworks[enabledNetworks.length - 1]) {
               aggregatedGlobalState = {
                 proposalCount: { asNumber: () => totalProposals },
                 activeProposalCount: { asNumber: () => totalActiveProposals },
                 totalVoterCount: { asNumber: () => totalVoters },
-                totalParticipatingVoters: { asNumber: () => totalParticipatingVoters },
+                totalParticipatingVoters: {
+                  asNumber: () => totalParticipatingVoters,
+                },
               };
               setGlobalState(aggregatedGlobalState);
-              const participationRate = totalVoters > 0
-                ? Number(((totalParticipatingVoters / totalVoters) * 100).toFixed(2))
-                : Number((33.33).toFixed(2));
+              const participationRate =
+                totalVoters > 0
+                  ? Number(
+                      ((totalParticipatingVoters / totalVoters) * 100).toFixed(
+                        2
+                      )
+                    )
+                  : Number((33.33).toFixed(2));
               setParticipationRate(participationRate);
             }
-            
+
             const ci = new CONTRACT(
               governanceAppId,
               networkAlgod,
@@ -689,19 +713,22 @@ const Governance = () => {
                 sk: new Uint8Array(),
               }
             );
-            
-            console.log(`Fetching proposals from ${networkId} with app ID ${governanceAppId}`);
+
+            console.log(
+              `Fetching proposals from ${networkId} with app ID ${governanceAppId}`
+            );
             const evts = await ci.getEvents({});
             const proposalCreatedEvts: ProposalCreatedEvent[] = (
-              evts?.find((evt: { name: string }) => evt.name === "ProposalCreated")
-                ?.events || []
+              evts?.find(
+                (evt: { name: string }) => evt.name === "ProposalCreated"
+              )?.events || []
             )?.map((evt: unknown[]) => ({
               txid: evt[0],
               round: evt[1],
               timestamp: evt[2],
               proposalNode: evt[3],
             }));
-            
+
             const rawProposals = (
               await Promise.all(
                 proposalCreatedEvts.map(async (evt) =>
@@ -713,32 +740,49 @@ const Governance = () => {
             ).map((result: { returnValue: unknown }) =>
               decodeProposal(result.returnValue)
             );
-            
-            console.log(`Found ${rawProposals.length} proposals from ${networkId}`);
-            
+
+            console.log(
+              `Found ${rawProposals.length} proposals from ${networkId}`
+            );
+
             // Convert to UI format and add network identifier
-            const networkProposals = rawProposals.map(proposal => {
-              const uiProposal = convertProposalToUI(proposal, aggregatedGlobalState);
+            const networkProposals = rawProposals.map((proposal) => {
+              const uiProposal = convertProposalToUI(
+                proposal,
+                aggregatedGlobalState
+              );
               return {
                 ...uiProposal,
                 network: networkId,
-                networkName: networkId === NetworkId.LOCALNET ? "Localnet" : 
-                             networkId === NetworkId.TESTNET ? "Algorand Testnet" : 
-                             networkId === NetworkId.MAINNET ? "Algorand Mainnet" : 
-                             networkId === NetworkId.VOIMAIN ? "Voi Mainnet" : "Unknown"
+                networkName:
+                  networkId === NetworkId.LOCALNET
+                    ? "Localnet"
+                    : networkId === NetworkId.TESTNET
+                    ? "Algorand Testnet"
+                    : networkId === NetworkId.MAINNET
+                    ? "Algorand Mainnet"
+                    : networkId === NetworkId.VOIMAIN
+                    ? "Voi Mainnet"
+                    : "Unknown",
               };
             });
-            
+
             allProposals = [...allProposals, ...networkProposals];
-            
           } catch (error) {
             console.error(`Error fetching proposals from ${networkId}:`, error);
           }
         }
-        
+
         console.log(`Total proposals found: ${allProposals.length}`);
-        setProposals(allProposals);
-        
+
+        // Sort proposals by creation date (latest first)
+        const sortedProposals = allProposals.sort((a, b) => {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateB - dateA; // Latest first
+        });
+
+        setProposals(sortedProposals);
       } catch (err) {
         console.error("Failed to fetch global state", err);
         setGlobalState(null);
@@ -820,7 +864,7 @@ const Governance = () => {
 
       console.log("Activating proposal:", proposalId);
       console.log("proposalNodeBytes", proposalNodeBytes);
-      
+
       const activateProposalR = await ci.activate_proposal(proposalNodeBytes);
       console.log("activateProposalR", activateProposalR);
 
@@ -858,12 +902,14 @@ const Governance = () => {
             : proposal
         )
       );
-
     } catch (error) {
       console.error("Error activating proposal:", error);
       toast({
         title: "Activation Failed",
-        description: error instanceof Error ? error.message : "Failed to activate proposal",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to activate proposal",
         variant: "destructive",
       });
     } finally {
@@ -1040,21 +1086,21 @@ const Governance = () => {
 
   return (
     <div className="space-y-8">
-      {/* Hero Section with Governance Animated Background */}
-      <div className="relative min-h-[60vh] sm:min-h-[80vh] flex items-center justify-center overflow-hidden w-full py-4 sm:py-8 md:py-16 md:pt-24 pb-8 sm:pb-16 md:pb-32">
+      {/* Hero Section with Governance Theme */}
+      <div className="relative min-h-[40vh] sm:min-h-[50vh] flex items-center justify-center overflow-hidden w-full py-4 sm:py-6 md:py-8 pb-4 sm:pb-6 md:pb-8">
         {/* Animated Background */}
         <div className="absolute inset-0 w-full h-full">
-          {/* Gradient Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900"></div>
+          {/* Dark Gradient Background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-slate-900 to-black"></div>
 
           {/* Animated Grid Pattern */}
-          <div className="absolute inset-0 opacity-20">
+          <div className="absolute inset-0 opacity-10">
             <div
               className="absolute inset-0"
               style={{
                 backgroundImage: `
-                linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
+                linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
               `,
                 backgroundSize: "50px 50px",
                 animation: "gridMove 20s linear infinite",
@@ -1064,10 +1110,10 @@ const Governance = () => {
 
           {/* Animated Particles */}
           <div className="absolute inset-0">
-            {[...Array(20)].map((_, i) => (
+            {[...Array(10)].map((_, i) => (
               <div
                 key={i}
-                className="absolute w-1 h-1 bg-blue-400/30 rounded-full animate-pulse"
+                className="absolute w-1 h-1 bg-gray-400/20 rounded-full animate-pulse"
                 style={{
                   left: `${Math.random() * 100}%`,
                   top: `${Math.random() * 100}%`,
@@ -1079,108 +1125,53 @@ const Governance = () => {
           </div>
 
           {/* Overlay for better text readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/5 to-black/30"></div>
         </div>
 
         {/* Hero Content */}
         <div className="relative z-10 text-center px-2 sm:px-4 max-w-4xl mx-auto w-full">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-6">
-            <h1 className="text-xl sm:text-2xl md:text-4xl lg:text-6xl xl:text-7xl font-bold text-white drop-shadow-2xl leading-tight">
-              POW Governance
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white drop-shadow-2xl leading-tight">
+              Govna's Room
             </h1>
-            <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-6 py-1 sm:py-2 md:py-3 rounded-full bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg backdrop-blur-sm">
-              <svg
-                className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md-5 translate-y-0.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                viewBox="0 0 24 24"
-              >
-                <path d="M9 2h6M10 2v5.172a2 2 0 0 1-.586 1.414l-4.242 4.242A7 7 0 0 0 12 21a7 7 0 0 0 6.828-8.172l-4.242-4.242A2 2 0 0 1 14 7.172V2" />
-                <path
-                  d="M8 15s1.5 2 4 2 4-2 4-2"
-                  fill="currentColor"
-                  fillOpacity=".2"
-                />
-              </svg>
-              <span className="text-xs sm:text-sm md:text-base font-semibold">
-                Beta
+            <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-full bg-gradient-to-r from-gray-700 to-gray-600 text-white shadow-lg backdrop-blur-sm border border-gray-500/30">
+              <Vote className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="text-sm sm:text-base font-semibold">
+                Bring Snacks
               </span>
             </div>
           </div>
 
-          <p className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg mb-4 sm:mb-6 md:mb-8 px-2">
-            Participate in decentralized decision-making. Create proposals, vote
-            on important matters, and help shape the future of the ecosystem.
+          <p className="text-sm sm:text-base md:text-lg text-white/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg mb-4 sm:mb-6 px-2">
+            Vote like your bags depend on it. Drop half-baked proposals, spam
+            YES votes, and steer this flaming rocket ship straight into the
+            moon. Governance isn’t just for nerds—it’s for absolute maniacs like
+            you.
           </p>
-
-          {/* Key Metrics in Hero Section */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 max-w-3xl mx-auto mb-6 sm:mb-8">
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20 shadow-lg flex flex-col items-center">
-              <div className="text-xs text-gray-300 mb-1">Total Proposals</div>
-              <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-400">
-                {mockMode
-                  ? mockStats.totalProposals
-                  : globalState?.proposalCount.asNumber()}
-              </div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20 shadow-lg flex flex-col items-center">
-              <div className="text-xs text-gray-300 mb-1">Active Proposals</div>
-              <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-400">
-                {mockMode
-                  ? mockStats.activeProposals
-                  : globalState?.activeProposalCount.asNumber()}
-              </div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20 shadow-lg flex flex-col items-center">
-              <div className="text-xs text-gray-300 mb-1">Total Voters</div>
-              <div className="text-lg sm:text-xl md:text-2xl font-bold text-purple-400">
-                {mockMode
-                  ? mockStats.totalVoters
-                  : globalState?.totalVoterCount?.asNumber() || 0}
-              </div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-4 border border-white/20 shadow-lg flex flex-col items-center">
-              <div className="text-xs text-gray-300 mb-1">Participation</div>
-              <div className="text-lg sm:text-xl md:text-2xl font-bold text-white">
-                {mockMode
-                  ? mockStats.participationRate
-                  : participationRate || 0}
-                %
-              </div>
-            </div>
-          </div>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 px-2">
-            <Button
+            {/*<Button
               asChild
-              className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold bg-[#1EAEDB] hover:bg-[#31BFEC] text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full sm:w-auto"
+              className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-bold bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-800 hover:to-gray-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full sm:w-auto"
             >
-              <Link to="/governance/proposals">View All Proposals</Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
-            >
-              <Link to="/about">How it Works</Link>
-            </Button>
-            {activeWallet &&
-            activeAccount &&
-            activeNetwork === NetworkId.LOCALNET ? (
+              <Link to="/governance/proposals">View All Blapposal</Link>
+            </Button>*/}
+            {activeAccount && activeNetwork === NetworkId.LOCALNET ? (
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button
                   asChild
                   variant="outline"
-                  className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+                  className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-bold border-2 border-white/30 text-white hover:bg-white/10 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
                 >
-                  <Link to="/governance/proposals/create">Create Proposal</Link>
+                  <Link to="/governance/proposals/create">
+                    Create Blapposal
+                  </Link>
                 </Button>
                 <Button
                   asChild
                   variant="outline"
-                  className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+                  className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-bold border-2 border-white/30 text-white hover:bg-white/10 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
                 >
                   <Link to="/governance/demo">View All States</Link>
                 </Button>
@@ -1189,7 +1180,7 @@ const Governance = () => {
               <WalletConnectModal onConnect={handleWalletConnect}>
                 <Button
                   variant="outline"
-                  className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+                  className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-bold border-2 border-white/30 text-white hover:bg-white/10 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
                 >
                   Connect Wallet
                 </Button>
@@ -1205,8 +1196,18 @@ const Governance = () => {
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center">
-                <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                <svg
+                  className="w-4 h-4 text-yellow-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
                 </svg>
               </div>
               <div>
@@ -1214,11 +1215,18 @@ const Governance = () => {
                   Active Network Not Enabled
                 </h3>
                 <p className="text-xs text-yellow-300/80">
-                  The currently selected network ({activeNetwork === NetworkId.LOCALNET ? "Localnet" : 
-                  activeNetwork === NetworkId.TESTNET ? "Algorand Testnet" : 
-                  activeNetwork === NetworkId.MAINNET ? "Algorand Mainnet" : 
-                  activeNetwork === NetworkId.VOIMAIN ? "Voi Mainnet" : "Unknown"}) is not enabled in your network settings. 
-                  Proposals are being fetched from enabled networks only.
+                  The currently selected network (
+                  {activeNetwork === NetworkId.LOCALNET
+                    ? "Localnet"
+                    : activeNetwork === NetworkId.TESTNET
+                    ? "Algorand Testnet"
+                    : activeNetwork === NetworkId.MAINNET
+                    ? "Algorand Mainnet"
+                    : activeNetwork === NetworkId.VOIMAIN
+                    ? "Voi Mainnet"
+                    : "Unknown"}
+                  ) is not enabled in your network settings. Blapposals are
+                  being fetched from enabled networks only.
                 </p>
               </div>
             </div>
@@ -1234,7 +1242,7 @@ const Governance = () => {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-blue-400" />
-                Total Proposals
+                Total Blapposals
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1251,7 +1259,7 @@ const Governance = () => {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Clock className="w-5 h-5 text-green-400" />
-                Active Proposals
+                Active Blapposals
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1310,7 +1318,7 @@ const Governance = () => {
         <div className="flex items-center gap-4 my-8">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           <h2 className="text-2xl font-bold text-white tracking-tight animate-fade-in">
-            Recent Proposals
+            Recent Blapposals
           </h2>
           <div className="flex-1 h-px bg-gradient-to-l from-transparent via-white/20 to-transparent" />
         </div>
@@ -1365,20 +1373,20 @@ const Governance = () => {
             {/* Results count */}
             <div className="flex items-center justify-center sm:justify-end flex-1">
               <span className="text-sm text-gray-400">
-                {filteredProposals.length} of {proposals.length} proposals
+                {filteredProposals.length} of {proposals.length} blapposals
               </span>
             </div>
           </div>
         </div>
 
-        {/* Recent Proposals */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Recent Proposals - Reddit Style List */}
+        <div className="space-y-2">
           {filteredProposals.filter((proposal) =>
             ["active", "succeeded", "pending", "canceled"].includes(
               proposal.status
             )
           ).length === 0 ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+            <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="w-16 h-16 bg-gray-500/20 rounded-full flex items-center justify-center mb-4">
                 <Search className="h-8 w-8 text-gray-400" />
               </div>
@@ -1413,375 +1421,518 @@ const Governance = () => {
                   proposal.totalVotes > 0
                     ? (proposal.yesVotes / proposal.totalVotes) * 100
                     : 0;
+                const sentimentScore = proposal.yesVotes - proposal.noVotes;
+
                 return (
-                  <Card
+                  <div
                     key={proposal.id}
-                    className="bg-white/5 border border-white/10 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in flex flex-col rounded-3xl"
+                    className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all duration-200 animate-fade-in"
                   >
-                    <CardHeader>
-                      <div className="flex items-center justify-between mb-2 h-12">
-                        <CardTitle className="text-lg line-clamp-2 text-white flex-1">
-                          {proposal.title}
-                        </CardTitle>
-                        <Badge
-                          variant={getStatusVariant(proposal.status)}
-                          className="ml-2 text-xs px-2 py-1 rounded-full font-semibold"
-                        >
-                          {getStatusLabel(proposal.status)}
-                        </Badge>
-                      </div>
+                    <div className="flex gap-4">
+                      {/* Vote Column - Reddit Style */}
+                      <div className="flex flex-col items-center gap-1 min-w-[60px]">
+                        {/* Upvote Button */}
+                        <button
+                          className={`p-2 rounded-lg transition-all duration-200 ${
+                            userVotes[proposal.id] === "yes"
+                              ? "text-green-400 bg-green-500/20"
+                              : submittingVote && votingProposal === proposal.id
+                              ? "text-gray-500 cursor-not-allowed"
+                              : "text-gray-400 hover:text-green-400 hover:bg-green-500/10"
+                          }`}
+                          onClick={async () => {
+                            if (
+                              proposal.status === "active" &&
+                              !userVotes[proposal.id]
+                            ) {
+                              setSelectedVote("yes");
+                              setVotingProposal(proposal.id);
+                              setSubmittingVote(true);
 
-                      {/* Category Badge */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge
-                          className={`text-xs px-2 py-1 rounded-full font-semibold border ${getCategoryColor(
-                            proposal.category
-                          )}`}
+                              try {
+                                const ci = new CONTRACT(
+                                  getGovernanceAppId(activeNetwork),
+                                  algod,
+                                  indexer,
+                                  makeABI(PowGovernanceAppSpec),
+                                  {
+                                    addr: activeAccount.address,
+                                    sk: new Uint8Array(),
+                                  }
+                                );
+
+                                const castVoteR = await ci.cast_vote(
+                                  new Uint8Array(
+                                    Buffer.from(proposal.id, "hex")
+                                  ),
+                                  1 // Yes vote
+                                );
+
+                                if (!castVoteR.success) {
+                                  throw new Error("Failed to cast vote");
+                                }
+
+                                const stxns = await signTransactions(
+                                  castVoteR.txns.map(
+                                    (txn: string) =>
+                                      new Uint8Array(Buffer.from(txn, "base64"))
+                                  )
+                                );
+
+                                const { txId } = await algod
+                                  .sendRawTransaction(stxns)
+                                  .do();
+                                console.log("Vote transaction ID:", txId);
+
+                                // Update the proposal with the new vote
+                                setProposals((prevProposals) =>
+                                  prevProposals.map((p) =>
+                                    p.id === proposal.id
+                                      ? {
+                                          ...p,
+                                          totalVotes: p.totalVotes + 1,
+                                          yesVotes: p.yesVotes + 1,
+                                        }
+                                      : p
+                                  )
+                                );
+
+                                // Update user votes
+                                setUserVotes((prev) => ({
+                                  ...prev,
+                                  [proposal.id]: "yes",
+                                }));
+
+                                toast({
+                                  title: "Vote Submitted",
+                                  description:
+                                    "Successfully voted Yes on proposal",
+                                  variant: "default",
+                                });
+                              } catch (error) {
+                                console.error("Error submitting vote:", error);
+                                toast({
+                                  title: "Vote Failed",
+                                  description:
+                                    error instanceof Error
+                                      ? error.message
+                                      : "Failed to submit vote",
+                                  variant: "destructive",
+                                });
+                              } finally {
+                                setSubmittingVote(false);
+                                setSelectedVote(null);
+                                setVotingProposal(null);
+                              }
+                            }
+                          }}
+                          disabled={
+                            proposal.status !== "active" ||
+                            !!userVotes[proposal.id] ||
+                            submittingVote
+                          }
                         >
-                          {proposal.category}
-                        </Badge>
-                        <span className="text-xs text-gray-400">
-                          by {proposal.author.slice(0, 6)}...
-                          {proposal.author.slice(-4)}
-                        </span>
-                        {proposal.networkName && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs px-2 py-1 rounded-full font-semibold border-blue-500/50 text-blue-400"
+                          {submittingVote && votingProposal === proposal.id ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <ThumbsUp className="h-5 w-5" />
+                          )}
+                        </button>
+
+                        {/* Sentiment Score */}
+                        <div className="text-center">
+                          <div
+                            className={`text-lg font-bold ${
+                              sentimentScore > 0
+                                ? "text-green-400"
+                                : sentimentScore < 0
+                                ? "text-red-400"
+                                : "text-gray-400"
+                            }`}
                           >
-                            {proposal.networkName}
-                          </Badge>
-                        )}
+                            {sentimentScore > 0 ? "+" : ""}
+                            {sentimentScore}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {proposal.totalVotes} votes
+                          </div>
+                        </div>
+
+                        {/* Downvote Button */}
+                        <button
+                          className={`p-2 rounded-lg transition-all duration-200 ${
+                            userVotes[proposal.id] === "no"
+                              ? "text-red-400 bg-red-500/20"
+                              : submittingVote && votingProposal === proposal.id
+                              ? "text-gray-500 cursor-not-allowed"
+                              : "text-gray-400 hover:text-red-400 hover:bg-red-500/10"
+                          }`}
+                          onClick={async () => {
+                            if (
+                              proposal.status === "active" &&
+                              !userVotes[proposal.id]
+                            ) {
+                              setSelectedVote("no");
+                              setVotingProposal(proposal.id);
+                              setSubmittingVote(true);
+
+                              try {
+                                const ci = new CONTRACT(
+                                  getGovernanceAppId(activeNetwork),
+                                  algod,
+                                  indexer,
+                                  makeABI(PowGovernanceAppSpec),
+                                  {
+                                    addr: activeAccount.address,
+                                    sk: new Uint8Array(),
+                                  }
+                                );
+
+                                const castVoteR = await ci.cast_vote(
+                                  new Uint8Array(
+                                    Buffer.from(proposal.id, "hex")
+                                  ),
+                                  0 // No vote
+                                );
+
+                                if (!castVoteR.success) {
+                                  throw new Error("Failed to cast vote");
+                                }
+
+                                const stxns = await signTransactions(
+                                  castVoteR.txns.map(
+                                    (txn: string) =>
+                                      new Uint8Array(Buffer.from(txn, "base64"))
+                                  )
+                                );
+
+                                const { txId } = await algod
+                                  .sendRawTransaction(stxns)
+                                  .do();
+                                console.log("Vote transaction ID:", txId);
+
+                                // Update the proposal with the new vote
+                                setProposals((prevProposals) =>
+                                  prevProposals.map((p) =>
+                                    p.id === proposal.id
+                                      ? {
+                                          ...p,
+                                          totalVotes: p.totalVotes + 1,
+                                          noVotes: p.noVotes + 1,
+                                        }
+                                      : p
+                                  )
+                                );
+
+                                // Update user votes
+                                setUserVotes((prev) => ({
+                                  ...prev,
+                                  [proposal.id]: "no",
+                                }));
+
+                                toast({
+                                  title: "Vote Submitted",
+                                  description:
+                                    "Successfully voted No on proposal",
+                                  variant: "default",
+                                });
+                              } catch (error) {
+                                console.error("Error submitting vote:", error);
+                                toast({
+                                  title: "Vote Failed",
+                                  description:
+                                    error instanceof Error
+                                      ? error.message
+                                      : "Failed to submit vote",
+                                  variant: "destructive",
+                                });
+                              } finally {
+                                setSubmittingVote(false);
+                                setSelectedVote(null);
+                                setVotingProposal(null);
+                              }
+                            }
+                          }}
+                          disabled={
+                            proposal.status !== "active" ||
+                            !!userVotes[proposal.id] ||
+                            submittingVote
+                          }
+                        >
+                          {submittingVote && votingProposal === proposal.id ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <ThumbsDown className="h-5 w-5" />
+                          )}
+                        </button>
                       </div>
 
-                      <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-2" />
-                      <p className="text-muted-foreground line-clamp-2 mb-2">
-                        {proposal.description}
-                      </p>
-                    </CardHeader>
-                    <CardContent className="flex-1 flex flex-col">
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>Created {formatDate(proposal.createdAt)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Users className="h-4 w-4" />
-                          <span>{proposal.totalVotes} votes</span>
-                        </div>
-                      </div>
-                      {proposal.status === "active" && (
-                        <div className="space-y-3 mb-4">
-                          {/* Voting Progress Bar */}
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-xs text-gray-400">
-                              <span>Voting Progress</span>
-                              <span>{proposal.totalVotes} total votes</span>
-                            </div>
-                            <div className="relative">
-                              <Progress
-                                value={votePercentage}
-                                className="h-3 bg-gray-700/50"
-                              />
-                              <div
-                                className="absolute inset-0 rounded-full bg-gradient-to-r from-green-500/20 to-green-600/20"
-                                style={{ width: `${votePercentage}%` }}
-                              />
+                      {/* Content Column */}
+                      <div className="flex-1 min-w-0">
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-semibold text-white line-clamp-2 mb-2">
+                              {proposal.title}
+                            </h3>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge
+                                variant={getStatusVariant(proposal.status)}
+                                className="text-xs px-2 py-1 rounded-full font-semibold"
+                              >
+                                {getStatusLabel(proposal.status)}
+                              </Badge>
+                              <Badge
+                                className={`text-xs px-2 py-1 rounded-full font-semibold border ${getCategoryColor(
+                                  proposal.category
+                                )}`}
+                              >
+                                {proposal.category}
+                              </Badge>
+                              {proposal.networkName && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs px-2 py-1 rounded-full font-semibold border-blue-500/50 text-blue-400"
+                                >
+                                  {proposal.networkName}
+                                </Badge>
+                              )}
                             </div>
                           </div>
+                        </div>
 
-                          {/* Vote Breakdown */}
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-3">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-green-400 font-medium">
-                                  For
-                                </span>
-                                <span className="text-sm font-bold text-green-300">
-                                  {proposal.yesVotes}
-                                </span>
-                              </div>
-                              <div className="text-xs text-green-400/70">
-                                {votePercentage.toFixed(1)}% of votes
-                              </div>
-                            </div>
-                            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-3">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-red-400 font-medium">
-                                  Against
-                                </span>
-                                <span className="text-sm font-bold text-red-300">
-                                  {proposal.noVotes}
-                                </span>
-                              </div>
-                              <div className="text-xs text-red-400/70">
-                                {(
-                                  (proposal.noVotes / proposal.totalVotes) *
-                                  100
-                                ).toFixed(1)}
-                                % of votes
-                              </div>
-                            </div>
+                        {/* Description */}
+                        <p className="text-gray-300 line-clamp-3 mb-3">
+                          {proposal.description}
+                        </p>
+
+                        {/* Meta Information */}
+                        <div className="flex items-center gap-4 text-sm text-gray-400 mb-3">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            <span>{formatDate(proposal.createdAt)}</span>
                           </div>
-
-                          {/* Time Remaining */}
-                          {proposal.votingEnds && (
-                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Clock className="h-4 w-4 text-blue-400" />
-                                  <span className="text-xs text-blue-400 font-medium">
-                                    Voting Ends
-                                  </span>
-                                </div>
-                                <span className="text-sm font-bold text-blue-300">
-                                  {formatDate(proposal.votingEnds)}
-                                </span>
-                              </div>
+                          <div className="flex items-center gap-1">
+                            <Users className="h-4 w-4" />
+                            <span>
+                              by {proposal.author.slice(0, 6)}...
+                              {proposal.author.slice(-4)}
+                            </span>
+                          </div>
+                          {activeAccount && proposal.status === "active" && (
+                            <div className="flex items-center gap-1 text-gray-400">
+                              <Zap className="h-3 w-3" />
+                              <span>
+                                {userVotingPower.toLocaleString()} power
+                              </span>
                             </div>
                           )}
                         </div>
-                      )}
-                      {proposal.status === "pending" && (
-                        <div className="space-y-3 mb-4">
-                          {/* Activation Progress Bar */}
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-xs text-gray-400">
-                              <span>Activation Progress</span>
-                              <span>
-                                {proposal.currentPower} /{" "}
-                                {proposal.requiredPower} power
-                              </span>
-                            </div>
-                            <div className="relative">
-                              <Progress
-                                value={
-                                  (proposal.currentPower /
-                                    proposal.requiredPower) *
-                                  100
-                                }
-                                className="h-3 bg-gray-700/50"
-                              />
-                              <div
-                                className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-500/20 to-yellow-500/20"
-                                style={{
-                                  width: `${
-                                    (proposal.currentPower /
-                                      proposal.requiredPower) *
-                                    100
-                                  }%`,
-                                }}
-                              />
-                            </div>
-                          </div>
 
-                          {/* Activation Status */}
-                          <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <Zap className="h-4 w-4 text-orange-400" />
-                                <span className="text-sm font-medium text-orange-300">
-                                  Activation Status
-                                </span>
+                        {/* Status-specific content */}
+                        {proposal.status === "active" && (
+                          <div className="space-y-3 mb-3">
+                            {/* Voting Progress */}
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-xs text-gray-400">
+                                <span>Voting Progress</span>
+                                <span>{votePercentage.toFixed(1)}% For</span>
                               </div>
-                              <span
-                                className={`text-sm font-bold ${
-                                  proposal.isExpired
-                                    ? "text-red-400"
-                                    : proposal.currentPower >=
-                                      proposal.requiredPower
-                                    ? "text-green-400"
-                                    : "text-orange-400"
-                                }`}
-                              >
-                                {proposal.isExpired
-                                  ? "Expired"
-                                  : proposal.currentPower >=
-                                    proposal.requiredPower
-                                  ? "Ready to Activate"
-                                  : "Needs More Power"}
-                              </span>
+                              <div className="relative">
+                                <Progress
+                                  value={votePercentage}
+                                  className="h-2 bg-gray-700/50"
+                                />
+                                <div
+                                  className="absolute inset-0 rounded-full bg-gradient-to-r from-green-500/20 to-green-600/20"
+                                  style={{ width: `${votePercentage}%` }}
+                                />
+                              </div>
                             </div>
 
-                            {/* Power Details */}
-                            <div className="grid grid-cols-2 gap-3 mb-2">
-                              <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-2">
-                                <div className="text-xs text-orange-400/70 mb-1">
-                                  Current Power
-                                </div>
-                                <div className="text-sm font-bold text-orange-300">
-                                  {proposal.currentPower.toLocaleString()}
-                                </div>
+                            {/* Vote Breakdown */}
+                            <div className="flex gap-4 text-sm">
+                              <div className="flex items-center gap-1 text-green-400">
+                                <ThumbsUp className="h-4 w-4" />
+                                <span>{proposal.yesVotes} For</span>
                               </div>
-                              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-2">
-                                <div className="text-xs text-blue-400/70 mb-1">
-                                  Required Power
-                                </div>
-                                <div className="text-sm font-bold text-blue-300">
-                                  {proposal.requiredPower.toLocaleString()}
-                                </div>
+                              <div className="flex items-center gap-1 text-red-400">
+                                <ThumbsDown className="h-4 w-4" />
+                                <span>{proposal.noVotes} Against</span>
                               </div>
                             </div>
 
                             {/* Time Remaining */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-gray-400" />
-                                <span className="text-xs text-gray-400">
-                                  {proposal.isExpired
-                                    ? "Activation Period"
-                                    : "Time Remaining"}
+                            {proposal.votingEnds && (
+                              <div className="flex items-center gap-2 text-xs text-blue-400">
+                                <Clock className="h-4 w-4" />
+                                <span>
+                                  Voting ends {formatDate(proposal.votingEnds)}
                                 </span>
-                              </div>
-                              <span
-                                className={`text-sm font-bold ${
-                                  proposal.isExpired
-                                    ? "text-red-400"
-                                    : "text-blue-400"
-                                }`}
-                              >
-                                {proposal.isExpired
-                                  ? "Expired"
-                                  : proposal.timeToActivate || "Unknown"}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Warning for expired proposals */}
-                          {proposal.isExpired && (
-                            <div className="text-xs text-red-400 bg-red-900/20 p-3 rounded-xl border border-red-500/30">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-red-400">⚠️</span>
-                                <span className="font-medium">
-                                  Activation Failed
-                                </span>
-                              </div>
-                              <p className="text-red-400/80">
-                                This proposal failed to reach the required power
-                                level ({proposal.requiredPower.toLocaleString()}
-                                ) within the activation period and has expired.
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Success message for ready proposals */}
-                          {!proposal.isExpired &&
-                            proposal.currentPower >= proposal.requiredPower && (
-                              <div className="text-xs text-green-400 bg-green-900/20 p-3 rounded-xl border border-green-500/30">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-green-400">✅</span>
-                                  <span className="font-medium">
-                                    Ready to Activate
-                                  </span>
-                                </div>
-                                <p className="text-green-400/80">
-                                  This proposal has reached the required power
-                                  level and can be activated to begin voting.
-                                </p>
                               </div>
                             )}
-                        </div>
-                      )}
-                      <div className="flex gap-2 mt-auto">
-                        <Button
-                          asChild
-                          variant="outline"
-                          size="sm"
-                          className="rounded-full"
-                        >
-                          <Link to={`/governance/proposals/${proposal.id}`}>
-                            View Details
-                          </Link>
-                        </Button>
-                        {activeAccount && proposal.status === "active" && (
-                          <div className="flex items-center gap-1 text-xs text-gray-400 bg-gray-800/50 px-2 py-1 rounded-full">
-                            <Zap className="h-3 w-3" />
-                            {userVotingPower.toLocaleString()} power
                           </div>
                         )}
-                        {userVotes[proposal.id] &&
-                          proposal.status === "active" && (
-                            <div
-                              className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-                                userVotes[proposal.id] === "yes"
-                                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                                  : "bg-red-500/20 text-red-400 border border-red-500/30"
-                              }`}
-                            >
-                              {userVotes[proposal.id] === "yes" ? (
-                                <ThumbsUp className="h-3 w-3" />
-                              ) : (
-                                <ThumbsDown className="h-3 w-3" />
-                              )}
-                              {userVotes[proposal.id] === "yes"
-                                ? "For"
-                                : "Against"}
+
+                        {proposal.status === "pending" && (
+                          <div className="space-y-3 mb-3">
+                            {/* Activation Progress */}
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-xs text-gray-400">
+                                <span>Activation Progress</span>
+                                <span>
+                                  {proposal.currentPower} /{" "}
+                                  {proposal.requiredPower} power
+                                </span>
+                              </div>
+                              <div className="relative">
+                                <Progress
+                                  value={
+                                    (proposal.currentPower /
+                                      proposal.requiredPower) *
+                                    100
+                                  }
+                                  className="h-2 bg-gray-700/50"
+                                />
+                                <div
+                                  className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-500/20 to-yellow-500/20"
+                                  style={{
+                                    width: `${
+                                      (proposal.currentPower /
+                                        proposal.requiredPower) *
+                                      100
+                                    }%`,
+                                  }}
+                                />
+                              </div>
                             </div>
-                          )}
-                        {proposal.status === "active" &&
-                          !userVotes[proposal.id] && (
-                            <Button
-                              size="sm"
-                              className="rounded-full"
-                              onClick={() => handleVoteClick(proposal.id)}
-                            >
-                              <Vote className="h-4 w-4 mr-1" />
-                              Vote
-                            </Button>
-                          )}
-                        {proposal.status === "pending" &&
-                          !proposal.isExpired && (
+
+                            {/* Activation Status */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Zap className="h-4 w-4 text-orange-400" />
+                                <span className="text-sm text-orange-300">
+                                  {proposal.isExpired
+                                    ? "Expired"
+                                    : proposal.currentPower >=
+                                      proposal.requiredPower
+                                    ? "Ready to Activate"
+                                    : "Needs More Power"}
+                                </span>
+                              </div>
+                              {!proposal.isExpired &&
+                                proposal.timeToActivate && (
+                                  <span className="text-xs text-blue-400">
+                                    {proposal.timeToActivate} left
+                                  </span>
+                                )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full"
+                          >
+                            <Link to={`/governance/proposals/${proposal.id}`}>
+                              View Details
+                            </Link>
+                          </Button>
+
+                          {userVotes[proposal.id] &&
+                            proposal.status === "active" && (
+                              <div
+                                className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                                  userVotes[proposal.id] === "yes"
+                                    ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                    : "bg-red-500/20 text-red-400 border border-red-500/30"
+                                }`}
+                              >
+                                {userVotes[proposal.id] === "yes" ? (
+                                  <ThumbsUp className="h-3 w-3" />
+                                ) : (
+                                  <ThumbsDown className="h-3 w-3" />
+                                )}
+                                {userVotes[proposal.id] === "yes"
+                                  ? "Voted For"
+                                  : "Voted Against"}
+                              </div>
+                            )}
+
+                          {proposal.status === "active" &&
+                            !userVotes[proposal.id] && (
+                              <Button
+                                size="sm"
+                                className="rounded-full"
+                                onClick={() => handleVoteClick(proposal.id)}
+                              >
+                                <Vote className="h-4 w-4 mr-1" />
+                                Vote
+                              </Button>
+                            )}
+
+                          {proposal.status === "pending" &&
+                            !proposal.isExpired && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-full"
+                                onClick={() =>
+                                  handleActivateProposal(proposal.id)
+                                }
+                                disabled={activatingProposal === proposal.id}
+                              >
+                                {activatingProposal === proposal.id ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Activating...
+                                  </>
+                                ) : (
+                                  "Activate"
+                                )}
+                              </Button>
+                            )}
+
+                          {proposal.status === "pending" &&
+                            proposal.isExpired && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="rounded-full"
+                                onClick={() =>
+                                  handleRejectProposal(proposal.id)
+                                }
+                                disabled={rejectingProposal === proposal.id}
+                              >
+                                {rejectingProposal === proposal.id ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Rejecting...
+                                  </>
+                                ) : (
+                                  "Reject"
+                                )}
+                              </Button>
+                            )}
+
+                          {proposal.status === "canceled" && (
                             <Button
                               variant="outline"
                               size="sm"
-                              className="rounded-full"
-                              onClick={() =>
-                                handleActivateProposal(proposal.id)
-                              }
-                              disabled={activatingProposal === proposal.id}
+                              disabled
+                              className="opacity-50 cursor-not-allowed rounded-full"
                             >
-                              {activatingProposal === proposal.id ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Activating...
-                                </>
-                              ) : (
-                                "Activate"
-                              )}
+                              Canceled
                             </Button>
                           )}
-                        {proposal.status === "pending" &&
-                          proposal.isExpired && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              className="rounded-full"
-                              onClick={() => handleRejectProposal(proposal.id)}
-                              disabled={rejectingProposal === proposal.id}
-                            >
-                              {rejectingProposal === proposal.id ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Rejecting...
-                                </>
-                              ) : (
-                                "Reject"
-                              )}
-                            </Button>
-                          )}
-                        {proposal.status === "canceled" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled
-                            className="opacity-50 cursor-not-allowed rounded-full"
-                          >
-                            Canceled
-                          </Button>
-                        )}
+                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 );
               })
           )}

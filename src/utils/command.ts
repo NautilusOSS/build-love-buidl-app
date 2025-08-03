@@ -363,28 +363,28 @@ export const getProposalNode: any = async (options: GetProposalNodeOptions) => {
 };
 
 export interface Proposal {
-  proposalIndex: BigInt;
-  proposalStatus: BigInt;
+  proposalIndex: bigint;
+  proposalStatus: bigint;
   proposer: string;
   proposalTitle: string;
   proposalDescription: string;
   proposalNode: string;
-  proposalCategoryId: BigInt;
-  proposalTotalVotes: BigInt;
-  proposalYesVotes: BigInt;
-  proposalTotalPower: BigInt;
-  proposalActivationPower: BigInt;
-  createdAtTimestamp: BigInt;
-  votingStartTimestamp: BigInt;
-  votingEndTimestamp: BigInt;
+  proposalCategoryId: bigint;
+  proposalTotalVotes: bigint;
+  proposalYesVotes: bigint;
+  proposalTotalPower: bigint;
+  proposalActivationPower: bigint;
+  createdAtTimestamp: bigint;
+  votingStartTimestamp: bigint;
+  votingEndTimestamp: bigint;
   proposalActionHash: string;
-  executedAtTimestamp: BigInt;
-  executionTxnId: BigInt;
-  proposalActivationTimestamp: BigInt;
-  proposalQuorumThreshold: BigInt;
+  executedAtTimestamp: bigint;
+  executionTxnId: bigint;
+  proposalActivationTimestamp: bigint;
+  proposalQuorumThreshold: bigint;
   proposalQuorumMet: boolean;
-  proposalQuorumStatus: BigInt;
-  proposalYesPower: BigInt;
+  proposalQuorumStatus: bigint;
+  proposalYesPower: bigint;
 }
 
 export const decodeProposal = (proposal: any): Proposal => {
@@ -448,10 +448,10 @@ export const getProposal: any = async (options: GetProposalOptions) => {
 
 interface Voter {
   voterAddress: string;
-  votePower: BigInt;
-  voteTimestamp: BigInt;
-  proposalsParticipated: BigInt;
-  lastParticipationTimestamp: BigInt;
+  votePower: bigint;
+  voteTimestamp: bigint;
+  proposalsParticipated: bigint;
+  lastParticipationTimestamp: bigint;
   lastProposalNode: string;
 }
 
@@ -554,6 +554,7 @@ export const lockPower: any = async (options: LockPowerOptions) => {
     ).obj;
     buildN.push({
       ...txnO,
+      payment: 1e5,
     });
   }
   console.log(buildN);

@@ -60,6 +60,55 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Feature Flags
+
+This application uses a comprehensive feature flag system to control the availability of different features. Feature flags can be controlled via environment variables.
+
+### Available Transfer Features
+
+The application includes feature flags for transfer functionality:
+
+- **Internal Transfers**: Transfers between different buckets/tokens within your own wallet
+- **External Transfers**: Transfers to external addresses/recipients
+
+### Environment Variables
+
+To control transfer features, set these environment variables:
+
+```env
+# Enable/disable all transfer features
+VITE_FEATURE_TRANSFER_ENABLED=true
+
+# Enable/disable internal transfers
+VITE_FEATURE_TRANSFER_INTERNAL=true
+
+# Enable/disable external transfers
+VITE_FEATURE_TRANSFER_EXTERNAL=true
+```
+
+### Usage in Code
+
+```tsx
+import { useFeatureFlags } from '@/constants/featureFlags';
+
+const MyComponent = () => {
+  const { 
+    isTransferEnabled,
+    isInternalTransferEnabled,
+    isExternalTransferEnabled 
+  } = useFeatureFlags();
+
+  return (
+    <div>
+      {isInternalTransferEnabled() && <button>Internal Transfer</button>}
+      {isExternalTransferEnabled() && <button>External Transfer</button>}
+    </div>
+  );
+};
+```
+
+For more detailed information about all available feature flags, see [FEATURE_FLAGS.md](./FEATURE_FLAGS.md).
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/f71e432c-7332-47bc-ae44-4812722b3fc5) and click on Share -> Publish.

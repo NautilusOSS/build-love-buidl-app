@@ -61,6 +61,19 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// 8-bit PornHub-inspired colors
+				'pornhub': {
+					'bg': '#000000',
+					'text': '#ff6600',
+					'border': '#ff6600',
+					'sidebar': '#1a1a1a',
+					'button': '#ff6600',
+					'button-hover': '#ffffff',
+					'link': '#ff6600',
+					'link-hover': '#ffffff',
+					'card': '#1a1a1a',
+					'input': '#333333'
 				}
 			},
 			borderRadius: {
@@ -84,11 +97,31 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pixelate': {
+					'0%': { transform: 'scale(1)' },
+					'50%': { transform: 'scale(1.1)' },
+					'100%': { transform: 'scale(1)' }
+				},
+				'scanlines': {
+					'0%': { transform: 'translateY(0)' },
+					'100%': { transform: 'translateY(4px)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pixelate': 'pixelate 0.5s ease-in-out',
+				'scanlines': 'scanlines 0.1s linear infinite'
+			},
+			fontFamily: {
+				'8bit': ['Courier New', 'Monaco', 'Menlo', 'monospace'],
+				'pixel': ['Courier New', 'Monaco', 'Menlo', 'monospace']
+			},
+			boxShadow: {
+				'8bit': '4px 4px 0px #000000',
+				'8bit-hover': '6px 6px 0px #000000',
+				'8bit-active': '2px 2px 0px #000000'
 			}
 		}
 	},

@@ -14,10 +14,6 @@ import VideoModal from "@/components/VideoModal";
 import ReactDOM from "react-dom";
 import { CONTRACT, abi } from "ulujs";
 import BigNumber from "bignumber.js";
-import AccountAirdrop from "@/components/AccountAirdrop";
-import { AirdropEntry, AirdropIndexEntry } from "@/types/airdrop";
-import { TARGET_AIRDROP_ID } from "@/components/AccountAirdrop";
-import { Swap } from "@vestigefi/widgets";
 
 // TODO fetch from API or remote resources
 const voi_rewards = [
@@ -190,10 +186,8 @@ const Airdrop: React.FC = () => {
     activeWalletAddresses,
     wallets,
   } = useWallet();
-  const [airdropData, setAirdropData] = useState<AirdropEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [recipientsData, setRecipientsData] = useState<AirdropEntry[]>([]);
   const [addressInput, setAddressInput] = useState("");
   const [envoiNameInput, setEnvoiNameInput] = useState("");
   const [algoNameInput, setAlgoNameInput] = useState("");
@@ -261,11 +255,6 @@ const Airdrop: React.FC = () => {
     "wallet" | "address" | "envoi" | "algo" | null
   >(null);
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
-  const [airdropIndexData, setAirdropIndexData] = useState<AirdropIndexEntry[]>(
-    []
-  );
-  const [currentAirdropInfo, setCurrentAirdropInfo] =
-    useState<AirdropIndexEntry | null>(null);
   const [progressData, setProgressData] = useState<{
     voi: {
       claimed: number;
@@ -4279,7 +4268,10 @@ const Airdrop: React.FC = () => {
             <div className="w-full max-w-full sm:max-w-3xl mb-4 sm:mb-8 px-2 sm:px-0">
               <h1 className="text-3xl font-bold mb-6">Airdrop Details</h1>
               {recipientAddresses.map((address, index) => (
-                <div key={address} className="w-full max-w-full sm:max-w-3xl mb-4 sm:mb-8 px-2 sm:px-0">
+                <div
+                  key={address}
+                  className="w-full max-w-full sm:max-w-3xl mb-4 sm:mb-8 px-2 sm:px-0"
+                >
                   <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
                     Airdrop for {address.slice(0, 5)}...{address.slice(-5)}
                     <button

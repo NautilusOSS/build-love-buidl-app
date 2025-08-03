@@ -52,7 +52,7 @@ import {
   Plus,
 } from "lucide-react";
 import { NetworkId, useWallet } from "@txnlab/use-wallet-react";
-import { CONTRACT } from "ulujs";
+import { CONTRACT, abi } from "ulujs";
 import algosdk from "algosdk";
 import { toast } from "@/components/ui/use-toast";
 import { getGovernanceAppId } from "@/constants/appIds";
@@ -123,12 +123,12 @@ const PROPOSAL_STATUS = {
 
 // Proposal categories
 const PROPOSAL_CATEGORIES = {
-  0: "General",
-  1: "Treasury",
-  2: "Protocol Parameters",
-  3: "Security",
-  4: "Community",
-  5: "Technical",
+  0: "Govna Stuff (Governance)",
+  1: "Treasury Shenanigans",
+  2: "Number Go Up (Tokenomics)",
+  3: "Science or Scam? (Experimental)",
+  4: "Pacts with Other Degens (Partnerships)",
+  5: "Protocol Wizardry",
 } as const;
 
 // Helper function to convert hex string to Uint8Array (for contract calls)
@@ -678,7 +678,7 @@ const ProposalDetail = () => {
     [key in NetworkId]: boolean;
   }>({
     [NetworkId.LOCALNET]: true,
-    [NetworkId.TESTNET]: true,
+    [NetworkId.TESTNET]: false,
     [NetworkId.MAINNET]: false,
     [NetworkId.VOIMAIN]: false,
   } as { [key in NetworkId]: boolean });
@@ -1232,8 +1232,8 @@ const ProposalDetail = () => {
       let canVote = false;
       let canActivate = false;
       let canExecute = false;
-      let hasVoted = false;
-      let userVote: boolean | null = null;
+      const hasVoted = false;
+      const userVote: boolean | null = null;
       const networkBreakdownData: NetworkBreakdown[] = [];
 
       console.log("networkBreakdownData", networkBreakdownData);
@@ -2057,6 +2057,7 @@ const ProposalDetail = () => {
       });
 
       // Call create_proposal method
+      ci.setPaymentAmount(40000);
       const proposeR = await ci.propose(
         new Uint8Array(
           [...proposalTitle.padEnd(64, "\0")].map((char) => char.charCodeAt(0))
@@ -2105,33 +2106,35 @@ const ProposalDetail = () => {
     }
   };
 
-  // --- Animated Hero Section (copied and adapted from Governance.tsx) ---
+  // --- Animated Hero Section (matching Governance.tsx style) ---
   const HeroSection = (
-    <div className="relative min-h-[40vh] sm:min-h-[50vh] flex items-center justify-center overflow-hidden w-full py-4 sm:py-8 md:py-16 md:pt-24 pb-8 sm:pb-16 md:pb-24">
+    <div className="relative min-h-[40vh] sm:min-h-[50vh] flex items-center justify-center overflow-hidden w-full py-4 sm:py-6 md:py-8 pb-4 sm:pb-6 md:pb-8">
       {/* Animated Background */}
       <div className="absolute inset-0 w-full h-full">
-        {/* Gradient Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900"></div>
+        {/* Dark Gradient Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-slate-900 to-black"></div>
+
         {/* Animated Grid Pattern */}
-        <div className="absolute inset-0 opacity-20">
+        <div className="absolute inset-0 opacity-10">
           <div
             className="absolute inset-0"
             style={{
               backgroundImage: `
-              linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
+              linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
             `,
               backgroundSize: "50px 50px",
               animation: "gridMove 20s linear infinite",
             }}
           ></div>
         </div>
+
         {/* Animated Particles */}
         <div className="absolute inset-0">
-          {[...Array(20)].map((_, i) => (
+          {[...Array(10)].map((_, i) => (
             <div
               key={i}
-              className="absolute w-1 h-1 bg-blue-400/30 rounded-full animate-pulse"
+              className="absolute w-1 h-1 bg-gray-400/20 rounded-full animate-pulse"
               style={{
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,
@@ -2141,33 +2144,47 @@ const ProposalDetail = () => {
             ></div>
           ))}
         </div>
+
         {/* Overlay for better text readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/5 to-black/30"></div>
       </div>
+
       {/* Hero Content */}
-      <div className="relative z-10 text-center px-2 sm:px-4 max-w-3xl mx-auto w-full">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white drop-shadow-2xl leading-tight mb-4">
-          Proposal Details
-        </h1>
-        <p className="text-base sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed drop-shadow-lg mb-4 px-2">
-          View and participate in the governance process for this proposal.
+      <div className="relative z-10 text-center px-2 sm:px-4 max-w-4xl mx-auto w-full">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white drop-shadow-2xl leading-tight">
+            Blapposal Details
+          </h1>
+          <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-full bg-gradient-to-r from-gray-700 to-gray-600 text-white shadow-lg backdrop-blur-sm border border-gray-500/30">
+            <Vote className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-sm sm:text-base font-semibold">
+              YOLO VOTE
+            </span>
+          </div>
+        </div>
+
+        <p className="text-sm sm:text-base md:text-lg text-white/90 max-w-3xl mx-auto leading-relaxed drop-shadow-lg mb-4 sm:mb-6 px-2">
+          Read the blapposal (or don’t), argue in the comments, then YOLO your
+          vote like it’s gonna 100x the chart. Every vote is a shot at
+          greatness—or glorious disaster. WAGMI (probably).
         </p>
+
+        {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 px-2">
           <Button
             asChild
-            variant="outline"
-            className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+            className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-bold bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-800 hover:to-gray-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full sm:w-auto"
           >
             <Link to="/governance/proposals">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Proposals
+              Back to Blapposals
             </Link>
           </Button>
           <Button
             variant="outline"
             onClick={() => fetchProposal(true)}
             disabled={isRefreshing}
-            className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+            className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-bold border-2 border-white/30 text-white hover:bg-white/10 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
           >
             <RefreshCw
               className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
@@ -2199,7 +2216,7 @@ const ProposalDetail = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-950 via-purple-950 to-indigo-950">
+    <div className="space-y-8">
       {HeroSection}
 
       {/* Active Network Warning */}
@@ -2246,30 +2263,31 @@ const ProposalDetail = () => {
         </div>
       )}
 
-      <div className="container mx-auto px-4 sm:px-6 pb-16 space-y-6 sm:space-y-8">
+      {/* Main Content */}
+      <div className="container mx-auto px-4 space-y-8">
         {/* Section Divider and Header */}
-        <div className="flex items-center gap-2 sm:gap-4 my-6 sm:my-8">
+        <div className="flex items-center gap-4 my-8">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight animate-fade-in px-2 sm:px-0">
+          <h2 className="text-2xl font-bold text-white tracking-tight animate-fade-in">
             Proposal Overview
           </h2>
           <div className="flex-1 h-px bg-gradient-to-l from-transparent via-white/20 to-transparent" />
         </div>
 
         {/* Proposal Header */}
-        <Card className="bg-white/5 border border-white/10 shadow-lg rounded-2xl sm:rounded-3xl">
-          <CardHeader className="pb-4 sm:pb-6">
-            <div className="space-y-3 sm:space-y-4">
-              <CardTitle className="text-lg sm:text-xl md:text-2xl text-white leading-tight">
+        <Card className="bg-white/5 border border-white/10 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
+          <CardHeader className="pb-4">
+            <div className="space-y-4">
+              <CardTitle className="text-xl md:text-2xl text-white leading-tight">
                 {proposal.title}
               </CardTitle>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
-                  <User className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <User className="h-4 w-4" />
                   <span>Created by {formatAddress(proposal.createdBy)}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <Calendar className="h-4 w-4" />
                   <span>{formatDate(proposal.createdAt)}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -2287,7 +2305,7 @@ const ProposalDetail = () => {
                       Your Vote: {proposal.userVote ? "FOR" : "AGAINST"}
                     </Badge>
                   )}
-                  <span className="text-xs sm:text-sm text-muted-foreground">
+                  <span className="text-sm text-muted-foreground">
                     #{proposal.index}
                   </span>
                 </div>
@@ -2296,7 +2314,7 @@ const ProposalDetail = () => {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="prose prose-sm max-w-none text-white/90">
-              <p className="whitespace-pre-line text-sm sm:text-base leading-relaxed">
+              <p className="whitespace-pre-line text-base leading-relaxed">
                 {proposal.description}
               </p>
             </div>
@@ -2307,10 +2325,10 @@ const ProposalDetail = () => {
         {proposal.status === "active" &&
           !proposal.hasVoted &&
           userVotingPower > 0 && (
-            <Card className="bg-gradient-to-r from-green-500/10 via-blue-500/10 to-purple-500/10 border border-green-500/20 shadow-lg rounded-2xl sm:rounded-3xl animate-pulse">
+            <Card className="bg-gradient-to-r from-green-500/10 via-blue-500/10 to-purple-500/10 border border-green-500/20 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl animate-pulse">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-white text-lg sm:text-xl flex items-center gap-2">
+                  <CardTitle className="text-white text-xl flex items-center gap-2">
                     <Vote className="h-5 w-5 text-green-400" />
                     Your Vote Matters!
                   </CardTitle>
@@ -2350,7 +2368,7 @@ const ProposalDetail = () => {
 
                     {/* Current vs Potential Impact */}
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-white/5 rounded-xl p-3 text-center">
+                      <div className="bg-white/5 rounded-xl p-3 text-center hover:scale-[1.02] transition-all duration-200">
                         <div className="text-xs text-muted-foreground mb-1">
                           Current
                         </div>
@@ -2359,7 +2377,7 @@ const ProposalDetail = () => {
                         </div>
                         <div className="text-xs text-green-400/70">For</div>
                       </div>
-                      <div className="bg-white/5 rounded-xl p-3 text-center">
+                      <div className="bg-white/5 rounded-xl p-3 text-center hover:scale-[1.02] transition-all duration-200">
                         <div className="text-xs text-muted-foreground mb-1">
                           With Your Vote
                         </div>
@@ -2384,7 +2402,7 @@ const ProposalDetail = () => {
                     </div>
 
                     {/* Impact Percentage */}
-                    <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-center">
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-center hover:scale-[1.02] transition-all duration-200">
                       <div className="text-sm font-medium text-green-300 mb-1">
                         Your Impact
                       </div>
@@ -2581,7 +2599,7 @@ const ProposalDetail = () => {
         {(proposal.status === "active" ||
           proposal.status === "succeeded" ||
           proposal.status === "defeated") && (
-          <Card className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 shadow-lg rounded-2xl sm:rounded-3xl">
+          <Card className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-white text-lg sm:text-xl flex items-center gap-2">
@@ -2757,10 +2775,10 @@ const ProposalDetail = () => {
 
         {/* Voting Statistics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          <Card className="bg-white/5 border border-white/10 shadow-lg rounded-2xl sm:rounded-3xl">
+          <Card className="bg-white/5 border border-white/10 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2 text-white">
-                <Users className="h-3 w-3 sm:h-4 sm:w-4 text-blue-400" />
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-white">
+                <Users className="h-4 w-4 text-blue-400" />
                 Participation
               </CardTitle>
             </CardHeader>
@@ -2790,15 +2808,15 @@ const ProposalDetail = () => {
           </Card>
 
           <Card
-            className={`bg-white/5 border shadow-lg rounded-2xl sm:rounded-3xl ${
+            className={`bg-white/5 border shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl ${
               votePercentage > 50
                 ? "border-green-500/50 bg-green-500/5"
                 : "border-white/10"
             }`}
           >
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2 text-white">
-                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-400" />
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-white">
+                <CheckCircle className="h-4 w-4 text-green-400" />
                 Votes For
                 {votePercentage > 50 && (
                   <span className="text-xs bg-green-500/20 px-2 py-1 rounded-full text-green-300">
@@ -2833,15 +2851,15 @@ const ProposalDetail = () => {
           </Card>
 
           <Card
-            className={`bg-white/5 border shadow-lg rounded-2xl sm:rounded-3xl sm:col-span-2 lg:col-span-1 ${
+            className={`bg-white/5 border shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl sm:col-span-2 lg:col-span-1 ${
               votePercentage < 50
                 ? "border-red-500/50 bg-red-500/5"
                 : "border-white/10"
             }`}
           >
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2 text-white">
-                <XCircle className="h-3 w-3 sm:h-4 sm:w-4 text-red-400" />
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-white">
+                <XCircle className="h-4 w-4 text-red-400" />
                 Votes Against
                 {votePercentage < 50 && (
                   <span className="text-xs bg-red-500/20 px-2 py-1 rounded-full text-red-300">
@@ -2878,10 +2896,10 @@ const ProposalDetail = () => {
 
         {/* Network Breakdown - Show per-network statistics */}
         {networkBreakdown.length > 0 && (
-          <Card className="bg-white/5 border border-white/10 shadow-lg rounded-2xl sm:rounded-3xl">
+          <Card className="bg-white/5 border border-white/10 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-white text-lg sm:text-xl flex items-center gap-2">
+                <CardTitle className="text-white text-xl flex items-center gap-2">
                   <Globe className="h-5 w-5 text-blue-400" />
                   Network Breakdown
                 </CardTitle>
@@ -3127,10 +3145,10 @@ const ProposalDetail = () => {
 
         {/* Activation Status - Show for pending proposals */}
         {proposal.status === "pending" && (
-          <Card className="bg-white/5 border border-white/10 shadow-lg rounded-2xl sm:rounded-3xl">
+          <Card className="bg-white/5 border border-white/10 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <CardTitle className="text-white text-lg sm:text-xl">
+                <CardTitle className="text-white text-xl">
                   Activation Status
                 </CardTitle>
                 <div className="flex items-center gap-2">
@@ -3296,10 +3314,10 @@ const ProposalDetail = () => {
 
         {/* Voting Progress */}
         {proposal.status === "active" && (
-          <Card className="bg-white/5 border border-white/10 shadow-lg rounded-2xl sm:rounded-3xl">
+          <Card className="bg-white/5 border border-white/10 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <CardTitle className="text-white text-lg sm:text-xl">
+                <CardTitle className="text-white text-xl">
                   Voting Progress
                 </CardTitle>
                 <div className="flex items-center gap-2">
@@ -3457,11 +3475,9 @@ const ProposalDetail = () => {
         )}
 
         {/* Timeline */}
-        <Card className="bg-white/5 border border-white/10 shadow-lg rounded-2xl sm:rounded-3xl">
+        <Card className="bg-white/5 border border-white/10 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
           <CardHeader>
-            <CardTitle className="text-white text-lg sm:text-xl">
-              Timeline
-            </CardTitle>
+            <CardTitle className="text-white text-xl">Timeline</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -3555,11 +3571,9 @@ const ProposalDetail = () => {
         </Card>
 
         {/* Action Buttons */}
-        <Card className="bg-white/5 border border-white/10 shadow-lg rounded-2xl sm:rounded-3xl">
+        <Card className="bg-white/5 border border-white/10 shadow-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 animate-fade-in rounded-3xl">
           <CardHeader>
-            <CardTitle className="text-white text-lg sm:text-xl">
-              Actions
-            </CardTitle>
+            <CardTitle className="text-white text-xl">Actions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-2">
