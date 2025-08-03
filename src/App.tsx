@@ -1,3 +1,4 @@
+import "./polyfills/buffer-polyfill";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,6 +29,7 @@ import ProposalStatesDemo from "./pages/ProposalStatesDemo";
 import PowerUp from "./pages/PowerUp";
 import Store from "./pages/Store";
 import Wallet from "./pages/Wallet";
+import Changelog from "./pages/Changelog";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -96,7 +98,7 @@ const App = () => {
             icons: ["/favicon.svg"],
           },
           themeMode: "light",
-        },
+        } as any,
       },
       {
         id: WalletId.WALLETCONNECT,
@@ -109,7 +111,7 @@ const App = () => {
             icons: ["/favicon.svg"],
           },
           themeMode: "light",
-        },
+        } as any,
       },
       {
         id: WalletId.MNEMONIC,
@@ -136,6 +138,8 @@ const App = () => {
                   <div className="flex-1 overflow-auto">
                     <Routes>
                       <Route path="/" element={<Home />} />
+                      {/* Changelog Route */}
+                      <Route path="/changelog" element={<Changelog />} />
                       {/* Governance Routes */}
                       <Route
                         path="/governance"

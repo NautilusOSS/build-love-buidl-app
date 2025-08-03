@@ -97,7 +97,19 @@ const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
     } catch (error) {
       clearTimeout(connectionTimeout);
       setConnecting(null);
-      console.error("Wallet connection failed:", error);
+      
+      // Handle specific Pera wallet errors
+      if (error instanceof Error) {
+        if (error.message.includes("Ve.from is not a function")) {
+          console.error("Pera wallet is temporarily unavailable:", error);
+        } else if (error.message.includes("PeraWalletConnectError")) {
+          console.error("Pera wallet connection failed:", error);
+        } else {
+          console.error("Wallet connection failed:", error);
+        }
+      } else {
+        console.error("Wallet connection failed:", error);
+      }
     }
   };
 

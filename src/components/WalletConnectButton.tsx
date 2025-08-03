@@ -108,7 +108,19 @@ const useWalletConnection = () => {
     } catch (error) {
       clearTimeout(connectionTimeout);
       setConnecting(null);
-      const errorMessage = error instanceof Error ? error.message : "Wallet connection failed";
+      
+      // Handle specific Pera wallet errors
+      let errorMessage = "Wallet connection failed";
+      if (error instanceof Error) {
+        if (error.message.includes("Ve.from is not a function")) {
+          errorMessage = "Pera wallet is temporarily unavailable. Please try another wallet.";
+        } else if (error.message.includes("PeraWalletConnectError")) {
+          errorMessage = "Pera wallet connection failed. Please try another wallet.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       setError(errorMessage);
       console.error("Wallet connection failed:", error);
     }
@@ -212,6 +224,8 @@ const WalletConnectButton: React.FC = React.memo(() => {
           <span className="text-[10px] text-red-400 ml-2">{error}</span>
         )}
       </div>
+      
+
       
       <div className="mt-1 w-full">
         {/* Network Selector */}

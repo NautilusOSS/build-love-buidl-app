@@ -39,6 +39,16 @@
     <meta name="twitter:player:width" content="1280" />
     <meta name="twitter:player:height" content="720" /-->
     <link rel="icon" href="https://blapu.biz/assets/images/blapu-logo.png" />
+    
+    <!-- Buffer polyfill - Load before any other scripts -->
+    <script>
+      // Ensure Buffer is available globally before any modules load
+      if (typeof window !== 'undefined') {
+        // This will be replaced by the actual Buffer from the buffer package
+        window.Buffer = window.Buffer || {};
+        globalThis.Buffer = globalThis.Buffer || {};
+      }
+    </script>
   </head>
 
   <body>

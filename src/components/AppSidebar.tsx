@@ -20,18 +20,24 @@ import {
   Zap,
   Flame,
   ShoppingCart,
+  GitCommit,
 } from "lucide-react";
 import WalletConnectButton from "./WalletConnectButton";
 import { useWallet } from "@txnlab/use-wallet-react";
 import { useFeatureFlags } from "@/constants/featureFlags";
+import { APP_VERSION } from "@/constants/version";
 
 const AppSidebar: React.FC = () => {
   const { activeAccount, activeWalletAddresses } = useWallet();
   const location = useLocation();
   const { toggleSidebar, setOpen, setOpenMobile, isMobile, openMobile } =
     useSidebar();
-  const { isGovernanceEnabled, isWalletEnabled, isPowerUpEnabled, isStoreEnabled } =
-    useFeatureFlags();
+  const {
+    isGovernanceEnabled,
+    isWalletEnabled,
+    isPowerUpEnabled,
+    isStoreEnabled,
+  } = useFeatureFlags();
 
   const navItems = useMemo(() => {
     const items = [{ label: "Home", to: "/", icon: Home }];
@@ -68,8 +74,19 @@ const AppSidebar: React.FC = () => {
       }
     }
 
+    // Add changelog only when wallet is connected
+    if (activeAccount) {
+      items.push({ label: "Changelog", to: "/changelog", icon: GitCommit });
+    }
+
     return items;
-  }, [activeAccount, isGovernanceEnabled, isWalletEnabled, isPowerUpEnabled, isStoreEnabled]);
+  }, [
+    activeAccount,
+    isGovernanceEnabled,
+    isWalletEnabled,
+    isPowerUpEnabled,
+    isStoreEnabled,
+  ]);
 
   const handleCloseSidebar = () => {
     if (isMobile) {
@@ -127,8 +144,8 @@ const AppSidebar: React.FC = () => {
   }, [isMobile, setOpen, setOpenMobile]);
 
   return (
-    <Sidebar 
-      data-sidebar 
+    <Sidebar
+      data-sidebar
       className="bg-black border-r border-orange-500/30 shadow-2xl shadow-orange-500/10"
     >
       <SidebarContent className="bg-black">
@@ -156,7 +173,9 @@ const AppSidebar: React.FC = () => {
             title={isMobile ? "Close sidebar" : "Close sidebar (ESC)"}
           >
             <X className="h-4 w-4 text-white group-hover:scale-110 transition-transform" />
-            <span className="text-white font-bold text-xs uppercase tracking-wide">Close</span>
+            <span className="text-white font-bold text-xs uppercase tracking-wide">
+              Close
+            </span>
           </button>
         </div>
 
@@ -169,24 +188,40 @@ const AppSidebar: React.FC = () => {
                     asChild
                     isActive={location.pathname === item.to}
                     className={`px-3 py-2 text-xs font-bold rounded-md transition-all duration-200 group ${
-                      location.pathname === item.to 
-                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-black shadow-lg shadow-orange-500/50 border-2 border-orange-400' 
-                        : 'text-gray-300 hover:bg-gradient-to-r hover:from-orange-500/20 hover:to-orange-600/20 hover:text-white border border-transparent hover:border-orange-500/50'
+                      location.pathname === item.to
+                        ? "bg-gradient-to-r from-orange-500 to-orange-600 text-black shadow-lg shadow-orange-500/50 border-2 border-orange-400"
+                        : "text-gray-300 hover:bg-gradient-to-r hover:from-orange-500/20 hover:to-orange-600/20 hover:text-white border border-transparent hover:border-orange-500/50"
                     }`}
                   >
-                    <Link to={item.to} onClick={handleNavItemClick} className="flex items-center gap-2">
-                      <div className={`w-4 h-4 rounded-sm flex items-center justify-center transition-all duration-200 ${
-                        location.pathname === item.to 
-                          ? 'bg-black/30' 
-                          : 'bg-orange-500/20 group-hover:bg-orange-500/30'
-                      }`}>
-                        <item.icon className={`h-3 w-3 ${
-                          location.pathname === item.to ? 'text-black' : 'text-current'
-                        }`} />
+                    <Link
+                      to={item.to}
+                      onClick={handleNavItemClick}
+                      className="flex items-center gap-2"
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-sm flex items-center justify-center transition-all duration-200 ${
+                          location.pathname === item.to
+                            ? "bg-black/30"
+                            : "bg-orange-500/20 group-hover:bg-orange-500/30"
+                        }`}
+                      >
+                        <item.icon
+                          className={`h-3 w-3 ${
+                            location.pathname === item.to
+                              ? "text-black"
+                              : "text-current"
+                          }`}
+                        />
                       </div>
-                      <span className={`font-bold uppercase tracking-wide text-[11px] ${
-                        location.pathname === item.to ? 'text-black font-black' : ''
-                      }`}>{item.label}</span>
+                      <span
+                        className={`font-bold uppercase tracking-wide text-[11px] ${
+                          location.pathname === item.to
+                            ? "text-black font-black"
+                            : ""
+                        }`}
+                      >
+                        {item.label}
+                      </span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -201,14 +236,16 @@ const AppSidebar: React.FC = () => {
                     <div className="w-4 h-4 rounded-sm bg-orange-500/20 flex items-center justify-center">
                       <X className="h-3 w-3" />
                     </div>
-                    <span className="font-bold uppercase tracking-wide text-[11px]">Close</span>
+                    <span className="font-bold uppercase tracking-wide text-[11px]">
+                      Close
+                    </span>
                   </div>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        
+
         {/* WalletConnect section - compact */}
         <div className="px-3 py-3 mt-3">
           <div className="bg-gradient-to-r from-gray-900 to-black rounded-md border border-orange-500/50 p-2 shadow-lg shadow-orange-500/20">
@@ -216,7 +253,7 @@ const AppSidebar: React.FC = () => {
           </div>
         </div>
 
-        {/* Footer - Compact shortcuts */}
+        {/* Footer - Compact shortcuts and version */}
         <div className="mt-auto p-3 border-t border-orange-500/30">
           <div className="text-[10px] text-gray-400 space-y-2">
             <div className="font-black text-orange-400 mb-2 tracking-widest uppercase">
@@ -227,13 +264,29 @@ const AppSidebar: React.FC = () => {
                 <div className="w-5 h-5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-sm flex items-center justify-center shadow-lg shadow-orange-500/50">
                   <span className="text-white text-[8px] font-black">⌘B</span>
                 </div>
-                <span className="text-gray-300 font-bold uppercase tracking-wide text-[9px]">Toggle</span>
+                <span className="text-gray-300 font-bold uppercase tracking-wide text-[9px]">
+                  Toggle
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-sm flex items-center justify-center shadow-lg shadow-orange-500/50">
                   <span className="text-white text-[8px] font-black">ESC</span>
                 </div>
-                <span className="text-gray-300 font-bold uppercase tracking-wide text-[9px]">Close</span>
+                <span className="text-gray-300 font-bold uppercase tracking-wide text-[9px]">
+                  Close
+                </span>
+              </div>
+            </div>
+
+            {/* Version display */}
+            <div className="pt-2 border-t border-orange-500/20">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400 font-bold uppercase tracking-wide text-[9px]">
+                  Version
+                </span>
+                <span className="text-orange-400 font-black text-[9px] tracking-wider">
+                  {APP_VERSION}
+                </span>
               </div>
             </div>
           </div>

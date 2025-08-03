@@ -1,11 +1,19 @@
+// Buffer polyfill - Must be first!
 import { Buffer } from 'buffer';
+
+// Immediately set Buffer globally before any other code runs
+if (typeof window !== 'undefined') {
+  window.Buffer = Buffer;
+  (globalThis as any).Buffer = Buffer;
+  if (typeof global !== 'undefined') {
+    (global as any).Buffer = Buffer;
+  }
+}
+
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import { APP_VERSION, VERSION_KEY } from './constants/version'
-
-// Make Buffer available globally
-window.Buffer = Buffer;
 
 // Version checking and storage clearing logic
 const checkAndClearStorage = () => {
