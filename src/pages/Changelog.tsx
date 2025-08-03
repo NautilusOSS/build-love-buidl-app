@@ -48,6 +48,20 @@ const Changelog: React.FC = () => {
                   <li>• Comprehensive UI components and styling</li>
                 </ul>
               </div>
+              
+              <div className="bg-gray-800/50 rounded-lg p-4 border border-green-500/20">
+                <h4 className="text-white font-semibold mb-2">In-App Changelog System</h4>
+                <p className="text-gray-300 text-sm mb-3">
+                  Complete changelog functionality for users with beautiful UI design
+                </p>
+                <ul className="text-gray-400 text-sm space-y-1 ml-4">
+                  <li>• Dedicated changelog page with beautiful UI design</li>
+                  <li>• Color-coded sections (Added, Fixed, Changed, Technical Details, Impact)</li>
+                  <li>• Version display in sidebar footer</li>
+                  <li>• Changelog only visible when wallet is connected</li>
+                  <li>• Comprehensive documentation of all changes and fixes</li>
+                </ul>
+              </div>
             </div>
           </div>
 
@@ -149,6 +163,8 @@ const Changelog: React.FC = () => {
                     <li>• <strong>Performance:</strong> Slightly larger bundle size due to disabled minification, but improved reliability</li>
                     <li>• <strong>Compatibility:</strong> Enhanced browser compatibility for Node.js Buffer functions</li>
                     <li>• <strong>User Experience:</strong> Improved store interface and wallet connection experience</li>
+                    <li>• <strong>Transparency:</strong> Users can now view detailed changelog and version information within the app</li>
+                    <li>• <strong>Developer Experience:</strong> Comprehensive documentation of all changes and technical implementations</li>
                   </ul>
                 </div>
               </div>

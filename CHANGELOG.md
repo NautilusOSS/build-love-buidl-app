@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Feature flag system for controlled feature rollout
   - Network settings and configuration management
   - Comprehensive UI components and styling
+- **In-App Changelog System**: Complete changelog functionality for users
+  - Dedicated changelog page with beautiful UI design
+  - Color-coded sections (Added, Fixed, Changed, Technical Details, Impact)
+  - Version display in sidebar footer
+  - Changelog only visible when wallet is connected
+  - Comprehensive documentation of all changes and fixes
 
 ### Fixed
 - **Pera Wallet Production Build Issues**: Resolved `TypeError: np.from is not a function` and related function name mangling errors in production builds
@@ -51,6 +57,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `package.json` - Updated @perawallet/connect to v1.4.2 and cleaned dependencies
 - `src/constants/featureFlags.ts` - Feature flag system implementation
 - `src/components/FeatureFlagGuard.tsx` - Feature flag protection components
+- `src/pages/Changelog.tsx` - Complete changelog page implementation
+- `src/components/AppSidebar.tsx` - Added changelog navigation and version display
+- `index.html` - Added Buffer polyfill script in HTML head
+- `src/main.tsx` - Enhanced Buffer polyfill loading
+- `tsconfig.build.json` - Build-specific TypeScript configuration
 
 ### Testing
 - ✅ Build completes successfully without errors
@@ -60,6 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ✅ Buffer polyfills working correctly
 - ✅ Store functionality working as expected
 - ✅ Feature flags properly controlling feature access
+- ✅ Changelog page displays correctly with proper styling
+- ✅ Version display shows correctly in sidebar
+- ✅ Changelog navigation only appears when wallet is connected
 
 ### Impact
 - **Before**: Pera wallet failed with `np.from is not a function` error in production
@@ -67,6 +81,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Performance**: Slightly larger bundle size due to disabled minification, but improved reliability
 - **Compatibility**: Enhanced browser compatibility for Node.js Buffer functions
 - **User Experience**: Improved store interface and wallet connection experience
+- **Transparency**: Users can now view detailed changelog and version information within the app
+- **Developer Experience**: Comprehensive documentation of all changes and technical implementations
 
 ## [Unreleased]
 
