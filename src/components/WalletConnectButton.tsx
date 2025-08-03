@@ -17,9 +17,9 @@ import { SimpleFaucet } from "@/service/simple-faucet";
 // Constants
 const NETWORKS = [
   { id: NetworkId.MAINNET, name: "Algorand" },
-  { id: NetworkId.TESTNET, name: "Algorand Testnet" },
-  { id: NetworkId.VOIMAIN, name: "Voi" },
-  { id: NetworkId.LOCALNET, name: "Localnet" },
+  //{ id: NetworkId.TESTNET, name: "Algorand Testnet" },
+  //{ id: NetworkId.VOIMAIN, name: "Voi" },
+  //{ id: NetworkId.LOCALNET, name: "Localnet" },
 ] as const;
 
 const NETWORK_WALLETS = {

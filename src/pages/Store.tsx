@@ -235,6 +235,42 @@ const Store: React.FC = () => {
       hasMessage: true,
       requirements: { minTokens: 100 },
     },
+    {
+      id: "blaptapus-v1",
+      name: "Blaptapus v1",
+      description: "Swap BLAPU between ASA and ARC200 on Algorand",
+      price: 2500,
+      category: "cosmetic",
+      icon: <Image className="h-6 w-6" />,
+      rarity: "epic",
+      isOwned: true,
+      isAvailable: true,
+      requirements: { minTokens: 1000 },
+    },
+    {
+      id: "blaptapus-v2",
+      name: "Blaptapus v2",
+      description: "Swap BLAPU between ASA and ARC200 on Voi Network",
+      price: 2500,
+      category: "cosmetic",
+      icon: <Image className="h-6 w-6" />,
+      rarity: "legendary",
+      isOwned: false,
+      isAvailable: true,
+      requirements: { minTokens: 2000 },
+    },
+    {
+      id: "blapu-bridge",
+      name: "Blapu Bridge",
+      description: "Cross-chain bridge for BLAPU tokens between networks",
+      price: 7500,
+      category: "utility",
+      icon: <Globe className="h-6 w-6" />,
+      rarity: "legendary",
+      isOwned: false,
+      isAvailable: true,
+      requirements: { minTokens: 3000 },
+    },
   ];
 
   // Helper function to get algod client
@@ -697,7 +733,8 @@ const Store: React.FC = () => {
         <div className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredItems.map((item) => {
-              const isOwned = userUpgrades[item.category].includes(item.id);
+              const isOwned =
+                item.isOwned || userUpgrades[item.category].includes(item.id);
               const canBuy =
                 canAfford(item) && meetsRequirements(item) && !isOwned;
 
