@@ -8,7 +8,7 @@ export const APP_IDS = {
     ATOKEN: 3935,
   },
   [NetworkId.TESTNET]: {
-    GOVERNANCE: 743653026, 
+    GOVERNANCE: 744323178, 
     TREASURY: 0, // TODO: Add testnet treasury app ID when deployed
     ATOKEN: 743653037, 
   },

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, act } from "react";
 import { useParams, Link, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -107,6 +107,9 @@ interface UIProposal {
   canVeto: boolean;
   votingActivated: string | null;
   networkBreakdown?: NetworkBreakdown[];
+  // Resolution metadata
+  resolutionReason?: string;
+  resolvedAt?: string;
 }
 
 // Proposal status mapping
@@ -141,6 +144,12 @@ const hexToUint8Array = (hex: string): Uint8Array => {
     cleanHex.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []
   );
 };
+
+// Feature flags
+// To enable/disable features, modify the values below
+const FEATURE_FLAGS = {
+  ENABLE_FINALIZE_ACTION: false, // Set to true to enable finalize action
+} as const;
 
 // Mock data for different proposal states - replace with actual data from your governance contract
 const mockProposals = {
@@ -656,6 +665,8 @@ const ProposalDetail = () => {
   const [selectedVote, setSelectedVote] = useState<boolean | null>(null);
   const [isVoting, setIsVoting] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [proposal, setProposal] = useState<UIProposal | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -692,6 +703,11 @@ const ProposalDetail = () => {
     []
   );
 
+  // Individual network proposal states
+  const [networkProposals, setNetworkProposals] = useState<{
+    [networkId: string]: UIProposal | null;
+  }>({});
+
   const isNetworkEnabled = (networkId: NetworkId) => {
     return networkSettings[networkId] || false;
   };
@@ -700,6 +716,11 @@ const ProposalDetail = () => {
     return Object.entries(networkSettings)
       .filter(([_, enabled]) => enabled)
       .map(([networkId]) => networkId as NetworkId);
+  };
+
+  // Get proposal for a specific network
+  const getNetworkProposal = (networkId: NetworkId): UIProposal | null => {
+    return networkProposals[networkId] || null;
   };
 
   const algod = useMemo(() => {
@@ -815,6 +836,7 @@ const ProposalDetail = () => {
             asNumber: () => totalParticipatingVoters,
           },
         };
+        console.log("aggregatedGlobalState", aggregatedGlobalState);
         setGlobalState(aggregatedGlobalState);
       } catch (err) {
         console.error("Failed to fetch global state", err);
@@ -823,16 +845,12 @@ const ProposalDetail = () => {
     };
     fetchGlobalState();
   }, [activeNetwork, algod, mockMode, networkSettings]);
-  console.log("globalState", globalState);
 
-  // Fetch user's vote for this proposal
-  const fetchUserVote = async () => {
-    if (!id) {
-      setUserVote(null);
-      setHasVoted(false);
-      return;
-    }
+  // Fetch user's vote for this proposal with improved reliability
+  const [isUserVoteLoading, setIsUserVoteLoading] = useState(true);
 
+  const fetchUserVote = async (retryCount = 0) => {
+    setIsUserVoteLoading(true);
     try {
       // Use mock data for simple IDs (1-10) or if mockMode is true
       if (mockMode || (id && mockProposals[id])) {
@@ -844,18 +862,166 @@ const ProposalDetail = () => {
       }
 
       const proposalNodeBytes = hexToUint8Array(id);
-
-      // Get all enabled networks
       const enabledNetworks = getEnabledNetworks();
-      console.log("Fetching user vote from enabled networks:", enabledNetworks);
 
-      let hasVotedOnAnyNetwork = false;
-      let userVoteFromAnyNetwork: boolean | null = null;
+      console.log(
+        `Fetching user vote (attempt ${retryCount + 1}) from enabled networks:`,
+        enabledNetworks
+      );
+      console.log(
+        `Active network: ${activeNetwork}, Active account: ${activeAccount?.address}`
+      );
 
-      // Fetch user vote from all enabled networks
-      for (const networkId of enabledNetworks) {
+      // Track votes per network
+      const networkVotes: {
+        [networkId: string]: {
+          hasVoted: boolean;
+          userVote: boolean | null;
+          error?: string;
+        };
+      } = {};
+
+      // First, try to fetch user vote from the active network (highest priority)
+      if (activeNetwork && enabledNetworks.includes(activeNetwork)) {
         try {
-          // Create algod client for this network
+          let networkAlgod;
+          if (activeNetwork === NetworkId.LOCALNET) {
+            networkAlgod = new algosdk.Algodv2(
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "http://10.0.0.31",
+              4001
+            );
+          } else if (activeNetwork === NetworkId.TESTNET) {
+            networkAlgod = new algosdk.Algodv2(
+              "",
+              "https://testnet-api.4160.nodely.dev",
+              443
+            );
+          } else {
+            console.log(
+              `Skipping active network ${activeNetwork} - not supported`
+            );
+          }
+
+          if (networkAlgod) {
+            const governanceAppId = getGovernanceAppId(activeNetwork);
+            if (governanceAppId !== 0) {
+              const ci = new CONTRACT(
+                governanceAppId,
+                networkAlgod,
+                undefined,
+                {
+                  name: "Governance",
+                  description: "Governance",
+                  methods: PowGovernanceAppSpec.contract.methods,
+                  events: [],
+                },
+                {
+                  addr: "G3MSA75OZEJTCCENOJDLDJK7UD7E2K5DNC7FVHCNOV7E3I4DTXTOWDUIFQ",
+                  sk: new Uint8Array(),
+                }
+              );
+              ci.setEnableRawBytes(true);
+
+              console.log(
+                `Fetching user vote from ACTIVE network ${activeNetwork}`
+              );
+              const getVoteR = await ci.get_vote(
+                proposalNodeBytes,
+                activeAccount?.address ||
+                  "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              );
+              console.log(
+                `getVoteR from active network ${activeNetwork}:`,
+                getVoteR
+              );
+
+              if (getVoteR.success && getVoteR.returnValue !== undefined) {
+                const voteValue = Number(getVoteR.returnValue);
+                if (voteValue === 0) {
+                  networkVotes[activeNetwork] = {
+                    hasVoted: true,
+                    userVote: false,
+                  };
+                  console.log(
+                    `User voted AGAINST on active network ${activeNetwork}`
+                  );
+                } else if (voteValue === 1) {
+                  networkVotes[activeNetwork] = {
+                    hasVoted: true,
+                    userVote: true,
+                  };
+                  console.log(
+                    `User voted FOR on active network ${activeNetwork}`
+                  );
+                } else {
+                  networkVotes[activeNetwork] = {
+                    hasVoted: false,
+                    userVote: null,
+                  };
+                  console.log(
+                    `No vote found on active network ${activeNetwork}`
+                  );
+                }
+              } else {
+                networkVotes[activeNetwork] = {
+                  hasVoted: false,
+                  userVote: null,
+                  error: "Failed to fetch vote",
+                };
+                console.log(
+                  `Failed to fetch vote from active network ${activeNetwork}`
+                );
+              }
+
+              // Update network breakdown for active network
+              setNetworkBreakdown((prev) =>
+                prev.map((network) =>
+                  network.networkId === activeNetwork
+                    ? {
+                        ...network,
+                        hasVoted:
+                          networkVotes[activeNetwork]?.hasVoted || false,
+                        userVote: networkVotes[activeNetwork]?.userVote || null,
+                        error: networkVotes[activeNetwork]?.error,
+                      }
+                    : network
+                )
+              );
+            }
+          }
+        } catch (error) {
+          console.error(
+            `Error fetching user vote from active network ${activeNetwork}:`,
+            error
+          );
+          networkVotes[activeNetwork] = {
+            hasVoted: false,
+            userVote: null,
+            error: error instanceof Error ? error.message : "Unknown error",
+          };
+
+          // Update network breakdown with error for active network
+          setNetworkBreakdown((prev) =>
+            prev.map((network) =>
+              network.networkId === activeNetwork
+                ? {
+                    ...network,
+                    hasVoted: false,
+                    userVote: null,
+                    error: networkVotes[activeNetwork]?.error,
+                  }
+                : network
+            )
+          );
+        }
+      }
+
+      // Then fetch from other enabled networks as fallback
+      for (const networkId of enabledNetworks) {
+        if (networkId === activeNetwork) continue; // Skip active network, already processed
+
+        try {
           let networkAlgod;
           if (networkId === NetworkId.LOCALNET) {
             networkAlgod = new algosdk.Algodv2(
@@ -870,7 +1036,6 @@ const ProposalDetail = () => {
               443
             );
           } else {
-            // Skip networks without governance contracts
             continue;
           }
 
@@ -897,42 +1062,64 @@ const ProposalDetail = () => {
           );
           ci.setEnableRawBytes(true);
 
-          console.log(`Fetching user vote from network ${networkId}`);
+          console.log(`Fetching user vote from fallback network ${networkId}`);
           const getVoteR = await ci.get_vote(
             proposalNodeBytes,
             activeAccount?.address ||
               "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
           );
-          console.log(`getVoteR from ${networkId}:`, getVoteR);
+          console.log(`getVoteR from fallback network ${networkId}:`, getVoteR);
 
           if (getVoteR.success && getVoteR.returnValue !== undefined) {
             const voteValue = Number(getVoteR.returnValue);
             if (voteValue === 0) {
-              userVoteFromAnyNetwork = false; // Against
-              hasVotedOnAnyNetwork = true;
-              console.log(`User voted AGAINST on ${networkId}`);
+              networkVotes[networkId] = { hasVoted: true, userVote: false };
+              console.log(
+                `User voted AGAINST on fallback network ${networkId}`
+              );
             } else if (voteValue === 1) {
-              userVoteFromAnyNetwork = true; // For
-              hasVotedOnAnyNetwork = true;
-              console.log(`User voted FOR on ${networkId}`);
+              networkVotes[networkId] = { hasVoted: true, userVote: true };
+              console.log(`User voted FOR on fallback network ${networkId}`);
+            } else {
+              networkVotes[networkId] = { hasVoted: false, userVote: null };
+              console.log(`No vote found on fallback network ${networkId}`);
             }
+          } else {
+            networkVotes[networkId] = {
+              hasVoted: false,
+              userVote: null,
+              error: "Failed to fetch vote",
+            };
+            console.log(
+              `Failed to fetch vote from fallback network ${networkId}`
+            );
           }
 
-          // Update network breakdown with user vote data
+          // Update network breakdown for this network
           setNetworkBreakdown((prev) =>
             prev.map((network) =>
               network.networkId === networkId
                 ? {
                     ...network,
-                    hasVoted: hasVotedOnAnyNetwork,
-                    userVote: userVoteFromAnyNetwork,
+                    hasVoted: networkVotes[networkId]?.hasVoted || false,
+                    userVote: networkVotes[networkId]?.userVote || null,
+                    error: networkVotes[networkId]?.error,
                   }
                 : network
             )
           );
         } catch (error) {
-          console.error(`Error fetching user vote from ${networkId}:`, error);
-          // Update network breakdown with error for user vote
+          console.error(
+            `Error fetching user vote from fallback network ${networkId}:`,
+            error
+          );
+          networkVotes[networkId] = {
+            hasVoted: false,
+            userVote: null,
+            error: error instanceof Error ? error.message : "Unknown error",
+          };
+
+          // Update network breakdown with error for this network
           setNetworkBreakdown((prev) =>
             prev.map((network) =>
               network.networkId === networkId
@@ -940,9 +1127,7 @@ const ProposalDetail = () => {
                     ...network,
                     hasVoted: false,
                     userVote: null,
-                    error: network.error
-                      ? `${network.error}; User vote fetch failed`
-                      : "User vote fetch failed",
+                    error: networkVotes[networkId]?.error,
                   }
                 : network
             )
@@ -950,12 +1135,79 @@ const ProposalDetail = () => {
         }
       }
 
-      setUserVote(userVoteFromAnyNetwork);
-      setHasVoted(hasVotedOnAnyNetwork);
+      // Determine final user vote state (prioritize active network)
+      let finalHasVoted = false;
+      let finalUserVote: boolean | null = null;
+
+      if (activeNetwork && networkVotes[activeNetwork]) {
+        // Use active network result if available
+        finalHasVoted = networkVotes[activeNetwork].hasVoted;
+        finalUserVote = networkVotes[activeNetwork].userVote;
+        console.log(`Using vote from active network ${activeNetwork}:`, {
+          hasVoted: finalHasVoted,
+          userVote: finalUserVote,
+        });
+      } else {
+        // Fallback to any network that has a vote
+        for (const [networkId, voteData] of Object.entries(networkVotes)) {
+          if (voteData.hasVoted) {
+            finalHasVoted = true;
+            finalUserVote = voteData.userVote;
+            console.log(`Using vote from fallback network ${networkId}:`, {
+              hasVoted: finalHasVoted,
+              userVote: finalUserVote,
+            });
+            break;
+          }
+        }
+      }
+
+      console.log("Final user vote state:", {
+        finalHasVoted,
+        finalUserVote,
+        networkVotes,
+      });
+
+      setUserVote(finalUserVote);
+      setHasVoted(finalHasVoted);
+
+      // Also update the proposal object to keep it in sync
+      if (proposal) {
+        setProposal((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            hasVoted: finalHasVoted,
+            userVote: finalUserVote,
+          };
+        });
+      }
+
+      // If no vote found and this is a retry, try again after a delay
+      if (!finalHasVoted && retryCount < 2) {
+        console.log(
+          `No vote found, retrying in ${(retryCount + 1) * 2000}ms...`
+        );
+        setTimeout(() => {
+          fetchUserVote(retryCount + 1);
+        }, (retryCount + 1) * 2000);
+      }
     } catch (error) {
       console.error("Error fetching user vote:", error);
       setUserVote(null);
       setHasVoted(false);
+
+      // Retry on error if we haven't exceeded retry limit
+      if (retryCount < 2) {
+        console.log(
+          `Error occurred, retrying in ${(retryCount + 1) * 2000}ms...`
+        );
+        setTimeout(() => {
+          fetchUserVote(retryCount + 1);
+        }, (retryCount + 1) * 2000);
+      }
+    } finally {
+      setIsUserVoteLoading(false);
     }
   };
 
@@ -1235,6 +1487,8 @@ const ProposalDetail = () => {
       let hasVoted = false;
       let userVote: boolean | null = null;
       const networkBreakdownData: NetworkBreakdown[] = [];
+      const networkProposalsData: { [networkId: string]: UIProposal | null } =
+        {};
 
       console.log("networkBreakdownData", networkBreakdownData);
       console.log("Enabled networks:", enabledNetworks);
@@ -1258,14 +1512,14 @@ const ProposalDetail = () => {
           yesPower: 0,
           noPower: 0,
           quorum: 0,
-          status: "unknown",
+          status: "pending", // Default to pending for new proposals
           canVote: false,
-          canActivate: false,
+          canActivate: true, // Can activate pending proposals
           canExecute: false,
           hasVoted: false,
           userVote: null,
           userVotingPower: 0,
-          error: "No governance contract deployed",
+          error: null, // No error initially
         });
       }
 
@@ -1411,59 +1665,65 @@ const ProposalDetail = () => {
             };
           }
 
+          // Create individual network proposal
+          const networkProposal: UIProposal = {
+            id: id,
+            index: parsedProposal.proposalIndex.toString(),
+            title: parsedProposal.proposalTitle,
+            description: parsedProposal.proposalDescription,
+            status:
+              PROPOSAL_STATUS[
+                Number(
+                  parsedProposal.proposalStatus
+                ) as keyof typeof PROPOSAL_STATUS
+              ] || "unknown",
+            category:
+              PROPOSAL_CATEGORIES[
+                Number(
+                  parsedProposal.proposalCategoryId
+                ) as keyof typeof PROPOSAL_CATEGORIES
+              ] || "General",
+            createdBy: parsedProposal.proposer,
+            // Contract timestamps are in UTC seconds, convert to milliseconds and create ISO string
+            createdAt: new Date(
+              Number(parsedProposal.createdAtTimestamp) * 1000
+            ).toISOString(),
+            totalPower: networkTotalPower,
+            yesPower: networkYesPower,
+            noPower: networkNoPower,
+            // Contract timestamps are in UTC seconds, convert to milliseconds and create ISO string
+            votingStarts: new Date(
+              Number(parsedProposal.votingStartTimestamp) * 1000
+            ).toISOString(),
+            votingEnds: new Date(
+              Number(parsedProposal.votingEndTimestamp) * 1000
+            ).toISOString(),
+            currentQuorum: networkTotalPower,
+            activationPower: globalState?.totalVoterCount
+              ? globalState.totalVoterCount.asNumber()
+              : Number(parsedProposal.proposalActivationPower),
+            executionDelay: 24,
+            canVote: Number(parsedProposal.proposalStatus) === 1, // Can vote if status is active
+            hasVoted: false, // Will be updated by fetchUserVote
+            userVote: null, // Will be updated by fetchUserVote
+            canActivate: Number(parsedProposal.proposalStatus) === 0, // Can activate if status is pending
+            canExecute: Number(parsedProposal.proposalStatus) === 5, // Can execute if status is queued
+            canVeto: false,
+            votingActivated:
+              parsedProposal.proposalActivationTimestamp !== BigInt(0)
+                ? new Date(
+                    Number(parsedProposal.proposalActivationTimestamp) * 1000
+                  ).toISOString()
+                : null,
+            quorum: networkQuorum,
+          };
+
+          // Store individual network proposal
+          networkProposalsData[networkId] = networkProposal;
+
           // Use the first valid proposal as the base for non-aggregated fields
           if (!aggregatedProposal) {
-            aggregatedProposal = {
-              id: id,
-              index: parsedProposal.proposalIndex.toString(),
-              title: parsedProposal.proposalTitle,
-              description: parsedProposal.proposalDescription,
-              status:
-                PROPOSAL_STATUS[
-                  Number(
-                    parsedProposal.proposalStatus
-                  ) as keyof typeof PROPOSAL_STATUS
-                ] || "unknown",
-              category:
-                PROPOSAL_CATEGORIES[
-                  Number(
-                    parsedProposal.proposalCategoryId
-                  ) as keyof typeof PROPOSAL_CATEGORIES
-                ] || "General",
-              createdBy: parsedProposal.proposer,
-              // Contract timestamps are in UTC seconds, convert to milliseconds and create ISO string
-              createdAt: new Date(
-                Number(parsedProposal.createdAtTimestamp) * 1000
-              ).toISOString(),
-              totalPower: networkTotalPower,
-              yesPower: networkYesPower,
-              noPower: networkNoPower,
-              // Contract timestamps are in UTC seconds, convert to milliseconds and create ISO string
-              votingStarts: new Date(
-                Number(parsedProposal.votingStartTimestamp) * 1000
-              ).toISOString(),
-              votingEnds: new Date(
-                Number(parsedProposal.votingEndTimestamp) * 1000
-              ).toISOString(),
-              currentQuorum: networkTotalPower,
-              activationPower: globalState?.totalVoterCount
-                ? globalState.totalVoterCount.asNumber()
-                : Number(parsedProposal.proposalActivationPower),
-              executionDelay: 24,
-              canVote: Number(parsedProposal.proposalStatus) === 1, // Can vote if status is active
-              hasVoted: false, // Will be updated by fetchUserVote
-              userVote: null, // Will be updated by fetchUserVote
-              canActivate: Number(parsedProposal.proposalStatus) === 0, // Can activate if status is pending
-              canExecute: Number(parsedProposal.proposalStatus) === 5, // Can execute if status is queued
-              canVeto: false,
-              votingActivated:
-                parsedProposal.proposalActivationTimestamp !== BigInt(0)
-                  ? new Date(
-                      Number(parsedProposal.proposalActivationTimestamp) * 1000
-                    ).toISOString()
-                  : null,
-              quorum: networkQuorum,
-            };
+            aggregatedProposal = { ...networkProposal };
           }
 
           // Update aggregated capabilities
@@ -1527,6 +1787,7 @@ const ProposalDetail = () => {
 
       setProposal(aggregatedProposal);
       setNetworkBreakdown(networkBreakdownData);
+      setNetworkProposals(networkProposalsData);
 
       if (isRefresh) {
         toast({
@@ -1551,24 +1812,188 @@ const ProposalDetail = () => {
 
   // Fetch proposal data, user voting power, and user vote
   useEffect(() => {
-    fetchProposal();
-    fetchUserVotingPower();
-    fetchUserVote();
-    // eslint-disable-next-line
+    const initializeData = async () => {
+      // First fetch proposal data
+      await fetchProposal();
+      // Then fetch user voting power
+      await fetchUserVotingPower();
+      // Finally fetch user vote data
+      await fetchUserVote();
+    };
+
+    initializeData();
   }, [id, algodClient, activeAccount, mockMode, networkSettings]);
+
+  // Function to manually refresh user vote data
+  const refreshUserVoteData = async () => {
+    console.log("Manual refresh of user vote data requested");
+    try {
+      setLastUserVoteRefresh(new Date());
+      await fetchUserVote(0); // Start fresh, no retry count
+      toast({
+        title: "User Vote Data Refreshed",
+        description: "User vote information has been updated",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Error refreshing user vote data:", error);
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to refresh user vote data. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to force sync local state with blockchain data
+  const forceSyncUserVoteState = async () => {
+    console.log("Force syncing user vote state...");
+    try {
+      // Clear local state first
+      setUserVote(null);
+      setHasVoted(false);
+
+      // Wait a moment for state to clear
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Fetch fresh data from blockchain
+      await fetchUserVote(0);
+
+      toast({
+        title: "State Synced",
+        description: "Local state has been synchronized with blockchain data",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Error force syncing state:", error);
+      toast({
+        title: "Sync Failed",
+        description: "Failed to sync state. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // State to track last refresh time
+  const [lastUserVoteRefresh, setLastUserVoteRefresh] = useState<Date | null>(
+    new Date()
+  );
+
+  // Check if user vote data is stale (older than 5 minutes)
+  const isUserVoteDataStale = useMemo(() => {
+    if (!lastUserVoteRefresh) return true;
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    return lastUserVoteRefresh < fiveMinutesAgo;
+  }, [lastUserVoteRefresh]);
+
+  // Check if local state is out of sync with proposal state
+  const isStateOutOfSync = useMemo(() => {
+    if (!proposal || isUserVoteLoading) return false;
+    return proposal.hasVoted !== hasVoted || proposal.userVote !== userVote;
+  }, [proposal, hasVoted, userVote, isUserVoteLoading]);
+
+  // Function to refresh a specific network's proposal
+  const refreshNetworkProposal = async (networkId: NetworkId) => {
+    if (!id || !networkProposals[networkId]) return;
+
+    try {
+      // Re-fetch the specific network's proposal
+      const proposalNodeBytes = hexToUint8Array(id);
+
+      // Create algod client for this network
+      let networkAlgod;
+      if (networkId === NetworkId.LOCALNET) {
+        networkAlgod = new algosdk.Algodv2(
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "http://10.0.0.31",
+          4001
+        );
+      } else if (networkId === NetworkId.TESTNET) {
+        networkAlgod = new algosdk.Algodv2(
+          "",
+          "https://testnet-api.4160.nodely.dev",
+          443
+        );
+      } else {
+        return; // Skip unsupported networks
+      }
+
+      const governanceAppId = getGovernanceAppId(networkId);
+      if (governanceAppId === 0) return;
+
+      const ci = new CONTRACT(
+        governanceAppId,
+        networkAlgod,
+        undefined,
+        {
+          name: "Governance",
+          description: "Governance",
+          methods: PowGovernanceAppSpec.contract.methods,
+          events: [],
+        },
+        {
+          addr: "G3MSA75OZEJTCCENOJDLDJK7UD7E2K5DNC7FVHCNOV7E3I4DTXTOWDUIFQ",
+          sk: new Uint8Array(),
+        }
+      );
+      ci.setEnableRawBytes(true);
+
+      const getProposalR = await ci.get_proposal(proposalNodeBytes);
+      if (getProposalR.success && getProposalR.returnValue) {
+        const proposalData = getProposalR.returnValue;
+        const parsedProposal: Proposal = decodeProposal(proposalData);
+
+        // Update the specific network's proposal
+        const updatedNetworkProposal = { ...networkProposals[networkId] };
+        if (updatedNetworkProposal) {
+          updatedNetworkProposal.totalPower =
+            Number(parsedProposal.proposalTotalPower) / 1e6;
+          updatedNetworkProposal.yesPower =
+            Number(parsedProposal.proposalYesPower) / 1e6;
+          updatedNetworkProposal.noPower =
+            updatedNetworkProposal.totalPower - updatedNetworkProposal.yesPower;
+          updatedNetworkProposal.status =
+            PROPOSAL_STATUS[
+              Number(
+                parsedProposal.proposalStatus
+              ) as keyof typeof PROPOSAL_STATUS
+            ] || "unknown";
+
+          setNetworkProposals((prev) => ({
+            ...prev,
+            [networkId]: updatedNetworkProposal,
+          }));
+        }
+      }
+    } catch (error) {
+      console.error(
+        `Error refreshing network proposal for ${networkId}:`,
+        error
+      );
+    }
+  };
 
   // Update proposal object when user vote data changes
   useEffect(() => {
     if (proposal) {
+      // Initialize local state with proposal values if they exist
+      if (proposal.hasVoted !== undefined && hasVoted === false) {
+        setHasVoted(proposal.hasVoted);
+      }
+      if (proposal.userVote !== undefined && userVote === null) {
+        setUserVote(proposal.userVote);
+      }
+
+      // Then sync the proposal state
       setProposal((prevProposal) => ({
         ...prevProposal,
         hasVoted: hasVoted,
         userVote: userVote,
       }));
     }
-  }, [hasVoted, userVote]);
+  }, [proposal, hasVoted, userVote]);
 
-  // Countdown timer effect
+  // Countdown timer effect with automatic proposal resolution
   useEffect(() => {
     if (!proposal || proposal.status !== "active") return;
 
@@ -1580,6 +2005,9 @@ const ProposalDetail = () => {
       if (timeLeft <= 0) {
         setIsVotingEnded(true);
         setTimeRemaining({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        
+        // Automatically resolve proposal when voting period ends
+        resolveProposalAutomatically();
         return;
       }
 
@@ -1602,6 +2030,168 @@ const ProposalDetail = () => {
 
     return () => clearInterval(interval);
   }, [proposal]);
+
+  // Function to automatically resolve proposal when voting period ends
+  // Resolution Logic:
+  // 1. EXPIRED: If no votes were cast (totalPower === 0)
+  // 2. SUCCEEDED: If quorum is met AND majority (>50%) voted yes
+  // 3. DEFEATED: If quorum is not met OR majority voted no
+  const resolveProposalAutomatically = async () => {
+    if (!proposal || proposal.status !== "active") return;
+
+    try {
+      console.log("Voting period ended - automatically resolving proposal...");
+      
+      // Determine proposal outcome based on voting results
+      let newStatus: string;
+      let resolutionReason: string;
+
+      if (proposal.totalPower === 0) {
+        // No votes cast - proposal expires
+        newStatus = "expired";
+        resolutionReason = "Proposal expired due to no votes cast";
+        console.log("Proposal resolved as EXPIRED - no votes cast");
+      } else if (proposal.currentQuorum >= proposal.quorum) {
+        // Quorum met - check for majority
+        const votePercentage = (proposal.yesPower / proposal.totalPower) * 100;
+        if (votePercentage > 50) {
+          // Yes majority - proposal succeeds
+          newStatus = "succeeded";
+          resolutionReason = `Proposal succeeded with ${votePercentage.toFixed(1)}% yes votes and quorum met`;
+          console.log("Proposal resolved as SUCCEEDED - quorum met and yes majority");
+        } else {
+          // No majority - proposal defeated
+          newStatus = "defeated";
+          resolutionReason = `Proposal defeated with ${votePercentage.toFixed(1)}% yes votes (quorum met but no majority)`;
+          console.log("Proposal resolved as DEFEATED - quorum met but no yes majority");
+        }
+      } else {
+        // Quorum not met - proposal defeated
+        newStatus = "defeated";
+        resolutionReason = `Proposal defeated - quorum not met (${proposal.currentQuorum.toLocaleString()}/${proposal.quorum.toLocaleString()})`;
+        console.log("Proposal resolved as DEFEATED - quorum not met");
+      }
+
+      // Update local proposal state
+      setProposal(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          status: newStatus,
+          // Add resolution metadata
+          resolutionReason,
+          resolvedAt: new Date().toISOString(),
+        };
+      });
+
+      // Update network breakdown to reflect new status
+      setNetworkBreakdown(prev => 
+        prev.map(network => ({
+          ...network,
+          status: newStatus,
+        }))
+      );
+
+      // Show resolution notification
+      toast({
+        title: `Proposal ${newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}`,
+        description: resolutionReason,
+        variant: newStatus === "succeeded" ? "default" : "destructive",
+      });
+
+      // If this is a real proposal (not mock), update on blockchain
+      if (!mockMode && activeNetwork && activeAccount) {
+        try {
+          await updateProposalStatusOnBlockchain(newStatus);
+        } catch (error) {
+          console.error("Failed to update proposal status on blockchain:", error);
+          toast({
+            title: "Warning",
+            description: "Proposal resolved locally but blockchain update failed. Please refresh.",
+            variant: "destructive",
+          });
+        }
+      }
+
+    } catch (error) {
+      console.error("Error automatically resolving proposal:", error);
+      toast({
+        title: "Error",
+        description: "Failed to automatically resolve proposal. Please refresh.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to update proposal status on blockchain
+  const updateProposalStatusOnBlockchain = async (newStatus: string) => {
+    if (!id || !activeNetwork || !activeAccount) return;
+
+    try {
+      console.log(`Updating proposal status to ${newStatus} on blockchain...`);
+      
+      // Convert hex string back to Uint8Array for contract call
+      const proposalNodeBytes = hexToUint8Array(id);
+
+      const algod = activeNetwork === NetworkId.LOCALNET
+        ? new algosdk.Algodv2(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "http://10.0.0.31",
+            4001
+          )
+        : algodClient;
+
+      const ci = new CONTRACT(
+        getGovernanceAppId(activeNetwork),
+        algod,
+        undefined,
+        {
+          name: "Governance",
+          description: "Governance",
+          methods: PowGovernanceAppSpec.contract.methods,
+          events: [],
+        },
+        { addr: activeAccount.address, sk: new Uint8Array() }
+      );
+      ci.setEnableRawBytes(true);
+
+      // Call the appropriate method based on new status
+      let result;
+      if (newStatus === "expired") {
+        // For expired proposals, we might need to call a specific method
+        // or just update the local state since they're automatically expired
+        console.log("Proposal expired - no blockchain action needed");
+        return;
+      } else if (newStatus === "succeeded") {
+        // For succeeded proposals, we might need to call a success method
+        console.log("Proposal succeeded - updating blockchain status");
+        // Add blockchain call here if needed
+      } else if (newStatus === "defeated") {
+        // For defeated proposals, we might need to call a defeat method
+        console.log("Proposal defeated - updating blockchain status");
+        // Add blockchain call here if needed
+      }
+
+      console.log("Proposal status updated on blockchain successfully");
+      
+    } catch (error) {
+      console.error("Error updating proposal status on blockchain:", error);
+      throw error;
+    }
+  };
+
+  // Initialize state with proposal values when proposal changes
+  useEffect(() => {
+    if (proposal && !isUserVoteLoading) {
+      // Only update local state if it hasn't been set yet
+      if (hasVoted === false && proposal.hasVoted !== undefined) {
+        setHasVoted(proposal.hasVoted);
+      }
+      if (userVote === null && proposal.userVote !== undefined) {
+        setUserVote(proposal.userVote);
+      }
+    }
+  }, [proposal, isUserVoteLoading]);
 
   // Show loading state
   if (isLoading) {
@@ -1713,10 +2303,107 @@ const ProposalDetail = () => {
         ) as any
       );
       await algod.sendRawTransaction(stxns as Uint8Array[]).do();
+
+      // Immediately update local state to reflect the vote
+      console.log("Vote successful - updating local state:", {
+        selectedVote,
+        userVotingPower,
+        activeNetwork,
+        proposalId: id,
+      });
+
+      setUserVote(selectedVote);
+      setHasVoted(true);
+      setLastUserVoteRefresh(new Date()); // Mark as fresh
+
+      // Update the proposal state to reflect the new vote
+      if (proposal) {
+        setProposal((prev) => {
+          if (!prev) return prev;
+          const newYesPower = selectedVote
+            ? prev.yesPower + userVotingPower
+            : prev.yesPower;
+          const newNoPower = selectedVote
+            ? prev.noPower
+            : prev.noPower + userVotingPower;
+          const newTotalPower = prev.totalPower + userVotingPower;
+
+          console.log("Updating proposal state:", {
+            oldYesPower: prev.yesPower,
+            newYesPower,
+            oldNoPower: prev.noPower,
+            newNoPower,
+            oldTotalPower: prev.totalPower,
+            newTotalPower,
+          });
+
+          return {
+            ...prev,
+            yesPower: newYesPower,
+            noPower: newNoPower,
+            totalPower: newTotalPower,
+            hasVoted: true,
+            userVote: selectedVote,
+          };
+        });
+      }
+
+      // Update network breakdown for the active network to ensure consistency
+      setNetworkBreakdown((prev) =>
+        prev.map((network) =>
+          network.networkId === activeNetwork
+            ? {
+                ...network,
+                hasVoted: true,
+                userVote: selectedVote,
+                yesPower:
+                  network.yesPower + (selectedVote ? userVotingPower : 0),
+                noPower: network.noPower + (selectedVote ? 0 : userVotingPower),
+                totalPower: network.totalPower + userVotingPower,
+              }
+            : network
+        )
+      );
+
+      // Show immediate feedback
+      toast({
+        title: "Vote Recorded!",
+        description: `Your ${
+          selectedVote ? "FOR" : "AGAINST"
+        } vote has been recorded. Refreshing data...`,
+        variant: "default",
+      });
+
       setVoteDialogOpen(false);
       setVotingSuccessDialogOpen(true);
-      await fetchProposal(true);
-      await fetchUserVote(); // Refresh user vote data
+
+      console.log("Local state updated, waiting before blockchain refresh...");
+
+      // Refresh data from the blockchain to ensure consistency
+      setTimeout(async () => {
+        try {
+          console.log("Starting blockchain data refresh...");
+          await fetchProposal(true);
+          await fetchUserVote();
+
+          console.log("Blockchain data refresh completed");
+
+          // Show success toast after refresh
+          toast({
+            title: "Data Updated",
+            description: "Proposal data has been refreshed with your vote",
+            variant: "default",
+          });
+        } catch (error) {
+          console.error("Error refreshing data after vote:", error);
+          toast({
+            title: "Warning",
+            description:
+              "Vote recorded but data refresh failed. Please refresh manually.",
+            variant: "destructive",
+          });
+        }
+      }, 1000); // Small delay to ensure transaction is processed
     } catch (error) {
       console.error("Vote failed:", error);
     } finally {
@@ -1820,6 +2507,94 @@ const ProposalDetail = () => {
       });
     } finally {
       setIsActivating(false);
+    }
+  };
+
+  const handleFinalize = async () => {
+    if (!id || !activeNetwork || !activeAccount) {
+      toast({
+        title: "Error",
+        description: "Please connect your wallet to finalize proposals",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsFinalizing(true);
+    try {
+      // Convert hex string back to Uint8Array for contract call
+      const proposalNodeBytes = hexToUint8Array(id);
+
+      const algod =
+        activeNetwork === NetworkId.LOCALNET
+          ? new algosdk.Algodv2(
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "http://10.0.0.31",
+              4001
+            )
+          : algodClient;
+
+      const ci = new CONTRACT(
+        getGovernanceAppId(activeNetwork),
+        algod,
+        undefined,
+        {
+          name: "Governance",
+          description: "Governance",
+          methods: [...PowGovernanceAppSpec.contract.methods],
+          events: [],
+        },
+        { addr: activeAccount.address, sk: new Uint8Array() }
+      );
+      ci.setEnableRawBytes(true);
+
+      console.log("Finalizing proposal:", id);
+      console.log("proposalNodeBytes", proposalNodeBytes);
+
+      // output proposal status
+      const proposalStatusR = await ci.get_proposal(proposalNodeBytes);
+      console.log("proposalStatusR", proposalStatusR);
+
+      const finalizeProposalR = await ci.finalize_proposal(proposalNodeBytes);
+      console.log("finalizeProposalR", finalizeProposalR);
+
+      if (!finalizeProposalR.success) {
+        throw new Error("Failed to finalize proposal");
+      }
+
+      const stxns = await signTransactions(
+        finalizeProposalR.txns.map(
+          (txn: string) =>
+            new Uint8Array(
+              atob(txn)
+                .split("")
+                .map((char) => char.charCodeAt(0))
+            )
+        ) as any
+      );
+
+      await algod.sendRawTransaction(stxns as Uint8Array[]).do();
+
+      toast({
+        title: "Success",
+        description: "Proposal finalized successfully",
+        variant: "default",
+      });
+
+      // Close the finalize modal
+      setFinalizeDialogOpen(false);
+
+      // Refresh proposal data to show updated status
+      await fetchProposal(true);
+    } catch (error) {
+      console.error("Finalization failed:", error);
+      toast({
+        title: "Error",
+        description: "Finalization failed. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFinalizing(false);
     }
   };
 
@@ -2009,7 +2784,12 @@ const ProposalDetail = () => {
         governanceAppId,
         networkAlgod,
         undefined,
-        abi.custom,
+        {
+          name: "Governance",
+          description: "Governance",
+          methods: PowGovernanceAppSpec.contract.methods,
+          events: [],
+        },
         {
           addr: activeAccount.address,
           sk: new Uint8Array(),
@@ -2246,6 +3026,75 @@ const ProposalDetail = () => {
         </div>
       )}
 
+      {/* User Vote Data Stale Warning */}
+      {isUserVoteDataStale && proposal && proposal.status === "active" && (
+        <div className="container mx-auto px-4 py-4">
+          <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center">
+                  <RefreshCw className="w-4 h-4 text-orange-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-orange-400 mb-1">
+                    User Vote Data May Be Outdated
+                  </h3>
+                  <p className="text-xs text-orange-300/80">
+                    Your voting information hasn't been refreshed recently. This
+                    might cause the UI to not reflect your latest votes.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshUserVoteData}
+                className="border-orange-500/30 text-orange-300 hover:bg-orange-500/10 text-xs"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Refresh Now
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* State Out of Sync Warning - Only show after initial load */}
+      {isStateOutOfSync &&
+        !isUserVoteLoading &&
+        proposal &&
+        proposal.status === "active" && (
+          <div className="container mx-auto px-4 py-4">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center">
+                    <AlertCircle className="w-4 h-4 text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-red-400 mb-1">
+                      State Out of Sync
+                    </h3>
+                    <p className="text-xs text-red-300/80">
+                      Local state doesn't match blockchain data. This can cause
+                      voting issues. Please sync your state.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={forceSyncUserVoteState}
+                  className="border-red-500/30 text-red-300 hover:bg-red-500/10 text-xs"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Sync Now
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
       <div className="container mx-auto px-4 sm:px-6 pb-16 space-y-6 sm:space-y-8">
         {/* Section Divider and Header */}
         <div className="flex items-center gap-2 sm:gap-4 my-6 sm:my-8">
@@ -2287,6 +3136,15 @@ const ProposalDetail = () => {
                       Your Vote: {proposal.userVote ? "FOR" : "AGAINST"}
                     </Badge>
                   )}
+                  {/* Show resolution info if proposal was automatically resolved */}
+                  {proposal.resolutionReason && proposal.resolvedAt && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs px-2 py-1 rounded-full font-semibold border-blue-500/30 text-blue-300"
+                    >
+                      Auto-Resolved
+                    </Badge>
+                  )}
                   <span className="text-xs sm:text-sm text-muted-foreground">
                     #{proposal.index}
                   </span>
@@ -2306,7 +3164,8 @@ const ProposalDetail = () => {
         {/* Enhanced Voting Call-to-Action for Users Who Haven't Voted */}
         {proposal.status === "active" &&
           !proposal.hasVoted &&
-          userVotingPower > 0 && (
+          userVotingPower > 0 &&
+          !isVotingEnded && (
             <Card className="bg-gradient-to-r from-green-500/10 via-blue-500/10 to-purple-500/10 border border-green-500/20 shadow-lg rounded-2xl sm:rounded-3xl animate-pulse">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
@@ -2572,6 +3431,145 @@ const ProposalDetail = () => {
                         </div>
                       </div>
                     )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+        {/* User Has Already Voted - Show Confirmation */}
+        {proposal.status === "active" &&
+          proposal.hasVoted &&
+          userVotingPower > 0 && (
+            <Card className="bg-gradient-to-r from-blue-500/10 via-green-500/10 to-purple-500/10 border border-blue-500/20 shadow-lg rounded-2xl sm:rounded-3xl">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-white text-lg sm:text-xl flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                    Your Vote Has Been Recorded!
+                  </CardTitle>
+                  <Badge className="bg-green-500/20 text-green-300 border-green-500/30 text-xs px-3 py-1 rounded-full">
+                    ✅ Vote Cast
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Vote Confirmation */}
+                <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-500/30 rounded-2xl p-4 text-center">
+                  <div className="flex items-center justify-center gap-3 mb-3">
+                    {proposal.userVote ? (
+                      <>
+                        <TrendingUp className="h-8 w-8 text-green-400" />
+                        <div>
+                          <div className="text-lg font-bold text-green-300">
+                            You Voted FOR
+                          </div>
+                          <div className="text-sm text-green-400/70">
+                            Supporting this proposal
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-8 w-8 text-red-400" />
+                        <div>
+                          <div className="text-lg font-bold text-red-300">
+                            You Voted AGAINST
+                          </div>
+                          <div className="text-sm text-red-400/70">
+                            Opposing this proposal
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="text-sm text-blue-300">
+                    Your {userVotingPower.toLocaleString()} power has been added
+                    to the {proposal.userVote ? "FOR" : "AGAINST"} votes
+                  </div>
+                </div>
+
+                {/* Current Status */}
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Info className="h-4 w-4 text-blue-400" />
+                      <span className="text-sm font-medium text-blue-300">
+                        Current Voting Status
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {proposal.totalPower.toLocaleString()} Total Votes
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div>
+                      <div className="text-lg font-bold text-green-300">
+                        {proposal.yesPower.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-green-400/70">FOR</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-red-300">
+                        {proposal.noPower.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-red-400/70">AGAINST</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 text-center">
+                    <div className="text-xs text-blue-400/70">
+                      {votePercentage.toFixed(1)}% FOR •{" "}
+                      {(100 - votePercentage).toFixed(1)}% AGAINST
+                    </div>
+                  </div>
+                </div>
+
+                {/* Next Steps */}
+                <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4">
+                  <div className="flex items-start gap-3">
+                    <Clock className="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-purple-300">
+                        What Happens Next?
+                      </div>
+                      <div className="text-xs text-purple-400/70 space-y-1">
+                        <div>
+                          • Voting continues until{" "}
+                          <strong>{formatDate(proposal.votingEnds)}</strong>
+                        </div>
+                        <div>• Results will be finalized after voting ends</div>
+                        <div>• You can check back to see the final outcome</div>
+                        <div>• Your vote cannot be changed</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Refresh Button */}
+                <div className="text-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      fetchProposal(true);
+                      refreshUserVoteData();
+                      toast({
+                        title: "Refreshing",
+                        description: "Updating voting data...",
+                        variant: "default",
+                      });
+                    }}
+                    disabled={isRefreshing}
+                    className="border-blue-500/30 text-blue-300 hover:bg-blue-500/10"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 mr-2 ${
+                        isRefreshing ? "animate-spin" : ""
+                      }`}
+                    />
+                    Refresh Voting Data
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -2885,217 +3883,437 @@ const ProposalDetail = () => {
                   <Globe className="h-5 w-5 text-blue-400" />
                   Network Breakdown
                 </CardTitle>
-                <Badge
-                  variant="outline"
-                  className="text-xs px-3 py-1 rounded-full border-blue-500/30 text-blue-300"
-                >
-                  {networkBreakdown.length} Networks
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {proposal.status === "pending" && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs px-2 py-1 rounded-full border-yellow-500/30 text-yellow-300"
+                    >
+                      {
+                        networkBreakdown.filter((n) => n.status === "pending")
+                          .length
+                      }{" "}
+                      Pending
+                    </Badge>
+                  )}
+                  <Badge
+                    variant="outline"
+                    className="text-xs px-3 py-1 rounded-full border-blue-500/30 text-blue-300"
+                  >
+                    {
+                      networkBreakdown.filter((network) => {
+                        // When voting has ended, only count networks that are activated (not pending)
+                        if (isVotingEnded) {
+                          return network.status !== "pending";
+                        }
+                        // Otherwise count all networks
+                        return true;
+                      }).length
+                    }{" "}
+                    Networks
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {networkBreakdown.map((network) => (
-                  <div
-                    key={network.networkId}
-                    className={`p-4 rounded-xl border ${
-                      network.error
-                        ? "border-red-500/30 bg-red-500/5"
-                        : "border-white/10 bg-white/5"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-3 h-3 rounded-full ${
-                            network.error
-                              ? "bg-red-500"
-                              : network.totalPower > 0
-                              ? "bg-green-500"
-                              : "bg-gray-500"
-                          }`}
-                        />
-                        <h3 className="font-semibold text-white">
-                          {network.networkName}
-                        </h3>
-                      </div>
-                      <Badge
-                        variant={getStatusVariant(network.status)}
-                        className="text-xs px-2 py-1 rounded-full"
-                      >
-                        {network.error
-                          ? "Error"
-                          : getStatusLabel(network.status)}
-                      </Badge>
-                    </div>
-
-                    {network.error ? (
-                      <div className="text-red-400 text-sm">
-                        {network.error}
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {/* Voting Statistics */}
-                        <div className="grid grid-cols-3 gap-2 text-center">
-                          <div>
-                            <div className="text-lg font-bold text-blue-300">
-                              {network.totalPower.toLocaleString()}
-                            </div>
-                            <div className="text-xs text-blue-400/70">
-                              Total
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-lg font-bold text-green-300">
-                              {network.yesPower.toLocaleString()}
-                            </div>
-                            <div className="text-xs text-green-400/70">For</div>
-                          </div>
-                          <div>
-                            <div className="text-lg font-bold text-red-300">
-                              {network.noPower.toLocaleString()}
-                            </div>
-                            <div className="text-xs text-red-400/70">
-                              Against
-                            </div>
-                          </div>
+                {networkBreakdown
+                  .filter((network) => {
+                    // When voting has ended, only show networks that are activated (not pending)
+                    if (isVotingEnded) {
+                      return network.status !== "pending";
+                    }
+                    // Otherwise show all networks
+                    return true;
+                  })
+                  .map((network) => (
+                    <div
+                      key={network.networkId}
+                      className={`p-4 rounded-xl border ${
+                        network.error
+                          ? "border-red-500/30 bg-red-500/5"
+                          : "border-white/10 bg-white/5"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`w-3 h-3 rounded-full ${
+                              network.error
+                                ? "bg-red-500"
+                                : network.status === "pending" &&
+                                  network.totalPower >= activationThreshold
+                                ? "bg-green-500 animate-pulse"
+                                : network.status === "pending" &&
+                                  network.totalPower > 0
+                                ? "bg-yellow-500"
+                                : network.status === "pending"
+                                ? "bg-gray-500"
+                                : network.totalPower > 0
+                                ? "bg-green-500"
+                                : "bg-gray-500"
+                            }`}
+                          />
+                          <h3 className="font-semibold text-white">
+                            {network.networkName}
+                          </h3>
+                          {network.status === "pending" &&
+                            network.totalPower >= activationThreshold && (
+                              <span className="text-xs bg-green-500/20 px-2 py-1 rounded-full text-green-300">
+                                Ready!
+                              </span>
+                            )}
                         </div>
+                        <Badge
+                          variant={getStatusVariant(network.status)}
+                          className="text-xs px-2 py-1 rounded-full"
+                        >
+                          {network.error
+                            ? "Error"
+                            : getStatusLabel(network.status)}
+                        </Badge>
+                      </div>
 
-                        {/* Progress Bar */}
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              Quorum Progress
-                            </span>
-                            <span className="font-medium text-blue-200">
-                              {network.totalPower.toLocaleString()} /{" "}
-                              {network.quorum.toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="relative h-2 bg-gray-700/50 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-blue-500/60 transition-all duration-300"
-                              style={{
-                                width: `${Math.min(
-                                  (network.totalPower / network.quorum) * 100,
-                                  100
-                                )}%`,
-                              }}
-                            />
-                            <div className="absolute inset-0 flex">
-                              <div
-                                className="h-full bg-green-500/60 transition-all duration-300"
-                                style={{
-                                  width: `${
-                                    (network.yesPower / network.quorum) * 100
-                                  }%`,
-                                }}
-                              />
-                              <div
-                                className="h-full bg-red-500/60 transition-all duration-300"
-                                style={{
-                                  width: `${
-                                    (network.noPower / network.quorum) * 100
-                                  }%`,
-                                }}
-                              />
+                      {network.error ? (
+                        <div className="text-red-400 text-sm">
+                          {network.error}
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {/* Voting Statistics */}
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div>
+                              <div className="text-lg font-bold text-blue-300">
+                                {network.totalPower.toLocaleString()}
+                              </div>
+                              <div className="text-xs text-blue-400/70">
+                                {network.status === "pending"
+                                  ? "Support"
+                                  : "Total"}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-lg font-bold text-green-300">
+                                {network.yesPower.toLocaleString()}
+                              </div>
+                              <div className="text-xs text-green-400/70">
+                                {network.status === "pending"
+                                  ? "Support"
+                                  : "For"}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-lg font-bold text-red-300">
+                                {network.noPower.toLocaleString()}
+                              </div>
+                              <div className="text-xs text-red-400/70">
+                                {network.status === "pending"
+                                  ? "Oppose"
+                                  : "Against"}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* User Information */}
-                        {activeAccount && (
-                          <div className="space-y-2 pt-2 border-t border-white/10">
+                          {/* Progress Bar */}
+                          <div className="space-y-1">
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-muted-foreground">
-                                Your Voting Power
+                                {network.status === "pending"
+                                  ? "Activation Progress"
+                                  : "Quorum Progress"}
                               </span>
                               <span className="font-medium text-blue-200">
-                                {network.userVotingPower.toLocaleString()}
+                                {network.status === "pending"
+                                  ? `${network.totalPower.toLocaleString()} / ${activationThreshold.toLocaleString()}`
+                                  : `${network.totalPower.toLocaleString()} / ${network.quorum.toLocaleString()}`}
                               </span>
                             </div>
-                            {network.hasVoted && (
-                              <div className="flex items-center gap-2 text-xs">
-                                <span className="text-muted-foreground">
-                                  Your Vote:
-                                </span>
-                                <Badge
-                                  variant={
-                                    network.userVote ? "default" : "secondary"
-                                  }
-                                  className={`text-xs px-2 py-1 rounded-full ${
-                                    network.userVote
-                                      ? "bg-green-500/20 text-green-300 border-green-500/30"
-                                      : "bg-red-500/20 text-red-300 border-red-500/30"
-                                  }`}
-                                >
-                                  {network.userVote ? "✅ For" : "❌ Against"}
-                                </Badge>
-                              </div>
-                            )}
-                            {network.canVote && !network.hasVoted && (
-                              <div className="text-xs text-yellow-400">
-                                ⚠️ You can vote on this network
-                              </div>
-                            )}
+                            <div className="relative h-2 bg-gray-700/50 rounded-full overflow-hidden">
+                              {network.status === "pending" ? (
+                                // Activation progress for pending proposals
+                                <div
+                                  className="h-full bg-yellow-500/60 transition-all duration-300"
+                                  style={{
+                                    width: `${Math.min(
+                                      (network.totalPower /
+                                        activationThreshold) *
+                                        100,
+                                      100
+                                    )}%`,
+                                  }}
+                                />
+                              ) : (
+                                // Quorum progress for active proposals
+                                <>
+                                  <div
+                                    className="h-full bg-blue-500/60 transition-all duration-300"
+                                    style={{
+                                      width: `${Math.min(
+                                        (network.totalPower / network.quorum) *
+                                          100,
+                                        100
+                                      )}%`,
+                                    }}
+                                  />
+                                  <div className="absolute inset-0 flex">
+                                    <div
+                                      className="h-full bg-green-500/60 transition-all duration-300"
+                                      style={{
+                                        width: `${
+                                          (network.yesPower / network.quorum) *
+                                          100
+                                        }%`,
+                                      }}
+                                    />
+                                    <div
+                                      className="h-full bg-red-500/60 transition-all duration-300"
+                                      style={{
+                                        width: `${
+                                          (network.noPower / network.quorum) *
+                                          100
+                                        }%`,
+                                      }}
+                                    />
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
-                        )}
 
-                        {/* Network Capabilities */}
-                        <div className="flex flex-wrap gap-1 pt-2 border-t border-white/10">
-                          {network.canVote && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs px-2 py-1 border-green-500/30 text-green-300"
-                            >
-                              Can Vote
-                            </Badge>
-                          )}
-                          {network.canActivate && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs px-2 py-1 border-blue-500/30 text-blue-300"
-                            >
-                              Can Activate
-                            </Badge>
-                          )}
-                          {network.canExecute && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs px-2 py-1 border-purple-500/30 text-purple-300"
-                            >
-                              Can Execute
-                            </Badge>
-                          )}
-                        </div>
-
-                        {/* Activate Button for Networks Without Proposal */}
-                        {network.quorum === 0 &&
-                          activeAccount &&
-                          activeNetwork === network.networkId && (
-                            <div className="pt-2 border-t border-white/10">
-                              <Button
-                                onClick={() =>
-                                  handleCreateProposalOnNetwork(
-                                    network.networkId
-                                  )
-                                }
-                                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-xs py-2 px-3 rounded-lg transition-all duration-200"
-                                size="sm"
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Create Proposal on {network.networkName}
-                              </Button>
-                              <p className="text-xs text-blue-400/70 mt-1 text-center">
-                                Create proposal on {network.networkName}{" "}
-                                (quorum: 0)
-                              </p>
+                          {/* User Information */}
+                          {activeAccount && !isVotingEnded && (
+                            <div className="space-y-2 pt-2 border-t border-white/10">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">
+                                  Your Voting Power
+                                </span>
+                                <span className="font-medium text-blue-200">
+                                  {network.userVotingPower.toLocaleString()}
+                                </span>
+                              </div>
+                              {network.status === "pending" ? (
+                                // Pending proposal - show activation info
+                                <div className="space-y-2">
+                                  {network.canActivate && (
+                                    <div className="text-xs text-blue-400">
+                                      ✅ You can activate this proposal
+                                    </div>
+                                  )}
+                                  {network.totalPower === 0 && (
+                                    <div className="text-xs text-yellow-400">
+                                      ⚠️ No support yet - be the first!
+                                    </div>
+                                  )}
+                                  {network.totalPower > 0 &&
+                                    network.totalPower <
+                                      activationThreshold && (
+                                      <div className="text-xs text-blue-400">
+                                        📈 Building support:{" "}
+                                        {(
+                                          (network.totalPower /
+                                            activationThreshold) *
+                                          100
+                                        ).toFixed(1)}
+                                        %
+                                      </div>
+                                    )}
+                                  {network.totalPower >=
+                                    activationThreshold && (
+                                    <div className="text-xs text-green-400">
+                                      🎉 Ready to activate!
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                // Active proposal - show voting info
+                                <>
+                                  {network.hasVoted && (
+                                    <div className="flex items-center gap-2 text-xs">
+                                      <span className="text-muted-foreground">
+                                        Your Vote:
+                                      </span>
+                                      <Badge
+                                        variant={
+                                          network.userVote
+                                            ? "default"
+                                            : "secondary"
+                                        }
+                                        className={`text-xs px-2 py-1 rounded-full ${
+                                          network.userVote
+                                            ? "bg-green-500/20 text-green-300 border-green-500/30"
+                                            : "bg-red-300 border-red-500/30"
+                                        }`}
+                                      >
+                                        {network.userVote
+                                          ? "✅ For"
+                                          : "❌ Against"}
+                                      </Badge>
+                                    </div>
+                                  )}
+                                  {network.canVote && !network.hasVoted && (
+                                    <div className="text-xs text-yellow-400">
+                                      ⚠️ You can vote on this network
+                                    </div>
+                                  )}
+                                </>
+                              )}
                             </div>
                           )}
-                      </div>
-                    )}
-                  </div>
-                ))}
+
+                          {/* Network Capabilities */}
+                          <div className="flex flex-wrap gap-1 pt-2 border-t border-white/10">
+                            {network.canVote && !isVotingEnded && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs px-2 py-1 border-green-500/30 text-green-300"
+                              >
+                                Can Vote
+                              </Badge>
+                            )}
+                            {network.canActivate && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs px-2 py-1 border-blue-500/30 text-blue-300"
+                              >
+                                Can Activate
+                              </Badge>
+                            )}
+                            {network.canExecute && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs px-2 py-1 border-purple-500/30 text-purple-300"
+                              >
+                                Can Execute
+                              </Badge>
+                            )}
+                            {network.status === "pending" && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs px-2 py-1 border-yellow-500/30 text-yellow-300"
+                              >
+                                Pending
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Activate Button for Networks Without Proposal */}
+                          {network.quorum === 0 &&
+                            activeAccount &&
+                            activeNetwork === network.networkId && (
+                              <div className="pt-2 border-t border-white/10">
+                                <Button
+                                  onClick={() =>
+                                    handleCreateProposalOnNetwork(
+                                      network.networkId
+                                    )
+                                  }
+                                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-xs py-2 px-3 rounded-lg transition-all duration-200"
+                                  size="sm"
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Create Proposal on {network.networkName}
+                                </Button>
+                                <p className="text-xs text-blue-400/70 mt-1 text-center">
+                                  Create proposal on {network.networkName}{" "}
+                                  (quorum: 0)
+                                </p>
+                              </div>
+                            )}
+
+                          {/* Activation Status for Pending Proposals */}
+                          {network.status === "pending" && activeAccount && (
+                            <div className="pt-2 border-t border-white/10">
+                              <div className="text-xs text-center mb-2">
+                                <span className="text-yellow-400 font-medium">
+                                  Activation Status
+                                </span>
+                                <div className="text-xs text-gray-400 mt-1">
+                                  {activeNetwork === network.networkId
+                                    ? "You can act on this network"
+                                    : "Switch to this network to act"}
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                {network.totalPower === 0 ? (
+                                  <div className="text-xs text-center text-yellow-400/70">
+                                    No support yet
+                                  </div>
+                                ) : network.totalPower < activationThreshold ? (
+                                  <div className="text-xs text-center text-blue-400/70">
+                                    {(
+                                      (network.totalPower /
+                                        activationThreshold) *
+                                      100
+                                    ).toFixed(1)}
+                                    % to activation
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-center text-green-400/70">
+                                    Ready to activate!
+                                  </div>
+                                )}
+
+                                {activeNetwork === network.networkId && (
+                                  <div className="space-y-2">
+                                    <Button
+                                      onClick={() => setSupportDialogOpen(true)}
+                                      disabled={
+                                        isActivating || userVotingPower === 0
+                                      }
+                                      className={`w-full text-xs py-2 px-3 rounded-lg transition-all duration-200 ${
+                                        userVotingPower === 0
+                                          ? "bg-gray-600 cursor-not-allowed"
+                                          : network.totalPower >=
+                                            activationThreshold
+                                          ? "bg-green-600 hover:bg-green-700"
+                                          : "bg-blue-600 hover:bg-blue-700"
+                                      }`}
+                                      size="sm"
+                                    >
+                                      {isActivating ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                          Activating...
+                                        </>
+                                      ) : userVotingPower === 0 ? (
+                                        <>
+                                          <XCircle className="h-3 w-3 mr-1" />
+                                          No Power
+                                        </>
+                                      ) : (
+                                        <>
+                                          <TrendingUp className="h-3 w-3 mr-1" />
+                                          {network.totalPower >=
+                                          activationThreshold
+                                            ? "Activate"
+                                            : "Support"}
+                                        </>
+                                      )}
+                                    </Button>
+
+                                    {/* Button explanation */}
+                                    <div className="text-xs text-center text-gray-400">
+                                      {network.totalPower >= activationThreshold
+                                        ? "Click to review and activate"
+                                        : "Click to review and support"}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Message for users not on this network */}
+                                {activeNetwork !== network.networkId && (
+                                  <div className="text-xs text-center text-gray-400 mt-2">
+                                    Switch to {network.networkName} to support
+                                    this proposal
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
               </div>
 
               {/* Summary */}
@@ -3107,18 +4325,44 @@ const ProposalDetail = () => {
                   </span>
                 </div>
                 <div className="text-xs text-blue-400/70 space-y-1">
-                  <p>
-                    • Total voting power is aggregated across all enabled
-                    networks
-                  </p>
-                  <p>
-                    • You can vote on any network where you have voting power
-                  </p>
-                  <p>
-                    • Proposal status and capabilities are determined by the
-                    most permissive network
-                  </p>
-                  <p>• Quorum requirements are summed across all networks</p>
+                  {proposal.status === "pending" ? (
+                    <>
+                      <p>
+                        • <strong>Pending proposals</strong> need activation
+                        support across networks
+                      </p>
+                      <p>
+                        • Activation power is aggregated from all enabled
+                        networks
+                      </p>
+                      <p>
+                        • You can support activation on any network where you
+                        have power
+                      </p>
+                      <p>
+                        • Once activation threshold is met, proposal becomes
+                        active for voting
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        • Total voting power is aggregated across all enabled
+                        networks
+                      </p>
+                      <p>
+                        • You can vote on any network where you have voting
+                        power
+                      </p>
+                      <p>
+                        • Proposal status and capabilities are determined by the
+                        most permissive network
+                      </p>
+                      <p>
+                        • Quorum requirements are summed across all networks
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -3342,6 +4586,30 @@ const ProposalDetail = () => {
                       ? "Voting Active"
                       : "Voting Ended"}
                   </Badge>
+
+                  {/* Refresh Button for Voting Data */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      fetchProposal(true);
+                      refreshUserVoteData();
+                      toast({
+                        title: "Refreshing",
+                        description: "Updating voting data...",
+                        variant: "default",
+                      });
+                    }}
+                    disabled={isRefreshing}
+                    className="h-7 px-2 text-xs border-blue-500/30 text-blue-300 hover:bg-blue-500/10"
+                  >
+                    <RefreshCw
+                      className={`h-3 w-3 mr-1 ${
+                        isRefreshing ? "animate-spin" : ""
+                      }`}
+                    />
+                    Refresh
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -3456,6 +4724,79 @@ const ProposalDetail = () => {
           </Card>
         )}
 
+        {/* Resolution Details - Show when proposal was automatically resolved */}
+        {proposal.resolutionReason && proposal.resolvedAt && (
+          <Card className="bg-white/5 border border-white/10 shadow-lg rounded-2xl sm:rounded-3xl">
+            <CardHeader>
+              <CardTitle className="text-white text-lg sm:text-xl flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-blue-400" />
+                Resolution Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4">
+                  <div className="flex items-start gap-3">
+                    <Info className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-blue-300">
+                        Automatic Resolution
+                      </div>
+                      <div className="text-xs text-blue-400/70">
+                        This proposal was automatically resolved when the voting period ended
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-white/5 rounded-xl p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Resolution Reason</div>
+                    <div className="text-sm text-white font-medium">{proposal.resolutionReason}</div>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Resolved At</div>
+                    <div className="text-sm text-white font-medium">{formatDate(proposal.resolvedAt)}</div>
+                  </div>
+                </div>
+
+                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-xs text-green-400/70">
+                      <strong>Final Status:</strong> {getStatusLabel(proposal.status)}
+                      {proposal.status === "expired" && " - No votes were cast during the voting period"}
+                      {proposal.status === "succeeded" && " - Quorum was met and majority voted in favor"}
+                      {proposal.status === "defeated" && " - Either quorum was not met or majority voted against"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Disclaimer about automatically resolved proposals */}
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-yellow-300">
+                        ⚠️ Important Notice
+                      </div>
+                      <div className="text-xs text-yellow-400/70">
+                        <strong>Automatically resolved proposals are subject to a queue where they can be rejected or executed at the discretion of protocol operators.</strong> This ensures security and compliance with protocol requirements before final implementation.
+                      </div>
+                      <div className="text-xs text-yellow-400/50 mt-1">
+                        • Successfully resolved proposals enter an execution queue
+                        • Protocol operators review proposals for security and compliance
+                        • Final execution may be delayed or rejected based on operator assessment
+                        • This process protects the protocol from potentially harmful proposals
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Timeline */}
         <Card className="bg-white/5 border border-white/10 shadow-lg rounded-2xl sm:rounded-3xl">
           <CardHeader>
@@ -3519,12 +4860,55 @@ const ProposalDetail = () => {
                   </div>
                 </div>
               )}
-              {proposal.status === "succeeded" && (
+              {/* Show resolution timeline item if proposal was resolved */}
+              {proposal.resolutionReason && proposal.resolvedAt && (
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-2 h-2 sm:w-3 sm:h-3 bg-purple-500 rounded-full mt-2 sm:mt-1.5 flex-shrink-0"></div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-white text-sm sm:text-base">
+                      Automatically Resolved
+                    </div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">
+                      {formatDate(proposal.resolvedAt)} - {proposal.resolutionReason}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Show succeeded status only if not already shown in resolution */}
+              {proposal.status === "succeeded" && !proposal.resolutionReason && (
                 <div className="flex items-start gap-3 sm:gap-4">
                   <div className="w-2 h-2 sm:w-3 sm:h-3 bg-purple-500 rounded-full mt-2 sm:mt-1.5 flex-shrink-0"></div>
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-white text-sm sm:text-base">
                       Succeeded
+                    </div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">
+                      {formatDate(proposal.votingEnds)}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Show defeated status only if not already shown in resolution */}
+              {proposal.status === "defeated" && !proposal.resolutionReason && (
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full mt-2 sm:mt-1.5 flex-shrink-0"></div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-white text-sm sm:text-base">
+                      Defeated
+                    </div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">
+                      {formatDate(proposal.votingEnds)}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Show expired status only if not already shown in resolution */}
+              {proposal.status === "expired" && !proposal.resolutionReason && (
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-2 h-2 sm:w-3 sm:h-3 bg-gray-500 rounded-full mt-2 sm:mt-1.5 flex-shrink-0"></div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-white text-sm sm:text-base">
+                      Expired
                     </div>
                     <div className="text-xs sm:text-sm text-muted-foreground">
                       {formatDate(proposal.votingEnds)}
@@ -3554,17 +4938,45 @@ const ProposalDetail = () => {
           </CardContent>
         </Card>
 
-        {/* Action Buttons */}
-        <Card className="bg-white/5 border border-white/10 shadow-lg rounded-2xl sm:rounded-3xl">
-          <CardHeader>
-            <CardTitle className="text-white text-lg sm:text-xl">
-              Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-2">
-              {proposal.status === "active" &&
-                !proposal.hasVoted &&
+        {/* Action Buttons - Only show if at least one action is available */}
+        {(() => {
+          // Check if any actions are available
+          const hasVoteAction = getNetworkProposal(activeNetwork)?.status === "active" &&
+            !getNetworkProposal(activeNetwork)?.hasVoted &&
+            userVotingPower > 0;
+          
+          const hasSupportAction = getNetworkProposal(activeNetwork)?.status === "pending" &&
+            (() => {
+              const connectedNetwork = networkBreakdown.find(
+                (n) => n.networkId === activeNetwork
+              );
+              return connectedNetwork &&
+                connectedNetwork.status === "pending" &&
+                connectedNetwork.canActivate;
+            })();
+          
+          const hasFinalizeAction = FEATURE_FLAGS.ENABLE_FINALIZE_ACTION &&
+            getNetworkProposal(activeNetwork)?.status === "active" &&
+            isVotingEnded;
+          
+          const hasExecuteAction = proposal.status === "succeeded" && proposal.canExecute;
+          
+          const hasAnyAction = hasVoteAction || hasSupportAction || hasFinalizeAction || hasExecuteAction;
+          
+          // Only render the Actions card if there's at least one action available
+          if (!hasAnyAction) return null;
+          
+          return (
+            <Card className="bg-white/5 border border-white/10 shadow-lg rounded-2xl sm:rounded-3xl">
+              <CardHeader>
+                <CardTitle className="text-white text-lg sm:text-xl">
+                  Actions
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-2">
+              {getNetworkProposal(activeNetwork)?.status === "active" &&
+                !getNetworkProposal(activeNetwork)?.hasVoted &&
                 userVotingPower > 0 && (
                   <>
                     <Button
@@ -3947,18 +5359,19 @@ const ProposalDetail = () => {
                     </Dialog>
                   </>
                 )}
-              {proposal.status === "active" && proposal.hasVoted && (
-                <Alert className="bg-blue-500/10 border-blue-500/20">
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertDescription className="text-xs sm:text-sm">
-                    You have already voted{" "}
-                    <span className="font-semibold">
-                      {proposal.userVote ? "FOR" : "AGAINST"}
-                    </span>{" "}
-                    this proposal.
-                  </AlertDescription>
-                </Alert>
-              )}
+              {getNetworkProposal(activeNetwork)?.status === "active" &&
+                getNetworkProposal(activeNetwork)?.hasVoted && (
+                  <Alert className="bg-blue-500/10 border-blue-500/20">
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs sm:text-sm">
+                      You have already voted{" "}
+                      <span className="font-semibold">
+                        {proposal.userVote ? "FOR" : "AGAINST"}
+                      </span>{" "}
+                      this proposal.
+                    </AlertDescription>
+                  </Alert>
+                )}
               {proposal.status === "active" &&
                 !proposal.hasVoted &&
                 userVotingPower === 0 && (
@@ -3970,325 +5383,529 @@ const ProposalDetail = () => {
                     </AlertDescription>
                   </Alert>
                 )}
-              {proposal.status === "pending" && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSupportDialogOpen(true)}
-                    disabled={isActivating}
-                    className="rounded-full w-full sm:w-auto"
-                  >
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Support
-                  </Button>
-                  {/* Support Modal */}
-                  <Dialog
-                    open={supportDialogOpen}
-                    onOpenChange={setSupportDialogOpen}
-                  >
-                    <DialogContent className="w-[95vw] max-w-md bg-gray-900/95 backdrop-blur-md border border-white/10 shadow-2xl !rounded-3xl sm:!rounded-3xl max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-                          <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
-                          Support Proposal
-                        </DialogTitle>
-                        <div className="text-muted-foreground text-xs sm:text-sm mt-1">
-                          {proposal.title}
-                        </div>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        {/* User Voting Power */}
-                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3 sm:p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-blue-400" />
-                              <span className="text-xs sm:text-sm font-medium text-blue-300">
-                                Your Power
-                              </span>
+              {getNetworkProposal(activeNetwork)?.status === "pending" &&
+                (() => {
+                  // Check if the connected network is pending and can be activated
+                  const connectedNetwork = networkBreakdown.find(
+                    (n) => n.networkId === activeNetwork
+                  );
+                  const canActivateOnConnectedNetwork =
+                    connectedNetwork &&
+                    connectedNetwork.status === "pending" &&
+                    connectedNetwork.canActivate;
+
+                  return canActivateOnConnectedNetwork ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => setSupportDialogOpen(true)}
+                        disabled={isActivating}
+                        className="rounded-full w-full sm:w-auto"
+                      >
+                        <TrendingUp className="h-4 w-4 mr-2" />
+                        Support
+                      </Button>
+                      {/* Support Modal */}
+                      <Dialog
+                        open={supportDialogOpen}
+                        onOpenChange={setSupportDialogOpen}
+                      >
+                        <DialogContent className="w-[95vw] max-w-md bg-gray-900/95 backdrop-blur-md border border-white/10 shadow-2xl !rounded-3xl sm:!rounded-3xl max-h-[90vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+                              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+                              Support Proposal
+                            </DialogTitle>
+                            <div className="text-muted-foreground text-xs sm:text-sm mt-1">
+                              {proposal.title}
                             </div>
-                            <span className="text-base sm:text-lg font-bold text-blue-200">
-                              {userVotingPower.toLocaleString()}
-                            </span>
-                          </div>
-                          <p className="text-xs text-blue-400/70">
-                            This represents your power in this proposal
-                          </p>
-                        </div>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            {/* User Voting Power */}
+                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3 sm:p-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-blue-400" />
+                                  <span className="text-xs sm:text-sm font-medium text-blue-300">
+                                    Your Power
+                                  </span>
+                                </div>
+                                <span className="text-base sm:text-lg font-bold text-blue-200">
+                                  {userVotingPower.toLocaleString()}
+                                </span>
+                              </div>
+                              <p className="text-xs text-blue-400/70">
+                                This represents your power in this proposal
+                              </p>
+                            </div>
 
-                        {/* Proposal Info */}
-                        <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-3 sm:p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-purple-400" />
-                            <span className="text-xs sm:text-sm font-medium text-purple-300">
-                              What happens when you support?
-                            </span>
-                          </div>
-                          <ul className="text-xs text-purple-400/70 space-y-1">
-                            <li>
-                              • Your power will be added to the activation total
-                            </li>
-                            <li>
-                              • If threshold is met, the proposal becomes active
-                            </li>
-                            <li>• Voting period will start immediately</li>
-                            <li>
-                              • All token holders can then vote on the proposal
-                            </li>
-                            <li>• This action cannot be undone</li>
-                          </ul>
-                        </div>
+                            {/* Proposal Info */}
+                            <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-3 sm:p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-purple-400" />
+                                <span className="text-xs sm:text-sm font-medium text-purple-300">
+                                  What happens when you support?
+                                </span>
+                              </div>
+                              <ul className="text-xs text-purple-400/70 space-y-1">
+                                <li>
+                                  • Your power will be added to the activation
+                                  total
+                                </li>
+                                <li>
+                                  • If threshold is met, the proposal becomes
+                                  active
+                                </li>
+                                <li>• Voting period will start immediately</li>
+                                <li>
+                                  • All token holders can then vote on the
+                                  proposal
+                                </li>
+                                <li>• This action cannot be undone</li>
+                              </ul>
+                            </div>
 
-                        {/* Current Status */}
-                        <div className="bg-gray-700/20 border border-gray-600/20 rounded-2xl p-3 sm:p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs sm:text-sm font-medium text-gray-300">
-                              Current Status
-                            </span>
-                            <Badge variant="secondary" className="text-xs">
-                              Pending
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-gray-400">
-                            This proposal is waiting for support to begin the
-                            voting process.
-                          </p>
-                        </div>
+                            {/* Current Status */}
+                            <div className="bg-gray-700/20 border border-gray-600/20 rounded-2xl p-3 sm:p-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs sm:text-sm font-medium text-gray-300">
+                                  Current Status
+                                </span>
+                                <Badge variant="secondary" className="text-xs">
+                                  Pending
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-gray-400">
+                                This proposal is waiting for support to begin
+                                the voting process.
+                              </p>
+                            </div>
 
-                        {/* Activation Power Progress */}
-                        <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-3 sm:p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs sm:text-sm font-medium text-green-300">
-                              Activation Progress
-                            </span>
-                            <span className="text-xs sm:text-sm font-bold text-green-200">
-                              {proposal.activationPower?.toLocaleString() || 0}{" "}
-                              / {activationThreshold.toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            {/* Current Progress Bar */}
-                            <div className="relative">
-                              <Progress
-                                value={Math.min(
-                                  ((proposal.activationPower || 0) /
-                                    activationThreshold) *
-                                    100,
-                                  100
-                                )}
-                                className="h-2 bg-gray-700/50"
-                              />
-                              {/* Simulation Overlay */}
+                            {/* Activation Power Progress */}
+                            <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-3 sm:p-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs sm:text-sm font-medium text-green-300">
+                                  Activation Progress
+                                </span>
+                                <span className="text-xs sm:text-sm font-bold text-green-200">
+                                  {proposal.activationPower?.toLocaleString() ||
+                                    0}{" "}
+                                  / {activationThreshold.toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="space-y-2">
+                                {/* Current Progress Bar */}
+                                <div className="relative">
+                                  <Progress
+                                    value={Math.min(
+                                      ((proposal.activationPower || 0) /
+                                        activationThreshold) *
+                                        100,
+                                      100
+                                    )}
+                                    className="h-2 bg-gray-700/50"
+                                  />
+                                  {/* Simulation Overlay */}
+                                  {userVotingPower > 0 && (
+                                    <div
+                                      className="absolute top-0 left-0 h-2 rounded-full bg-green-400/60 transition-all duration-300"
+                                      style={{
+                                        width: `${Math.min(
+                                          (((proposal.activationPower || 0) +
+                                            userVotingPower) /
+                                            activationThreshold) *
+                                            100,
+                                          100
+                                        )}%`,
+                                        opacity: 0.8,
+                                        zIndex: 2,
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                                <div className="flex justify-between text-xs text-green-400/70">
+                                  <span>
+                                    Current:{" "}
+                                    {proposal.activationPower?.toLocaleString() ||
+                                      0}
+                                  </span>
+                                  <span>
+                                    Required:{" "}
+                                    {activationThreshold.toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Simulation Details */}
                               {userVotingPower > 0 && (
-                                <div
-                                  className="absolute top-0 left-0 h-2 rounded-full bg-green-400/60 transition-all duration-300"
-                                  style={{
-                                    width: `${Math.min(
-                                      (((proposal.activationPower || 0) +
-                                        userVotingPower) /
-                                        activationThreshold) *
-                                        100,
-                                      100
-                                    )}%`,
-                                    opacity: 0.8,
-                                    zIndex: 2,
-                                  }}
-                                />
-                              )}
-                            </div>
-                            <div className="flex justify-between text-xs text-green-400/70">
-                              <span>
-                                Current:{" "}
-                                {proposal.activationPower?.toLocaleString() ||
-                                  0}
-                              </span>
-                              <span>
-                                Required: {activationThreshold.toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Simulation Details */}
-                          {userVotingPower > 0 && (
-                            <div className="mt-3 p-2 bg-green-500/5 border border-green-500/10 rounded-lg">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-medium text-green-300">
-                                  Your Contribution Simulation
-                                </span>
-                                <span className="text-xs text-green-400/70">
-                                  (if you support)
-                                </span>
-                              </div>
-                              <div className="space-y-1">
-                                <div className="flex justify-between text-xs">
-                                  <span className="text-green-400/70">
-                                    Current Power:
-                                  </span>
-                                  <span className="text-green-300">
-                                    {(
-                                      proposal.activationPower || 0
-                                    ).toLocaleString()}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-xs">
-                                  <span className="text-green-400/70">
-                                    + Your Power:
-                                  </span>
-                                  <span className="text-green-300">
-                                    +{userVotingPower.toLocaleString()}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-xs font-medium border-t border-green-500/20 pt-1">
-                                  <span className="text-green-300">
-                                    New Total:
-                                  </span>
-                                  <span className="text-green-200">
-                                    {(
-                                      (proposal.activationPower || 0) +
-                                      userVotingPower
-                                    ).toLocaleString()}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-xs">
-                                  <span className="text-green-400/70">
-                                    Progress:
-                                  </span>
-                                  <span className="text-green-300">
-                                    {Math.min(
-                                      (((proposal.activationPower || 0) +
-                                        userVotingPower) /
-                                        activationThreshold) *
-                                        100,
-                                      100
-                                    ).toFixed(1)}
-                                    %
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Status Change Simulation */}
-                              {(() => {
-                                const currentStatus = proposal.status;
-                                const wouldActivate =
-                                  (proposal.activationPower || 0) +
-                                    userVotingPower >=
-                                  activationThreshold;
-                                const statusWouldChange =
-                                  currentStatus === "pending" && wouldActivate;
-
-                                if (statusWouldChange) {
-                                  return (
-                                    <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-xs font-medium text-blue-300">
-                                          Status Change
-                                        </span>
-                                        <span className="text-xs text-blue-400/70">
-                                          (if you support)
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                          <Badge
-                                            variant="secondary"
-                                            className="text-xs"
-                                          >
-                                            {getStatusLabel(currentStatus)}
-                                          </Badge>
-                                          <span className="text-xs text-blue-400/70">
-                                            →
-                                          </span>
-                                          <Badge
-                                            variant="default"
-                                            className="text-xs bg-green-600"
-                                          >
-                                            Active
-                                          </Badge>
-                                        </div>
-                                        <span className="text-xs text-blue-300 font-medium">
-                                          🎉 Proposal Activated!
-                                        </span>
-                                      </div>
+                                <div className="mt-3 p-2 bg-green-500/5 border border-green-500/10 rounded-lg">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-medium text-green-300">
+                                      Your Contribution Simulation
+                                    </span>
+                                    <span className="text-xs text-green-400/70">
+                                      (if you support)
+                                    </span>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-green-400/70">
+                                        Current Power:
+                                      </span>
+                                      <span className="text-green-300">
+                                        {(
+                                          proposal.activationPower || 0
+                                        ).toLocaleString()}
+                                      </span>
                                     </div>
-                                  );
-                                }
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-green-400/70">
+                                        + Your Power:
+                                      </span>
+                                      <span className="text-green-300">
+                                        +{userVotingPower.toLocaleString()}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between text-xs font-medium border-t border-green-500/20 pt-1">
+                                      <span className="text-green-300">
+                                        New Total:
+                                      </span>
+                                      <span className="text-green-200">
+                                        {(
+                                          (proposal.activationPower || 0) +
+                                          userVotingPower
+                                        ).toLocaleString()}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-green-400/70">
+                                        Progress:
+                                      </span>
+                                      <span className="text-green-300">
+                                        {Math.min(
+                                          (((proposal.activationPower || 0) +
+                                            userVotingPower) /
+                                            activationThreshold) *
+                                            100,
+                                          100
+                                        ).toFixed(1)}
+                                        %
+                                      </span>
+                                    </div>
+                                  </div>
 
-                                return null;
-                              })()}
+                                  {/* Status Change Simulation */}
+                                  {(() => {
+                                    const currentStatus = proposal.status;
+                                    const wouldActivate =
+                                      (proposal.activationPower || 0) +
+                                        userVotingPower >=
+                                      activationThreshold;
+                                    const statusWouldChange =
+                                      currentStatus === "pending" &&
+                                      wouldActivate;
+
+                                    if (statusWouldChange) {
+                                      return (
+                                        <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs font-medium text-blue-300">
+                                              Status Change
+                                            </span>
+                                            <span className="text-xs text-blue-400/70">
+                                              (if you support)
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <Badge
+                                                variant="secondary"
+                                                className="text-xs"
+                                              >
+                                                {getStatusLabel(currentStatus)}
+                                              </Badge>
+                                              <span className="text-xs text-blue-400/70">
+                                                →
+                                              </span>
+                                              <Badge
+                                                variant="default"
+                                                className="text-xs bg-green-600"
+                                              >
+                                                Active
+                                              </Badge>
+                                            </div>
+                                            <span className="text-xs text-blue-300 font-medium">
+                                              🎉 Proposal Activated!
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+
+                                    return null;
+                                  })()}
+                                </div>
+                              )}
+
+                              <p className="text-xs text-green-400/70 mt-2">
+                                {userVotingPower === 0
+                                  ? "You need power to contribute to activation."
+                                  : proposal.activationPower >=
+                                    activationThreshold
+                                  ? "✅ Activation threshold met! This proposal can be activated."
+                                  : (proposal.activationPower || 0) +
+                                      userVotingPower >=
+                                    activationThreshold
+                                  ? "🎉 Your support would activate this proposal!"
+                                  : `Need ${(
+                                      activationThreshold -
+                                      (proposal.activationPower || 0)
+                                    ).toLocaleString()} more power to activate`}
+                              </p>
                             </div>
-                          )}
 
-                          <p className="text-xs text-green-400/70 mt-2">
-                            {userVotingPower === 0
-                              ? "You need power to contribute to activation."
-                              : proposal.activationPower >= activationThreshold
-                              ? "✅ Activation threshold met! This proposal can be activated."
-                              : (proposal.activationPower || 0) +
-                                  userVotingPower >=
-                                activationThreshold
-                              ? "🎉 Your support would activate this proposal!"
-                              : `Need ${(
-                                  activationThreshold -
-                                  (proposal.activationPower || 0)
-                                ).toLocaleString()} more power to activate`}
-                          </p>
-                        </div>
-
-                        <div className="text-xs sm:text-sm text-muted-foreground">
-                          {userVotingPower === 0
-                            ? "You have no power. You need power to support proposals."
-                            : proposal.activationPower >= activationThreshold
-                            ? "Activation threshold is met! You can now activate this proposal to begin voting."
-                            : `Your support will contribute ${userVotingPower.toLocaleString()} power to meeting the activation threshold. Once the threshold is met, the proposal can be activated.`}
-                        </div>
-
-                        <div className="flex gap-2 pt-4">
-                          <Button
-                            variant="outline"
-                            onClick={() => setSupportDialogOpen(false)}
-                            disabled={isActivating}
-                            className="flex-1 rounded-2xl text-xs sm:text-sm"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={handleActivate}
-                            disabled={isActivating || userVotingPower === 0}
-                            className={`flex-1 rounded-2xl text-xs sm:text-sm ${
-                              userVotingPower === 0
-                                ? "bg-gray-600 cursor-not-allowed"
+                            <div className="text-xs sm:text-sm text-muted-foreground">
+                              {userVotingPower === 0
+                                ? "You have no power. You need power to support proposals."
                                 : proposal.activationPower >=
                                   activationThreshold
-                                ? "bg-green-600 hover:bg-green-700"
-                                : "bg-blue-600 hover:bg-blue-700"
-                            }`}
-                          >
-                            {isActivating ? (
-                              <>
-                                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2 animate-spin" />
-                                {proposal.activationPower >= activationThreshold
-                                  ? "Activating..."
-                                  : "Supporting..."}
-                              </>
-                            ) : userVotingPower === 0 ? (
-                              <>
-                                <XCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                                No Power
-                              </>
-                            ) : (
-                              <>
-                                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                                {proposal.activationPower >= activationThreshold
-                                  ? "Activate Proposal"
-                                  : "Support Proposal"}
-                              </>
-                            )}
-                          </Button>
+                                ? "Activation threshold is met! You can now activate this proposal to begin voting."
+                                : `Your support will contribute ${userVotingPower.toLocaleString()} power to meeting the activation threshold. Once the threshold is met, the proposal can be activated.`}
+                            </div>
+
+                            <div className="flex gap-2 pt-4">
+                              <Button
+                                variant="outline"
+                                onClick={() => setSupportDialogOpen(false)}
+                                disabled={isActivating}
+                                className="flex-1 rounded-2xl text-xs sm:text-sm"
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                onClick={handleActivate}
+                                disabled={isActivating || userVotingPower === 0}
+                                className={`flex-1 rounded-2xl text-xs sm:text-sm ${
+                                  userVotingPower === 0
+                                    ? "bg-gray-600 cursor-not-allowed"
+                                    : proposal.activationPower >=
+                                      activationThreshold
+                                    ? "bg-green-600 hover:bg-green-700"
+                                    : "bg-blue-600 hover:bg-blue-700"
+                                }`}
+                              >
+                                {isActivating ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2 animate-spin" />
+                                    {proposal.activationPower >=
+                                    activationThreshold
+                                      ? "Activating..."
+                                      : "Supporting..."}
+                                  </>
+                                ) : userVotingPower === 0 ? (
+                                  <>
+                                    <XCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                                    No Power
+                                  </>
+                                ) : (
+                                  <>
+                                    <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                                    {proposal.activationPower >=
+                                    activationThreshold
+                                      ? "Activate Proposal"
+                                      : "Support Proposal"}
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </>
+                  ) : null;
+                })()}
+
+              {/* Finalize Proposal Modal */}
+              <Dialog
+                open={finalizeDialogOpen}
+                onOpenChange={setFinalizeDialogOpen}
+              >
+                <DialogContent className="w-[95vw] max-w-md bg-gray-900/95 backdrop-blur-md border border-white/10 shadow-2xl !rounded-3xl sm:!rounded-3xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+                      <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+                      Finalize Proposal
+                    </DialogTitle>
+                    <div className="text-muted-foreground text-xs sm:text-sm mt-1">
+                      {proposal.title}
+                    </div>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    {/* Finalization Info */}
+                    <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-3 sm:p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-orange-400" />
+                        <span className="text-xs sm:text-sm font-medium text-orange-300">
+                          What happens when you finalize?
+                        </span>
+                      </div>
+                      <ul className="text-xs text-orange-400/70 space-y-1">
+                        <li>
+                          • Voting period has ended and results are calculated
+                        </li>
+                        <li>• Quorum requirements are checked</li>
+                        <li>
+                          • Proposal status is updated
+                          (Succeeded/Defeated/Expired)
+                        </li>
+                        <li>
+                          • Proposal moves to the next phase of governance
+                        </li>
+                        <li>• This action cannot be undone</li>
+                      </ul>
+                    </div>
+
+                    {/* Current Voting Results */}
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3 sm:p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-blue-400" />
+                        <span className="text-xs sm:text-sm font-medium text-blue-300">
+                          Current Voting Results
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-blue-400/70">Total Power:</span>
+                          <span className="text-blue-300">
+                            {proposal.totalPower?.toLocaleString() || 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-green-400/70">Power For:</span>
+                          <span className="text-green-300">
+                            {proposal.yesPower?.toLocaleString() || 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-red-400/70">
+                            Power Against:
+                          </span>
+                          <span className="text-red-300">
+                            {proposal.noPower?.toLocaleString() || 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-blue-400/70">Total Power:</span>
+                          <span className="text-blue-300">
+                            {proposal.totalPower?.toLocaleString() || 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-green-400/70">Power For:</span>
+                          <span className="text-green-300">
+                            {proposal.yesPower?.toLocaleString() || 0}
+                          </span>
                         </div>
                       </div>
-                    </DialogContent>
-                  </Dialog>
-                </>
-              )}
+                    </div>
+
+                    {/* Quorum Status */}
+                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-3 sm:p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="h-3 w-3 sm:h-4 sm:w-4 text-purple-400" />
+                        <span className="text-xs sm:text-sm font-medium text-purple-300">
+                          Quorum Status
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-purple-400/70">
+                            Required Quorum:
+                          </span>
+                          <span className="text-purple-300">
+                            40% of total voting power
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-purple-400/70">
+                            Current Participation:
+                          </span>
+                          <span className="text-purple-300">
+                            {proposal.totalPower && proposal.quorum
+                              ? `${(
+                                  (proposal.totalPower / proposal.quorum) *
+                                  100
+                                ).toFixed(1)}%`
+                              : "0%"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-purple-400/70">
+                            Quorum Met:
+                          </span>
+                          <span className="text-purple-300">
+                            {proposal.totalPower &&
+                            proposal.quorum &&
+                            proposal.totalPower / proposal.quorum >= 0.4
+                              ? "✅ Yes"
+                              : "❌ No"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-xs sm:text-sm text-muted-foreground">
+                      Finalizing this proposal will calculate the final results
+                      and update the proposal status based on voting outcomes
+                      and quorum requirements.
+                    </div>
+
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => setFinalizeDialogOpen(false)}
+                        disabled={isFinalizing}
+                        className="flex-1 rounded-2xl text-xs sm:text-sm"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleFinalize}
+                        disabled={isFinalizing}
+                        className="flex-1 rounded-2xl text-xs sm:text-sm bg-orange-600 hover:bg-orange-700"
+                      >
+                        {isFinalizing ? (
+                          <>
+                            <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2 animate-spin" />
+                            Finalizing...
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                            Finalize Proposal
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              {/* Finalize Proposal - Show when voting period has ended and proposal is still active */}
+              {FEATURE_FLAGS.ENABLE_FINALIZE_ACTION &&
+                getNetworkProposal(activeNetwork)?.status === "active" &&
+                isVotingEnded && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setFinalizeDialogOpen(true)}
+                    disabled={isFinalizing}
+                    className="rounded-full w-full sm:w-auto border-orange-500/30 hover:border-orange-500/50 hover:bg-orange-500/10"
+                  >
+                    <Clock className="h-4 w-4 mr-2 text-orange-400" />
+                    Finalize Proposal
+                  </Button>
+                )}
+
+              {/* Execute Proposal - Show when proposal has succeeded */}
               {proposal.status === "succeeded" && proposal.canExecute && (
                 <Button
                   variant="outline"
@@ -4299,9 +5916,11 @@ const ProposalDetail = () => {
                   Execute
                 </Button>
               )}
-            </div>
-          </CardContent>
-        </Card>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Vote History - Only show if there are votes */}
         {(mockMode ? mockVoteHistory[id] || [] : mockVoteHistory[id] || [])
