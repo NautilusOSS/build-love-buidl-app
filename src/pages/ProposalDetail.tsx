@@ -4975,7 +4975,7 @@ const ProposalDetail = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-2">
-              {getNetworkProposal(activeNetwork)?.status === "active" &&
+              {/*getNetworkProposal(activeNetwork)?.status === "active" &&*/
                 !getNetworkProposal(activeNetwork)?.hasVoted &&
                 userVotingPower > 0 && (
                   <>

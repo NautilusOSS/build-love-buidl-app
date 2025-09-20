@@ -426,6 +426,25 @@ const formatDate = (dateString: string) => {
   });
 };
 
+const formatRelativeTime = (dateString: string) => {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffInMs = now.getTime() - date.getTime();
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+
+  if (diffInDays > 0) {
+    return `${diffInDays} day${diffInDays === 1 ? '' : 's'} ago`;
+  } else if (diffInHours > 0) {
+    return `${diffInHours} hour${diffInHours === 1 ? '' : 's'} ago`;
+  } else if (diffInMinutes > 0) {
+    return `${diffInMinutes} minute${diffInMinutes === 1 ? '' : 's'} ago`;
+  } else {
+    return 'Just now';
+  }
+};
+
 function useMockMode() {
   const { search } = useLocation();
   return new URLSearchParams(search).get("mock") === "true";
@@ -737,7 +756,20 @@ const Governance = () => {
         }
         
         console.log(`Total proposals found: ${allProposals.length}`);
-        setProposals(allProposals);
+        
+        // Remove duplicate proposals by ID and sort by creation date (most recent first)
+        const uniqueProposals = allProposals.reduce((acc, proposal) => {
+          if (!acc.find(p => p.id === proposal.id)) {
+            acc.push(proposal);
+          }
+          return acc;
+        }, [] as UIProposal[]);
+        
+        // Sort by creation date (most recent first)
+        uniqueProposals.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        console.log(`Unique proposals after deduplication: ${uniqueProposals.length}`);
+        setProposals(uniqueProposals);
         
       } catch (err) {
         console.error("Failed to fetch global state", err);
@@ -745,7 +777,11 @@ const Governance = () => {
       }
     };
     if (mockMode) {
-      setProposals(mockRecentProposals);
+      // Sort mock proposals by creation date (most recent first)
+      const sortedMockProposals = [...mockRecentProposals].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setProposals(sortedMockProposals);
       setActiveNetworkNotEnabled(false);
     } else {
       fetchGlobalState();
@@ -758,6 +794,11 @@ const Governance = () => {
       fetchUserVotes();
     }
   }, [proposals, activeAccount, mockMode]);
+
+  // Debug modal state changes
+  useEffect(() => {
+    console.log("Modal state changed - voteModalOpen:", voteModalOpen, "votingProposal:", votingProposal);
+  }, [voteModalOpen, votingProposal]);
 
   console.log({ globalState });
 
@@ -872,9 +913,11 @@ const Governance = () => {
   };
 
   const handleVoteClick = async (proposalId: string) => {
+    console.log("Vote button clicked for proposal:", proposalId);
     setVotingProposal(proposalId);
     setVoteModalOpen(true);
     setSelectedVote(null);
+    console.log("Modal state set to open, votingProposal:", proposalId, "voteModalOpen: true");
 
     // Fetch user's existing vote for this proposal
     if (!activeAccount || !activeNetwork) {
@@ -1015,7 +1058,7 @@ const Governance = () => {
 
   // Filter proposals based on search and filters
   const filteredProposals = useMemo(() => {
-    return proposals.filter((proposal) => {
+    const filtered = proposals.filter((proposal) => {
       const matchesSearch =
         proposal.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         proposal.description
@@ -1030,6 +1073,9 @@ const Governance = () => {
 
       return matchesSearch && matchesStatus && matchesCategory;
     });
+    
+    // Ensure proposals remain sorted by creation date (most recent first)
+    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [proposals, searchQuery, statusFilter, categoryFilter]);
 
   // Get unique categories for filter dropdown
@@ -1309,9 +1355,17 @@ const Governance = () => {
         {/* Section Divider and Header for Recent Proposals */}
         <div className="flex items-center gap-4 my-8">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-          <h2 className="text-2xl font-bold text-white tracking-tight animate-fade-in">
-            Recent Proposals
-          </h2>
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-white tracking-tight animate-fade-in">
+              Recent Proposals
+            </h2>
+            <p className="text-sm text-gray-400 mt-1">
+              Sorted by creation date • Most recent first
+            </p>
+            <div className="mt-2 text-lg font-semibold text-blue-400">
+              {proposals.length} total proposals
+            </div>
+          </div>
           <div className="flex-1 h-px bg-gradient-to-l from-transparent via-white/20 to-transparent" />
         </div>
 
@@ -1364,14 +1418,21 @@ const Governance = () => {
 
             {/* Results count */}
             <div className="flex items-center justify-center sm:justify-end flex-1">
-              <span className="text-sm text-gray-400">
-                {filteredProposals.length} of {proposals.length} proposals
-              </span>
+              <div className="text-center">
+                <span className="text-sm text-gray-400">
+                  Showing {filteredProposals.length} of {proposals.length} proposals
+                </span>
+                {filteredProposals.length !== proposals.length && (
+                  <div className="text-xs text-blue-400 mt-1">
+                    {proposals.length - filteredProposals.length} hidden by filters
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Recent Proposals */}
+        {/* Recent Proposals - Sorted by creation date (most recent first) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProposals.filter((proposal) =>
             ["active", "succeeded", "pending", "canceled"].includes(
@@ -1425,7 +1486,7 @@ const Governance = () => {
                         </CardTitle>
                         <Badge
                           variant={getStatusVariant(proposal.status)}
-                          className="ml-2 text-xs px-2 py-1 rounded-full font-semibold"
+                          className="text-xs px-2 py-1 rounded-full font-semibold"
                         >
                           {getStatusLabel(proposal.status)}
                         </Badge>
@@ -1440,10 +1501,6 @@ const Governance = () => {
                         >
                           {proposal.category}
                         </Badge>
-                        <span className="text-xs text-gray-400">
-                          by {proposal.author.slice(0, 6)}...
-                          {proposal.author.slice(-4)}
-                        </span>
                         {proposal.networkName && (
                           <Badge
                             variant="outline"
@@ -1463,7 +1520,25 @@ const Governance = () => {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          <span>Created {formatDate(proposal.createdAt)}</span>
+                          <div className="flex flex-col">
+                            <span className="text-xs text-gray-300">
+                              {formatRelativeTime(proposal.createdAt)}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {formatDate(proposal.createdAt)}
+                            </span>
+                          </div>
+                          {/* Show "New" badge for proposals created in the last 7 days */}
+                          {(() => {
+                            const daysSinceCreation = Math.floor(
+                              (Date.now() - new Date(proposal.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+                            );
+                            return daysSinceCreation <= 7 ? (
+                              <Badge className="ml-2 text-xs px-2 py-0.5 bg-green-500/20 text-green-400 border-green-500/30">
+                                New
+                              </Badge>
+                            ) : null;
+                          })()}
                         </div>
                         <div className="flex items-center gap-1">
                           <Users className="h-4 w-4" />
