@@ -19,14 +19,17 @@ import {
   Menu,
   Wallet,
   TrendingUp,
+  ThumbsUp,
+  Map,
 } from "lucide-react";
 import WalletConnectButton from "./WalletConnectButton";
 import { useWallet } from "@txnlab/use-wallet-react";
 
 const baseNavItems = [
-  { label: "Home", to: "/airdrop", icon: Home },
-  { label: "About", to: "/about", icon: HeartHandshake },
-  { label: "Trading", to: "/trading", icon: TrendingUp },
+  { label: "Home", to: "/", icon: Home },
+  { label: "Voting", to: "/voting", icon: ThumbsUp },
+  { label: "Voting Demo", to: "/voting-demo", icon: ThumbsUp },
+  { label: "Roadmap", to: "/roadmap", icon: Map },
 ];
 
 const AppSidebar: React.FC = () => {
@@ -40,11 +43,6 @@ const AppSidebar: React.FC = () => {
       ...baseNavItems,
       ...(activeAccount
         ? [
-            {
-              label: "Airdrop",
-              to: `/airdrop/${activeWalletAddresses.join(",")}`,
-              icon: Gift,
-            },
             {
               label: "Wallet",
               to: `/wallet/${activeAccount.address}`,

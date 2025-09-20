@@ -11,12 +11,14 @@ import {
 } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { useSidebar } from "./ui/sidebar";
+import { createFundedAccount, isLocalnetAvailable, getLocalnetConfig } from "@/utils/localnet";
 
 const WalletConnectButton: React.FC = () => {
   const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
   const [connecting, setConnecting] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [creatingLocalnetAccount, setCreatingLocalnetAccount] = useState(false);
   const {
     activeAccount,
     wallets,
@@ -30,6 +32,7 @@ const WalletConnectButton: React.FC = () => {
   const networks = [
     { id: NetworkId.MAINNET, name: "Algorand" },
     { id: NetworkId.VOIMAIN, name: "Voi" },
+    { id: "localnet" as any, name: "Localnet" },
   ];
 
   const networkWallets = {
@@ -47,6 +50,7 @@ const WalletConnectButton: React.FC = () => {
       { id: WalletId.BIATEC, name: "Biatec" },
       { id: WalletId.WALLETCONNECT, name: "WalletConnect" },
     ],
+    ["localnet" as any]: [],
   };
 
   // Filter wallets based on active network
@@ -86,6 +90,48 @@ const WalletConnectButton: React.FC = () => {
 
   const handleConnect = () => {
     // This function is no longer needed since wallets show automatically when not connected
+  };
+
+  // Handle localnet account creation and funding
+  const handleCreateLocalnetAccount = async () => {
+    if (activeNetwork !== "localnet") return;
+
+    setCreatingLocalnetAccount(true);
+    try {
+      // Check if localnet is available
+      const isAvailable = await isLocalnetAvailable();
+      if (!isAvailable) {
+        alert("Localnet is not available. Please make sure your local Algorand node is running on localhost:4001");
+        return;
+      }
+
+      // Get configuration info
+      const config = getLocalnetConfig();
+      console.log("Localnet config:", config);
+
+      // Create and fund account using utility
+      const { account, funding } = await createFundedAccount(1000000); // 1 ALGO
+
+      console.log("Created localnet account:", account.address);
+      console.log("Mnemonic:", account.mnemonic);
+
+      if (funding.success) {
+        alert(
+          `Localnet account created and funded!\nAddress: ${account.address}\nMnemonic: ${account.mnemonic}\nFunding TX: ${funding.transactionId}\n\nAccount is ready for testing!`
+        );
+      } else {
+        alert(
+          `Localnet account created!\nAddress: ${account.address}\nMnemonic: ${account.mnemonic}\n\nNote: Automatic funding failed: ${funding.error}\nYou may need to fund this account manually in your localnet setup.`
+        );
+      }
+    } catch (error) {
+      console.error("Failed to create localnet account:", error);
+      alert(
+        "Failed to create localnet account. Please check your localnet setup."
+      );
+    } finally {
+      setCreatingLocalnetAccount(false);
+    }
   };
 
   return (
@@ -203,6 +249,32 @@ const WalletConnectButton: React.FC = () => {
             </div>
           ))}
         </div>
+
+        {/* Localnet Account Creation */}
+        {activeNetwork === "localnet" && (
+          <div className="mt-2">
+            <Button
+              onClick={handleCreateLocalnetAccount}
+              disabled={creatingLocalnetAccount}
+              className="w-full flex justify-center items-center gap-2 border-green-400/50 text-green-400 hover:bg-green-400/10 hover:border-green-400 rounded-xl"
+            >
+              {creatingLocalnetAccount ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating Account...
+                </>
+              ) : (
+                <>
+                  <Wallet className="h-4 w-4" />
+                  Create & Fund Account
+                </>
+              )}
+            </Button>
+            <p className="text-xs text-gray-400 text-center mt-1">
+              Automatically creates a new account for localnet testing
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

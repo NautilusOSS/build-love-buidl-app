@@ -3,15 +3,72 @@
 @tailwind utilities;
 
 @layer base {
+  /* OLED Dark Mode Design System */
+  :root {
+    --background: 0 0% 0%; /* Pure black #000000 */
+    --foreground: 0 0% 100%; /* Pure white */
+    --card: 0 0% 5%; /* Very dark gray */
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 3%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 180 100% 50%; /* Teal */
+    --primary-foreground: 0 0% 0%;
+    --secondary: 270 100% 70%; /* Violet */
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 8%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 85%; /* Silver */
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 0%;
+    --border: 0 0% 15%;
+    --input: 0 0% 10%;
+    --ring: 180 100% 50%; /* Teal ring */
+    --radius: 0.75rem;
+  }
+
   .glass-morphism {
-    @apply backdrop-blur-xl bg-[#1a1f2cbb] border border-white/10 shadow-[0_4px_24px_-2px_#8B5CF655];
+    @apply backdrop-blur-xl bg-black/20 border border-teal-500/20 shadow-[0_4px_24px_-2px_rgba(20,184,166,0.3)];
   }
+  
+  .glass-morphism-violet {
+    @apply backdrop-blur-xl bg-black/20 border border-violet-500/20 shadow-[0_4px_24px_-2px_rgba(139,92,246,0.3)];
+  }
+  
+  .glass-morphism-silver {
+    @apply backdrop-blur-xl bg-black/20 border border-gray-400/20 shadow-[0_4px_24px_-2px_rgba(156,163,175,0.3)];
+  }
+
   .text-gradient {
-    @apply bg-gradient-to-br from-[#9b87f5] via-[#1EAEDB] to-[#D946EF] bg-clip-text text-transparent;
+    @apply bg-gradient-to-br from-teal-400 via-violet-400 to-gray-300 bg-clip-text text-transparent;
   }
+  
   .text-gradient-primary {
-    @apply bg-gradient-to-br from-white via-[#9b87f5]/80 to-[#D946EF]/80 bg-clip-text text-transparent;
+    @apply bg-gradient-to-br from-white via-teal-300/90 to-violet-300/90 bg-clip-text text-transparent;
   }
+
+  .neon-glow-teal {
+    @apply shadow-[0_0_20px_rgba(20,184,166,0.5)] border-teal-500/50;
+  }
+  
+  .neon-glow-violet {
+    @apply shadow-[0_0_20px_rgba(139,92,246,0.5)] border-violet-500/50;
+  }
+  
+  .neon-glow-silver {
+    @apply shadow-[0_0_20px_rgba(156,163,175,0.5)] border-gray-400/50;
+  }
+
+  .constellation-bg {
+    background-image: 
+      radial-gradient(circle at 20% 20%, rgba(20,184,166,0.1) 1px, transparent 1px),
+      radial-gradient(circle at 80% 40%, rgba(139,92,246,0.1) 1px, transparent 1px),
+      radial-gradient(circle at 40% 80%, rgba(156,163,175,0.1) 1px, transparent 1px),
+      radial-gradient(circle at 90% 10%, rgba(20,184,166,0.05) 1px, transparent 1px),
+      radial-gradient(circle at 10% 90%, rgba(139,92,246,0.05) 1px, transparent 1px);
+    background-size: 200px 200px, 300px 300px, 250px 250px, 400px 400px, 350px 350px;
+  }
+
   /* Confetti float animation */
   @keyframes confetti-float {
     from {
@@ -24,10 +81,26 @@
     }
   }
 
+  /* Pulse animation for neon elements */
+  @keyframes neon-pulse {
+    0%, 100% {
+      opacity: 1;
+      filter: brightness(1);
+    }
+    50% {
+      opacity: 0.8;
+      filter: brightness(1.2);
+    }
+  }
+
+  .neon-pulse {
+    animation: neon-pulse 2s ease-in-out infinite;
+  }
+
   /* === MAIN DOCUMENT BACKGROUND OVERRIDE === */
   body {
-    background-color: #1a1f2c !important;
-    @apply text-white antialiased;
+    background-color: #000000 !important;
+    @apply text-white antialiased constellation-bg;
   }
 }
 
@@ -43,7 +116,7 @@ button:focus-visible {
   }
 }
 
-/* Add mobile-specific z-index fixes */
+/* Mobile-specific styles for Voting App */
 @media (max-width: 768px) {
   /* Ensure SelectContent components appear above everything on mobile */
   [data-radix-popper-content-wrapper] {
@@ -74,6 +147,125 @@ button:focus-visible {
   .mobile-app-container {
     position: relative;
     z-index: 1;
+  }
+
+  /* Voting app mobile optimizations */
+  .voting-header {
+    padding: 1rem !important;
+  }
+  
+  .voting-header h1 {
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
+  }
+  
+  .voting-header p {
+    font-size: 0.875rem !important;
+  }
+  
+  .proposal-card {
+    margin-bottom: 1rem !important;
+  }
+  
+  .proposal-card .card-header {
+    padding: 1rem !important;
+  }
+  
+  .proposal-card .card-title {
+    font-size: 1.125rem !important;
+  }
+  
+  .voting-power-panel {
+    margin-top: 1rem !important;
+  }
+  
+  .vote-buttons {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+  
+  .vote-buttons button {
+    width: 100% !important;
+  }
+  
+  .chain-chips {
+    flex-wrap: wrap !important;
+    gap: 0.25rem !important;
+  }
+  
+  .chain-chips .badge {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+  
+  .activity-feed {
+    max-height: 200px !important;
+    overflow-y: auto !important;
+  }
+  
+  .identity-sheet {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+  
+  .proposal-detail-header {
+    padding: 1rem !important;
+  }
+  
+  .proposal-detail-header h1 {
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
+  }
+  
+  .proposal-detail-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  .proposal-detail-sidebar {
+    order: -1 !important;
+  }
+  
+  .countdown-timer {
+    margin-bottom: 1rem !important;
+  }
+  
+  .countdown-timer .grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+  
+  .countdown-timer .text-2xl {
+    font-size: 1.25rem !important;
+  }
+  
+  .cross-chain-status .grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.5rem !important;
+  }
+  
+  .cross-chain-status .text-2xl {
+    font-size: 1.25rem !important;
+  }
+  
+  .lock-controls {
+    padding: 1rem !important;
+  }
+  
+  .lock-controls .slider {
+    margin: 0.5rem 0 !important;
+  }
+  
+  .lock-controls .duration-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+  
+  .lock-controls .duration-buttons button {
+    font-size: 0.75rem !important;
+    padding: 0.5rem !important;
   }
 }
 

@@ -20,10 +20,14 @@ import {
   WalletProvider,
 } from "@txnlab/use-wallet-react";
 //import Wallet from "./pages/Wallet";
-import Airdrop from "./pages/Airdrop";
-import About from "./pages/About";
-import PALGO from "./pages/pALGO";
-import Trading from "./pages/Trading";
+// import Airdrop from "./pages/Airdrop"; // Removed airdrop page
+// import About from "./pages/About"; // Removed about page
+// import PALGO from "./pages/pALGO"; // Removed palgo page
+// import Trading from "./pages/Trading"; // Removed trading page
+import Voting from "./pages/Voting";
+import VotingDemo from "./pages/VotingDemo";
+import ElectionDemo from "./pages/ElectionDemo";
+import Roadmap from "./pages/Roadmap";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -97,9 +101,56 @@ const App = () => {
           themeMode: "light",
         },
       },
+      WalletId.MNEMONIC,
     ],
     network: NetworkId.MAINNET,
   });
+  // Component to conditionally render sidebar based on route
+  const AppLayout = () => {
+    const location = useLocation();
+    const isVotingPage = location.pathname.startsWith("/voting");
+    const isElectionPage = location.pathname.startsWith("/election");
+    const isRoadmapPage = location.pathname === "/roadmap";
+
+    if (
+      isVotingPage ||
+      isElectionPage ||
+      isRoadmapPage ||
+      location.pathname === "/"
+    ) {
+      // Full-screen layout for voting pages and home (no sidebar)
+      return (
+        <div className="min-h-screen w-full">
+          <Routes>
+            <Route path="/" element={<Voting />} />
+            <Route path="/voting" element={<Voting />} />
+            <Route path="/voting-demo" element={<VotingDemo />} />
+            <Route path="/election-demo" element={<ElectionDemo />} />
+            <Route path="/roadmap" element={<Roadmap />} />
+          </Routes>
+        </div>
+      );
+    }
+
+    // Sidebar layout for other pages
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full mobile-app-container">
+          <AppSidebar />
+          <SidebarInset className="flex-1 flex flex-col max-h-screen">
+            <SidebarTrigger />
+            <div className="flex-1 overflow-auto">
+              <Routes>
+                <Route path="/wallet/:address" element={<Wallet />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </div>
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
+    );
+  };
+
   return (
     <WalletProvider manager={walletManager}>
       <QueryClientProvider client={queryClient}>
@@ -107,32 +158,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <SidebarProvider>
-              <div className="min-h-screen flex w-full mobile-app-container">
-                <AppSidebar />
-                <SidebarInset className="flex-1 flex flex-col max-h-screen">
-                  <SidebarTrigger />
-                  {/* Make main content scrollable and fill all available vertical space */}
-                  <div className="flex-1 overflow-auto">
-                    <Routes>
-                      <Route path="/" element={<Airdrop />} />
-                      {/* <Route path="/home" element={<Home />} /> */}
-                      <Route path="/wallet/:address" element={<Wallet />} />
-                      <Route path="/airdrop" element={<Airdrop />} />
-                      <Route
-                        path="/airdrop/:recipients"
-                        element={<Airdrop />}
-                      />
-                      <Route path="/about" element={<About />} />
-                      <Route path="/palgo" element={<PALGO />} />
-                      <Route path="/trading" element={<Trading />} />
-                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </div>
-                </SidebarInset>
-              </div>
-            </SidebarProvider>
+            <AppLayout />
           </BrowserRouter>
         </TooltipProvider>
       </QueryClientProvider>
