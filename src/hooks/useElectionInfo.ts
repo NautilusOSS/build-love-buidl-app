@@ -53,28 +53,11 @@ export const useElectionInfo = (
     setError(null);
 
     try {
-      // First try to get election node from title and description
-      const electionNode = await service.getElectionNode(
-        election.title,
-        election.description,
-        activeNetwork
-      );
-
-      if (!electionNode) {
-        console.log("No election node found, trying with proposalHash");
-        // If no election node found, try using the proposalHash from config
-        const electionInfo = await service.fetchElectionInfo(
-          election.proposalHash,
-          activeNetwork
-        );
-        setElectionInfo(electionInfo);
-        return;
-      }
-
-      console.log("Found election node:", electionNode);
-      // Fetch election info using the election node
+      console.log("Fetching election info for proposalHash:", election.proposalHash);
+      
+      // Use the proposalHash directly from the election config
       const electionInfo = await service.fetchElectionInfo(
-        electionNode,
+        election.proposalHash,
         activeNetwork
       );
 

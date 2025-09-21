@@ -101,7 +101,12 @@ const App = () => {
           themeMode: "light",
         },
       },
-      WalletId.MNEMONIC,
+      {
+        id: WalletId.MNEMONIC,
+        options: {
+          persistToStorage: true,
+        },
+      },
     ],
     network: NetworkId.MAINNET,
   });

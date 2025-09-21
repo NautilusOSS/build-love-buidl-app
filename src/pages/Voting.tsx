@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -39,14 +39,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ProposalDetail from "@/components/ProposalDetail";
 import IdentitySheet from "@/components/IdentitySheet";
-import { 
-  ElectionConfig, 
-  ElectionStatus
-} from "@/types/elections";
-import { 
-  loadElections,
-  getElectionStats
-} from "@/utils/electionConfig";
+import { ElectionConfig, ElectionStatus } from "@/types/elections";
+import { loadElections, getElectionStats } from "@/utils/electionConfig";
 import {
   Clock,
   Users,
@@ -369,13 +363,13 @@ export default function Voting() {
       try {
         const [electionsData, stats] = await Promise.all([
           loadElections(),
-          getElectionStats()
+          getElectionStats(),
         ]);
-        
+
         setElections(electionsData.elections);
         setElectionStats(stats);
       } catch (err) {
-        console.error('Error loading election data:', err);
+        console.error("Error loading election data:", err);
       } finally {
         setElectionsLoading(false);
       }
@@ -415,9 +409,13 @@ export default function Voting() {
   const [voteError, setVoteError] = useState("");
   const [voteSuccess, setVoteSuccess] = useState("");
 
+  // Ref for scrolling to voting details section
+  const votingDetailsRef = useRef<HTMLDivElement>(null);
+
   const durationMultipliers = {
     "1w": 1.0,
     "4w": 1.2,
+    "6w": 1.35,
     "12w": 1.5,
   };
 
@@ -983,10 +981,14 @@ export default function Voting() {
         { addr: activeAccount.address, sk: new Uint8Array() }
       );
 
-        const castVoteR = await ci.cast_vote(
-          new Uint8Array(atob(proposalNode).split("").map((char) => char.charCodeAt(0))),
-          vote === "yes" ? VOTE_YES : VOTE_NO
-        );
+      const castVoteR = await ci.cast_vote(
+        new Uint8Array(
+          atob(proposalNode)
+            .split("")
+            .map((char) => char.charCodeAt(0))
+        ),
+        vote === "yes" ? VOTE_YES : VOTE_NO
+      );
 
       console.log({ castVoteR });
 
@@ -1085,7 +1087,13 @@ export default function Voting() {
 
       // Calculate unlock timestamp based on duration
       const durationDays =
-        lockDuration === "1w" ? 7 : lockDuration === "4w" ? 28 : 84;
+        lockDuration === "1w"
+          ? 7
+          : lockDuration === "4w"
+          ? 28
+          : lockDuration === "6w"
+          ? 42
+          : 84;
       const unlockTimestamp = BigInt(
         Math.floor(Date.now() / 1000) + durationDays * 24 * 60 * 60
       );
@@ -1372,15 +1380,15 @@ export default function Voting() {
       </div>
 
       <div className="container mx-auto px-6 py-8">
-        <Tabs defaultValue="proposals" className="w-full">
+        <Tabs defaultValue="elections" className="w-full">
           <TabsList className="glass-morphism mb-8">
-            <TabsTrigger
+            {/*<TabsTrigger
               value="proposals"
               className="data-[state=active]:neon-glow-teal"
             >
               <Globe className="w-4 h-4 mr-2" />
               Proposals
-            </TabsTrigger>
+            </TabsTrigger>*/}
             <TabsTrigger
               value="elections"
               className="data-[state=active]:neon-glow-violet"
@@ -1388,27 +1396,27 @@ export default function Voting() {
               <Vote className="w-4 h-4 mr-2" />
               Elections
             </TabsTrigger>
-            <TabsTrigger
+            {/*<TabsTrigger
               value="delegates"
               className="data-[state=active]:neon-glow-violet"
             >
               <Users className="w-4 h-4 mr-2" />
               Delegates
-            </TabsTrigger>
-            <TabsTrigger
+            </TabsTrigger>*/}
+            {/*<TabsTrigger
               value="guilds"
               className="data-[state=active]:neon-glow-silver"
             >
               <Star className="w-4 h-4 mr-2" />
               Guilds
-            </TabsTrigger>
-            <TabsTrigger
+            </TabsTrigger>*/}
+            {/*<TabsTrigger
               value="vaults"
               className="data-[state=active]:neon-glow-teal"
             >
               <Shield className="w-4 h-4 mr-2" />
               Vaults
-            </TabsTrigger>
+            </TabsTrigger>*/}
           </TabsList>
 
           {/* Proposals Tab */}
@@ -1432,6 +1440,13 @@ export default function Voting() {
                       onClick={() => {
                         setSelectedProposal(proposal);
                         setShowProposalDetail(true);
+                        // Scroll to voting details section after state updates
+                        setTimeout(() => {
+                          votingDetailsRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                        }, 200);
                       }}
                     >
                       <CardHeader>
@@ -1650,33 +1665,28 @@ export default function Voting() {
                         </div>
                       </div>
 
-                      <div className="flex gap-2">
-                        <Button
-                          className="flex-1 neon-glow-teal"
-                          onClick={handleLockTokens}
-                          disabled={
-                            isLocking ||
-                            !activeAccount ||
-                            lockAmount[0] <= 0 ||
-                            lockAmount[0] > userBalance
-                          }
-                        >
-                          {isLocking ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              Locking...
-                            </>
-                          ) : (
-                            <>
-                              <Lock className="w-4 h-4 mr-2" />
-                              Lock
-                            </>
-                          )}
-                        </Button>
-                        <Button variant="outline" className="neon-glow-violet">
-                          <Plus className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      <Button
+                        className="w-full neon-glow-teal"
+                        onClick={handleLockTokens}
+                        disabled={
+                          isLocking ||
+                          !activeAccount ||
+                          lockAmount[0] <= 0 ||
+                          lockAmount[0] > userBalance
+                        }
+                      >
+                        {isLocking ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Locking...
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="w-4 h-4 mr-2" />
+                            Lock
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -1766,10 +1776,17 @@ export default function Voting() {
                 )}
 
                 {/* Vote Buttons */}
-                {selectedProposal && selectedProposal.status === "active" && (
-                  <Card className="glass-morphism-silver">
+                {selectedProposal && (
+                  <Card
+                    ref={votingDetailsRef}
+                    className="glass-morphism-silver"
+                  >
                     <CardHeader>
-                      <CardTitle className="text-lg">Cast Vote</CardTitle>
+                      <CardTitle className="text-lg">
+                        {selectedProposal.status === "active"
+                          ? "Cast Vote"
+                          : "Voting Details"}
+                      </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {/* Error and Success Messages */}
@@ -1791,72 +1808,124 @@ export default function Voting() {
                         </div>
                       )}
 
-                      {userVotes[selectedProposal.id] ? (
-                        <div className="text-center py-4">
-                          <div
-                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
-                              userVotes[selectedProposal.id] === "yes"
-                                ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                                : "bg-red-500/20 text-red-400 border border-red-500/30"
-                            }`}
-                          >
-                            {userVotes[selectedProposal.id] === "yes" ? (
-                              <CheckCircle className="w-4 h-4" />
-                            ) : (
-                              <XCircle className="w-4 h-4" />
-                            )}
-                            You voted{" "}
-                            {userVotes[selectedProposal.id] === "yes"
-                              ? "For"
-                              : "Against"}
+                      {/* Show voting buttons only for active proposals */}
+                      {selectedProposal.status === "active" ? (
+                        userVotes[selectedProposal.id] ? (
+                          <div className="text-center py-4">
+                            <div
+                              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
+                                userVotes[selectedProposal.id] === "yes"
+                                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                  : "bg-red-500/20 text-red-400 border border-red-500/30"
+                              }`}
+                            >
+                              {userVotes[selectedProposal.id] === "yes" ? (
+                                <CheckCircle className="w-4 h-4" />
+                              ) : (
+                                <XCircle className="w-4 h-4" />
+                              )}
+                              You voted{" "}
+                              {userVotes[selectedProposal.id] === "yes"
+                                ? "For"
+                                : "Against"}
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <>
+                            <Button
+                              className="w-full neon-glow-teal"
+                              onClick={() => handleCastVote("yes")}
+                              disabled={
+                                isVoting ||
+                                !voterInfo ||
+                                Number(voterInfo.votePower) <= 0
+                              }
+                            >
+                              {isVoting ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                  Voting...
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  For
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              className="w-full"
+                              onClick={() => handleCastVote("no")}
+                              disabled={
+                                isVoting ||
+                                !voterInfo ||
+                                Number(voterInfo.votePower) <= 0
+                              }
+                            >
+                              {isVoting ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                  Voting...
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="w-4 h-4 mr-2" />
+                                  Against
+                                </>
+                              )}
+                            </Button>
+                          </>
+                        )
                       ) : (
-                        <>
-                          <Button
-                            className="w-full neon-glow-teal"
-                            onClick={() => handleCastVote("yes")}
-                            disabled={
-                              isVoting ||
-                              !voterInfo ||
-                              Number(voterInfo.votePower) <= 0
-                            }
-                          >
-                            {isVoting ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                Voting...
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle className="w-4 h-4 mr-2" />
-                                For
-                              </>
+                        /* Show proposal details for non-active proposals */
+                        <div className="space-y-3">
+                          <div className="text-center py-4">
+                            <div className="text-gray-400 mb-2">
+                              Proposal Status:{" "}
+                              <span className="text-white">
+                                {selectedProposal.status}
+                              </span>
+                            </div>
+                            {selectedProposal.votingEnds && (
+                              <div className="text-sm text-gray-400">
+                                Voting ended:{" "}
+                                {new Date(
+                                  selectedProposal.votingEnds
+                                ).toLocaleDateString()}
+                              </div>
                             )}
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            className="w-full"
-                            onClick={() => handleCastVote("no")}
-                            disabled={
-                              isVoting ||
-                              !voterInfo ||
-                              Number(voterInfo.votePower) <= 0
-                            }
-                          >
-                            {isVoting ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                Voting...
-                              </>
-                            ) : (
-                              <>
-                                <XCircle className="w-4 h-4 mr-2" />
-                                Against
-                              </>
+                            {selectedProposal.timeToActivate && (
+                              <div className="text-sm text-gray-400">
+                                Time to activate:{" "}
+                                {selectedProposal.timeToActivate}
+                              </div>
                             )}
-                          </Button>
-                        </>
+                          </div>
+
+                          {/* Show user's vote if they voted */}
+                          {userVotes[selectedProposal.id] && (
+                            <div className="text-center py-2">
+                              <div
+                                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
+                                  userVotes[selectedProposal.id] === "yes"
+                                    ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                    : "bg-red-500/20 text-red-400 border border-red-500/30"
+                                }`}
+                              >
+                                {userVotes[selectedProposal.id] === "yes" ? (
+                                  <CheckCircle className="w-4 h-4" />
+                                ) : (
+                                  <XCircle className="w-4 h-4" />
+                                )}
+                                You voted{" "}
+                                {userVotes[selectedProposal.id] === "yes"
+                                  ? "For"
+                                  : "Against"}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </CardContent>
                   </Card>
@@ -1902,7 +1971,9 @@ export default function Voting() {
                 {electionsLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-400"></div>
-                    <span className="ml-2 text-gray-400">Loading elections...</span>
+                    <span className="ml-2 text-gray-400">
+                      Loading elections...
+                    </span>
                   </div>
                 ) : elections.length === 0 ? (
                   <div className="text-center py-8 text-gray-400">
@@ -1911,67 +1982,68 @@ export default function Voting() {
                   </div>
                 ) : (
                   elections.map((election) => (
-                  <Card
-                    key={election.id}
-                    className="glass-morphism hover:neon-glow-violet transition-all duration-300 cursor-pointer"
-                    onClick={() => navigate("/election-demo")}
-                  >
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-xl mb-2">
-                            {election.title}
-                          </CardTitle>
-                          <CardDescription className="text-gray-300 mb-4">
-                            {election.description}
-                          </CardDescription>
+                    <Card
+                      key={election.id}
+                      className="glass-morphism hover:neon-glow-violet transition-all duration-300 cursor-pointer"
+                      onClick={() => navigate("/election-demo")}
+                    >
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-xl mb-2">
+                              {election.title}
+                            </CardTitle>
+                            <CardDescription className="text-gray-300 mb-4">
+                              {election.description}
+                            </CardDescription>
+                          </div>
+                          <Badge className={getStatusColor(election.status)}>
+                            {election.status}
+                          </Badge>
                         </div>
-                        <Badge className={getStatusColor(election.status)}>
-                          {election.status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-400">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
-                          {election.timeRemaining}
+                        <div className="flex items-center gap-4 text-sm text-gray-400">
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            {election.timeRemaining}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4" />
+                            {election.positions} positions
+                          </div>
+                          <div className="flex gap-2">
+                            {election.chains.map((chain) => (
+                              <Badge
+                                key={chain}
+                                variant="outline"
+                                className={getChainChipColor(chain)}
+                              >
+                                {chain}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Users className="w-4 h-4" />
-                          {election.positions} positions
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">
+                              Candidates: {election.candidates.length}
+                            </span>
+                            <span className="text-gray-400">
+                              Total Votes:{" "}
+                              {election.totalVotes.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Button className="neon-glow-violet">
+                              <Vote className="w-4 h-4 mr-2" />
+                              View Election
+                            </Button>
+                            <ChevronRight className="w-5 h-5 text-gray-400" />
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          {election.chains.map((chain) => (
-                            <Badge
-                              key={chain}
-                              variant="outline"
-                              className={getChainChipColor(chain)}
-                            >
-                              {chain}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-400">
-                            Candidates: {election.candidates.length}
-                          </span>
-                          <span className="text-gray-400">
-                            Total Votes: {election.totalVotes.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <Button className="neon-glow-violet">
-                            <Vote className="w-4 h-4 mr-2" />
-                            View Election
-                          </Button>
-                          <ChevronRight className="w-5 h-5 text-gray-400" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
                   ))
                 )}
               </div>

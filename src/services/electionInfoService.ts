@@ -3,26 +3,33 @@ import { getGovernanceAppId } from "@/constants/appIds";
 import { NetworkId } from "@txnlab/use-wallet-react";
 import algosdk from "algosdk";
 import { CONTRACT } from "ulujs";
-import { APP_SPEC as PowGovernanceAppSpec } from "@/clients/PowGovernanceClient";
+import { APP_SPEC as PowGovernanceAppSpec, Endorsement } from "@/clients/PowGovernanceClient";
 
 export interface ElectionInfo {
-  electionIndex: bigint;
-  electionStatus: bigint;
+  electionIndex: number;
+  electionStatus: number;
   proposer: string;
   electionTitle: string;
   electionDescription: string;
   electionNode: string;
-  createdAtTimestamp: bigint;
-  electionStartTimestamp: bigint;
-  electionEndTimestamp: bigint;
+  createdAtTimestamp: number;
+  electionStartTimestamp: number;
+  electionEndTimestamp: number;
+  endorsementCount: number;
+  endorsementVotes: number;
+  endorsementTimestamp: number;
   candidates?: ElectionCandidate[];
   totalVotes?: number;
   quorumThreshold?: number;
 }
 
 export interface CandidateEndorsement {
-  candidateNode: string;
+  endorsementNode: Uint8Array;
+  endorsementElectionNode: Uint8Array;
+  endorsementCandidateNode: Uint8Array;
   endorsementCount: bigint;
+  endorsementVotes: bigint;
+  endorsementTimestamp: bigint;
 }
 
 /**
@@ -130,15 +137,18 @@ export class ElectionInfoService {
       const node = uint8ArrayToHex(electionData[5]);
 
       return {
-        electionIndex: electionData[0],
-        electionStatus: electionData[1],
+        electionIndex: Number(electionData[0]),
+        electionStatus: Number(electionData[1]),
         proposer: electionData[2],
         electionTitle: title,
         electionDescription: description,
         electionNode: node,
-        createdAtTimestamp: electionData[6],
-        electionStartTimestamp: electionData[7],
-        electionEndTimestamp: electionData[8],
+        createdAtTimestamp: Number(electionData[6]),
+        electionStartTimestamp: Number(electionData[7]),
+        electionEndTimestamp: Number(electionData[8]),
+        endorsementCount: Number(electionData[9]),
+        endorsementVotes: Number(electionData[10]),
+        endorsementTimestamp: Number(electionData[11]),
       };
     } catch (error) {
       console.error("Error fetching election info:", error);
@@ -203,13 +213,13 @@ export class ElectionInfoService {
   }
 
   /**
-   * Get candidate endorsement count
+   * Get candidate endorsement information
    */
   async getCandidateEndorsement(
     electionNode: string,
     candidateNode: string,
     network: NetworkId
-  ): Promise<bigint> {
+  ): Promise<CandidateEndorsement | null> {
     try {
       const contract = this.createContract(network);
 
@@ -234,18 +244,20 @@ export class ElectionInfoService {
 
       if (!result.success) {
         console.warn("Failed to get candidate endorsement:", result.error);
-        return BigInt(0);
+        return null;
       }
 
       if (result.returnValue === undefined || result.returnValue === null) {
         console.warn("Candidate endorsement result is undefined");
-        return BigInt(0);
+        return null;
       }
 
-      return result.returnValue || BigInt(0);
+      // The result.returnValue is an array that needs to be converted to Endorsement struct
+      return Endorsement(result.returnValue as [Uint8Array, Uint8Array, Uint8Array, bigint, bigint, bigint]);
+
     } catch (error) {
       console.error("Error getting candidate endorsement:", error);
-      return BigInt(0);
+      return null;
     }
   }
 
@@ -253,9 +265,9 @@ export class ElectionInfoService {
    * Check if election is currently active
    */
   isElectionActive(electionInfo: ElectionInfo): boolean {
-    const now = BigInt(Math.floor(Date.now() / 1000));
+    const now = Math.floor(Date.now() / 1000);
     return (
-      electionInfo.electionStatus === BigInt(1) && // Active status
+      electionInfo.electionStatus === 1 && // Active status
       electionInfo.electionStartTimestamp <= now &&
       electionInfo.electionEndTimestamp > now
     );
@@ -265,16 +277,16 @@ export class ElectionInfoService {
    * Get election status string
    */
   getElectionStatusString(electionInfo: ElectionInfo): string {
-    const now = BigInt(Math.floor(Date.now() / 1000));
+    const now = Math.floor(Date.now() / 1000);
 
-    if (electionInfo.electionStatus === BigInt(0)) return "Upcoming";
-    if (electionInfo.electionStatus === BigInt(1)) {
+    if (electionInfo.electionStatus === 0) return "Upcoming";
+    if (electionInfo.electionStatus === 1) {
       if (electionInfo.electionStartTimestamp > now) return "Upcoming";
       if (electionInfo.electionEndTimestamp <= now) return "Completed";
       return "Active";
     }
-    if (electionInfo.electionStatus === BigInt(2)) return "Completed";
-    if (electionInfo.electionStatus === BigInt(3)) return "Cancelled";
+    if (electionInfo.electionStatus === 2) return "Completed";
+    if (electionInfo.electionStatus === 3) return "Cancelled";
 
     return "Unknown";
   }
@@ -283,12 +295,12 @@ export class ElectionInfoService {
    * Get time remaining until election ends
    */
   getTimeRemaining(electionInfo: ElectionInfo): string {
-    const now = BigInt(Math.floor(Date.now() / 1000));
+    const now = Math.floor(Date.now() / 1000);
     const timeLeft = electionInfo.electionEndTimestamp - now;
 
-    if (timeLeft <= BigInt(0)) return "Ended";
+    if (timeLeft <= 0) return "Ended";
 
-    const days = Number(timeLeft) / (24 * 60 * 60);
+    const days = timeLeft / (24 * 60 * 60);
     const hours = (days % 1) * 24;
     const minutes = (hours % 1) * 60;
 

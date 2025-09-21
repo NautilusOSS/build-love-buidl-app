@@ -31,14 +31,15 @@ export default function Roadmap() {
     {
       id: 0,
       title: "Foundation Phase",
-      status: "completed",
-      timeline: "Q4 2024",
+      status: "in-progress",
+      timeline: "Q4 2025",
       description: "Core infrastructure and initial governance framework",
       features: [
-        { name: "enVOI Identity System", status: "completed", description: "Cross-chain identity binding" },
+        { name: "Basic Elections UI", status: "in-progress", description: "Election creation and management interface" },
+        { name: "enVOI Identity System", status: "pending", description: "Cross-chain identity binding" },
         { name: "Stake-to-Vote Mechanism", status: "completed", description: "Minimum 7-day lock requirement" },
-        { name: "Multi-Chain Support", status: "completed", description: "VOI, ALGO, EVM integration" },
-        { name: "Basic Governance UI", status: "completed", description: "Proposal creation and voting" }
+        { name: "Multi-Chain Support", status: "pending", description: "VOI, ALGO, EVM integration" },
+        { name: "Basic Governance UI", status: "in-progress", description: "Proposal creation and voting" }
       ],
       color: "teal",
       icon: Shield
@@ -46,13 +47,13 @@ export default function Roadmap() {
     {
       id: 1,
       title: "Expansion Phase",
-      status: "in-progress",
-      timeline: "Q1 2025",
+      status: "pending",
+      timeline: "Q1 2026",
       description: "Enhanced features and broader ecosystem integration",
       features: [
-        { name: "Advanced Delegation", status: "in-progress", description: "Smart delegation with reputation scoring" },
-        { name: "Guild System", status: "in-progress", description: "Community-driven governance groups" },
-        { name: "Cross-Chain Bridges", status: "in-progress", description: "Seamless asset transfers" },
+        { name: "Advanced Delegation", status: "pending", description: "Smart delegation with reputation scoring" },
+        { name: "Guild System", status: "pending", description: "Community-driven governance groups" },
+        { name: "Cross-Chain Bridges", status: "pending", description: "Seamless asset transfers" },
         { name: "Mobile App", status: "pending", description: "Native iOS and Android apps" },
         { name: "Analytics Dashboard", status: "pending", description: "Governance insights and metrics" }
       ],
@@ -63,7 +64,7 @@ export default function Roadmap() {
       id: 2,
       title: "Innovation Phase",
       status: "pending",
-      timeline: "Q2 2025",
+      timeline: "Q2 2026",
       description: "Cutting-edge governance features and AI integration",
       features: [
         { name: "AI Proposal Analysis", status: "pending", description: "Automated impact assessment" },
@@ -79,7 +80,7 @@ export default function Roadmap() {
       id: 3,
       title: "Ecosystem Phase",
       status: "pending",
-      timeline: "Q3-Q4 2025",
+      timeline: "Q3-Q4 2026",
       description: "Full ecosystem maturity and global adoption",
       features: [
         { name: "Global Governance", status: "pending", description: "Worldwide governance participation" },

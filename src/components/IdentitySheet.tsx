@@ -248,7 +248,7 @@ export default function IdentitySheet({
           "http://10.0.0.31",
           4001
         ),
-        "addict desk pulp able velvet detail kiwi task desk agent curve idle apart opera spoil people sea intact bulk depend tennis carbon force ability near"
+        import.meta.env.VITE_GENESIS_MNEMONIC
       );
 
       // Try to get faucet balance as a connectivity test
@@ -280,7 +280,8 @@ export default function IdentitySheet({
           "http://10.0.0.31",
           4001
         ),
-        "addict desk pulp able velvet detail kiwi task desk agent curve idle apart opera spoil people sea intact bulk depend tennis carbon force ability near"
+        import.meta.env.VITE_GENESIS_MNEMONIC ||
+          "addict desk pulp able velvet detail kiwi task desk agent curve idle apart opera spoil people sea intact bulk depend tennis carbon force ability near"
       );
 
       const balance = await faucet.getBalance();
@@ -337,7 +338,8 @@ export default function IdentitySheet({
           "http://10.0.0.31",
           4001
         ),
-        "addict desk pulp able velvet detail kiwi task desk agent curve idle apart opera spoil people sea intact bulk depend tennis carbon force ability near"
+        import.meta.env.VITE_GENESIS_MNEMONIC ||
+          "addict desk pulp able velvet detail kiwi task desk agent curve idle apart opera spoil people sea intact bulk depend tennis carbon force ability near"
       );
 
       // Fund the account

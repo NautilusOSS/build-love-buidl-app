@@ -3,22 +3,28 @@ import { NetworkId } from "@txnlab/use-wallet-react";
 // App IDs for different networks
 export const APP_IDS = {
   [NetworkId.LOCALNET]: {
-    GOVERNANCE: 1524,
+    GOVERNANCE: 3612,
     ELECTION: 0,
-    TREASURY: 0, // TODO: Add actual treasury app ID when available
-    ATOKEN: 1228,
+    TREASURY: 0,
+    ATOKEN: 3614,
   },
   [NetworkId.TESTNET]: {
-    GOVERNANCE: 744323178,
+    GOVERNANCE: 0,
     ELECTION: 0,
-    TREASURY: 0, // TODO: Add testnet treasury app ID when deployed
-    ATOKEN: 743653037,
+    TREASURY: 0,
+    ATOKEN: 0,
   },
   [NetworkId.MAINNET]: {
-    GOVERNANCE: 0, // TODO: Add mainnet governance app ID when deployed
+    GOVERNANCE: 0,
     ELECTION: 0,
-    TREASURY: 0, // TODO: Add mainnet treasury app ID when deployed
-    ATOKEN: 0, // TODO: Add mainnet ATOKEN app ID when deployed
+    TREASURY: 0,
+    ATOKEN: 0,
+  },
+  [NetworkId.VOIMAIN]: {
+    GOVERNANCE: 45489275,
+    ELECTION: 0,
+    TREASURY: 0,
+    ATOKEN: 45489277,
   },
 } as const;
 

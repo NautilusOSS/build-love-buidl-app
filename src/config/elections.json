@@ -8,7 +8,7 @@
       "timeRemaining": "5d 12h 30m",
       "positions": 5,
       "chains": ["VOI"],
-      "proposalHash": "2e37dbbee80cca036b7e2a3f7bec24822e4d7bc7e0f86023dc813844815c2006",
+      "proposalHash": "320f58ae62273bbb28d27b081a51e9d1e4922652097309b8096d0b6ae0a1eda0",
       "electionNode": "election_node_001",
       "createdAtTimestamp": 1704067200,
       "electionStartTimestamp": 1704153600,
@@ -95,7 +95,7 @@
           "campaignStatement": "I will drive research initiatives and academic partnerships to advance VOI's technology."
         }
       ],
-      "totalVotes": 5970000,
+      "totalVotes": 0,
       "quorumThreshold": 1000000,
       "minVotingPower": 1000,
       "votingPowerMultiplier": 1.5
