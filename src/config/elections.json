@@ -1,0 +1,111 @@
+{
+  "elections": [
+    {
+      "id": 1,
+      "title": "VOI Council Election",
+      "description": "Elect 5 members to the VOI Council for 2024-2025 term",
+      "status": "Active",
+      "timeRemaining": "5d 12h 30m",
+      "positions": 5,
+      "chains": ["VOI"],
+      "proposalHash": "2e37dbbee80cca036b7e2a3f7bec24822e4d7bc7e0f86023dc813844815c2006",
+      "electionNode": "election_node_001",
+      "createdAtTimestamp": 1704067200,
+      "electionStartTimestamp": 1704153600,
+      "electionEndTimestamp": 1704758400,
+      "candidates": [
+        {
+          "id": 1,
+          "name": "atlas.voi",
+          "bio": "Long-time VOI contributor and validator. Focused on network security and scalability.",
+          "votes": 1250000,
+          "avatar": "/api/placeholder/40/40",
+          "endorsements": 0,
+          "address": "ATLAS1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
+          "campaignStatement": "I'm committed to advancing VOI's technical infrastructure and ensuring network security remains our top priority."
+        },
+        {
+          "id": 2,
+          "name": "cosmos.voi",
+          "bio": "Cross-chain specialist with expertise in interoperability protocols.",
+          "votes": 980000,
+          "avatar": "/api/placeholder/40/40",
+          "endorsements": 0,
+          "address": "COSMOS1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
+          "campaignStatement": "My focus will be on expanding VOI's cross-chain capabilities and building bridges to other ecosystems."
+        },
+        {
+          "id": 3,
+          "name": "founder.voi",
+          "bio": "Core protocol developer and governance advocate.",
+          "votes": 2100000,
+          "avatar": "/api/placeholder/40/40",
+          "endorsements": 0,
+          "address": "FOUNDER1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
+          "campaignStatement": "I bring deep protocol knowledge and a vision for decentralized governance that empowers the community."
+        },
+        {
+          "id": 4,
+          "name": "dao.voi",
+          "bio": "Decentralized governance expert and community builder.",
+          "votes": 750000,
+          "avatar": "/api/placeholder/40/40",
+          "endorsements": 0,
+          "address": "DAO1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
+          "campaignStatement": "I will work to improve governance processes and ensure all community voices are heard in decision-making."
+        },
+        {
+          "id": 5,
+          "name": "tech.voi",
+          "bio": "Technical architect specializing in blockchain infrastructure.",
+          "votes": 890000,
+          "avatar": "/api/placeholder/40/40",
+          "endorsements": 0,
+          "address": "TECH1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
+          "campaignStatement": "I will focus on technical excellence and innovation to keep VOI at the forefront of blockchain technology."
+        },
+        {
+          "id": 6,
+          "name": "community.voi",
+          "bio": "Community advocate and user experience specialist.",
+          "votes": 450000,
+          "avatar": "/api/placeholder/40/40",
+          "endorsements": 0,
+          "address": "COMMUNITY1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
+          "campaignStatement": "I will ensure the community's needs are prioritized in all Foundation decisions."
+        },
+        {
+          "id": 7,
+          "name": "finance.voi",
+          "bio": "Financial strategist with DeFi and treasury management expertise.",
+          "votes": 620000,
+          "avatar": "/api/placeholder/40/40",
+          "endorsements": 0,
+          "address": "FINANCE1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
+          "campaignStatement": "I will focus on sustainable financial growth and responsible treasury management."
+        },
+        {
+          "id": 8,
+          "name": "research.voi",
+          "bio": "Blockchain researcher and academic with focus on consensus mechanisms.",
+          "votes": 380000,
+          "avatar": "/api/placeholder/40/40",
+          "endorsements": 0,
+          "address": "RESEARCH1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
+          "campaignStatement": "I will drive research initiatives and academic partnerships to advance VOI's technology."
+        }
+      ],
+      "totalVotes": 5970000,
+      "quorumThreshold": 1000000,
+      "minVotingPower": 1000,
+      "votingPowerMultiplier": 1.5
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "lastUpdated": "2024-01-01T00:00:00Z",
+    "description": "VOI Foundation Election Configuration",
+    "network": "VOI",
+    "governanceContract": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+  }
+}

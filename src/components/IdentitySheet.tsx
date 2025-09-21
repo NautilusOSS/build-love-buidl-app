@@ -43,6 +43,8 @@ import {
   Globe,
   Check,
   LogOut,
+  AlertCircle,
+  CheckCircle,
 } from "lucide-react";
 import { useWallet, NetworkId, WalletId } from "@txnlab/use-wallet-react";
 import { APP_SPEC as VNSRegistrySpec } from "@/clients/VNSRegistryClient";
@@ -51,12 +53,8 @@ import { CONTRACT, abi } from "ulujs";
 import algosdk from "algosdk";
 import { namehash, stringToUint8Array } from "@/utils/namehash";
 import { stripTrailingZeroBytes } from "@/utils/string";
-import {
-  createFundedAccount,
-  isLocalnetAvailable,
-  getLocalnetConfig,
-} from "@/utils/localnet";
 import { SimpleFaucet } from "@/services/simple-faucet";
+import { useToast } from "@/hooks/use-toast";
 
 interface IdentitySheetProps {
   isOpen: boolean;
@@ -82,6 +80,8 @@ export default function IdentitySheet({
     setActiveNetwork,
   } = useWallet();
 
+  const { toast } = useToast();
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,6 +92,12 @@ export default function IdentitySheet({
 
   const [delegateInput, setDelegateInput] = useState("");
   const [selectedDelegate, setSelectedDelegate] = useState("");
+  const [devAccountDetails, setDevAccountDetails] = useState<{
+    address: string;
+    mnemonic: string;
+    txId?: string;
+  } | null>(null);
+  const [faucetBalance, setFaucetBalance] = useState<number | null>(null);
 
   const mockAssets = [
     // {
@@ -198,73 +204,222 @@ export default function IdentitySheet({
         await activeWallet.disconnect();
         setProfile(null);
         setNetworkBalance(0);
+        setDevAccountDetails(null);
       } catch (error) {
         console.error("Wallet disconnection failed:", error);
       }
     }
   };
 
-  // Handle localnet account creation and funding
-  const handleCreateLocalnetAccount = async () => {
-    if (activeNetwork !== "localnet") return;
-    if (!activeWallet) return;
-    const acc = algosdk.generateAccount();
-    const { addr, sk } = acc;
-    const mn = algosdk.secretKeyToMnemonic(sk);
-    localStorage.setItem("@txnlab/use-wallet:v3_mnemonic", mn);
-    const faucet = new SimpleFaucet(
-      new algosdk.Algodv2(
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "http://10.0.0.31",
-        4001
-      ),
-      "addict desk pulp able velvet detail kiwi task desk agent curve idle apart opera spoil people sea intact bulk depend tennis carbon force ability near"
-    );
-    await faucet.fundAccount(addr, 2e6);
-
-    console.log({ activeWallet });
-
-    /*
-    setCreatingLocalnetAccount(true);
+  // Copy text to clipboard
+  const copyToClipboard = async (text: string, label: string) => {
     try {
-      // Check if localnet is available
-      const isAvailable = await isLocalnetAvailable();
-      if (!isAvailable) {
-        alert(
-          "Localnet is not available. Please make sure your local Algorand node is running on localhost:4001"
-        );
-        return;
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Copied to Clipboard",
+        description: `${label} has been copied to your clipboard`,
+      });
+    } catch (error) {
+      console.error("Failed to copy to clipboard:", error);
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy to clipboard",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Clear dev account details
+  const clearDevAccountDetails = () => {
+    setDevAccountDetails(null);
+    toast({
+      title: "Dev Account Details Cleared",
+      description: "Account details have been cleared from the interface",
+    });
+  };
+
+  // Check if localnet is available using SimpleFaucet
+  const checkLocalnetStatus = async () => {
+    try {
+      // Create a test SimpleFaucet instance to check connectivity
+      const testFaucet = new SimpleFaucet(
+        new algosdk.Algodv2(
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "http://10.0.0.31",
+          4001
+        ),
+        "addict desk pulp able velvet detail kiwi task desk agent curve idle apart opera spoil people sea intact bulk depend tennis carbon force ability near"
+      );
+
+      // Try to get faucet balance as a connectivity test
+      const balance = await testFaucet.getBalance();
+      setFaucetBalance(balance);
+
+      toast({
+        title: "Localnet Available",
+        description: `Local Algorand node is running. Faucet balance: ${algosdk.microalgosToAlgos(
+          balance
+        )} ALGO`,
+      });
+    } catch (error) {
+      setFaucetBalance(null);
+      toast({
+        title: "Localnet Unavailable",
+        description: "Local Algorand node is not running or accessible",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Get faucet balance
+  const getFaucetBalance = async () => {
+    try {
+      const faucet = new SimpleFaucet(
+        new algosdk.Algodv2(
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "http://10.0.0.31",
+          4001
+        ),
+        "addict desk pulp able velvet detail kiwi task desk agent curve idle apart opera spoil people sea intact bulk depend tennis carbon force ability near"
+      );
+
+      const balance = await faucet.getBalance();
+      setFaucetBalance(balance);
+
+      toast({
+        title: "Faucet Balance Updated",
+        description: `Current faucet balance: ${algosdk.microalgosToAlgos(
+          balance
+        )} ALGO`,
+      });
+    } catch (error) {
+      console.error("Failed to get faucet balance:", error);
+      toast({
+        title: "Failed to Get Balance",
+        description: "Unable to retrieve faucet balance",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle localnet account creation and funding using SimpleFaucet
+  const handleCreateLocalnetAccount = async () => {
+    if (activeNetwork !== "localnet") {
+      toast({
+        title: "Invalid Network",
+        description: "Dev account creation is only available on localnet",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingLocalnetAccount(true);
+
+    try {
+      // Show progress toast
+      toast({
+        title: "Creating Dev Account",
+        description: "Generating new account and funding it...",
+      });
+
+      // Generate new account
+      const acc = algosdk.generateAccount();
+      const { addr, sk } = acc;
+      const mn = algosdk.secretKeyToMnemonic(sk);
+
+      // Store the mnemonic in localStorage for wallet connection
+      localStorage.setItem("@txnlab/use-wallet:v3_mnemonic", mn);
+
+      // Create SimpleFaucet instance with localnet configuration
+      const faucet = new SimpleFaucet(
+        new algosdk.Algodv2(
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "http://10.0.0.31",
+          4001
+        ),
+        "addict desk pulp able velvet detail kiwi task desk agent curve idle apart opera spoil people sea intact bulk depend tennis carbon force ability near"
+      );
+
+      // Fund the account
+      const fundingResult = await faucet.fundAccount(addr, 2e6); // 2 ALGO
+
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      const wallet = wallets.find((w) => w.id === WalletId.MNEMONIC);
+
+      if (!wallet) {
+        throw new Error("Failed to find wallet");
       }
 
-      // Get configuration info
-      const config = getLocalnetConfig();
-      console.log("Localnet config:", config);
+      const [activeAccount] = await wallet.connect();
+      if (!activeAccount) {
+        throw new Error("Failed to connect wallet");
+      }
 
-      // Create and fund account using utility
-      const { account, funding } = await createFundedAccount(1000000); // 1 ALGO
+      console.log("Created localnet account:", addr);
+      console.log("Mnemonic:", mn);
+      console.log("Funding result:", fundingResult);
 
-      console.log("Created localnet account:", account.address);
-      console.log("Mnemonic:", account.mnemonic);
+      // Store account details for display
+      setDevAccountDetails({
+        address: addr,
+        mnemonic: mn,
+        txId: fundingResult.txId,
+      });
 
-      if (funding.success) {
-        alert(
-          `Localnet account created and funded!\nAddress: ${account.address}\nMnemonic: ${account.mnemonic}\nFunding TX: ${funding.transactionId}\n\nAccount is ready for testing!`
-        );
+      if (fundingResult.success) {
+        toast({
+          title: "Dev Account Created Successfully",
+          description: `Account: ${addr.slice(0, 8)}...${addr.slice(-4)}`,
+        });
+
+        toast({
+          title: "Funding Successful",
+          description: fundingResult.message,
+        });
+
+        // Refresh the wallet connection to pick up the new account
+        if (activeWallet) {
+          try {
+            await activeWallet.connect();
+            toast({
+              title: "Wallet Reconnected",
+              description: "New dev account is now active",
+            });
+          } catch (error) {
+            console.error("Failed to reconnect wallet:", error);
+            toast({
+              title: "Reconnection Failed",
+              description:
+                "Please manually reconnect your wallet to use the new account",
+              variant: "destructive",
+            });
+          }
+        }
       } else {
-        alert(
-          `Localnet account created!\nAddress: ${account.address}\nMnemonic: ${account.mnemonic}\n\nNote: Automatic funding failed: ${funding.error}\nYou may need to fund this account manually in your localnet setup.`
-        );
+        toast({
+          title: "Account Created (Funding Failed)",
+          description: `Account: ${addr.slice(0, 8)}...${addr.slice(-4)}`,
+          variant: "destructive",
+        });
+
+        toast({
+          title: "Funding Failed",
+          description: fundingResult.message,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Failed to create localnet account:", error);
-      alert(
-        "Failed to create localnet account. Please check your localnet setup."
-      );
+      toast({
+        title: "Account Creation Failed",
+        description:
+          error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      });
     } finally {
       setCreatingLocalnetAccount(false);
     }
-      */
-    setCreatingLocalnetAccount(false);
   };
 
   const fetchNetworkBalance = async () => {
@@ -272,13 +427,28 @@ export default function IdentitySheet({
 
     setBalanceLoading(true);
     try {
-      const accountInfo = await algodClient
-        .accountInformation(activeAccount.address)
-        .do();
-      const balanceMicro = accountInfo.amount || 0;
-      const minBalance = accountInfo["min-balance"] || 0;
-      const availableBalance = Math.max(0, balanceMicro - (minBalance + 1e5));
-      setNetworkBalance(availableBalance / 1e6);
+      if (activeNetwork === "localnet") {
+        const algodClient = new algosdk.Algodv2(
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "http://10.0.0.31",
+          4001
+        );
+        const accountInfo = await algodClient
+          .accountInformation(activeAccount.address)
+          .do();
+        const balanceMicro = accountInfo.amount || 0;
+        const minBalance = accountInfo["min-balance"] || 0;
+        const availableBalance = Math.max(0, balanceMicro - (minBalance + 1e5));
+        setNetworkBalance(availableBalance / 1e6);
+      } else {
+        const accountInfo = await algodClient
+          .accountInformation(activeAccount.address)
+          .do();
+        const balanceMicro = accountInfo.amount || 0;
+        const minBalance = accountInfo["min-balance"] || 0;
+        const availableBalance = Math.max(0, balanceMicro - (minBalance + 1e5));
+        setNetworkBalance(availableBalance / 1e6);
+      }
     } catch (error) {
       console.error("Failed to fetch network balance:", error);
       setNetworkBalance(0);
@@ -356,6 +526,13 @@ export default function IdentitySheet({
       console.error(error);
     }
   }, [activeAccount, algodClient]);
+
+  // Check faucet balance when on localnet
+  useEffect(() => {
+    if (activeNetwork === "localnet") {
+      getFaucetBalance();
+    }
+  }, [activeNetwork]);
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -461,49 +638,61 @@ export default function IdentitySheet({
                   </div>
                 </div>
 
-                {/* Available Wallets */}
-                <div className="space-y-2">
-                  <Label className="text-sm text-gray-300">
-                    Available Wallets
-                  </Label>
+                {/* Available Wallets - Hide for localnet */}
+                {activeNetwork !== "localnet" && (
                   <div className="space-y-2">
-                    {availableWallets.map((wallet) => (
-                      <Button
-                        key={wallet.id}
-                        variant="outline"
-                        className="w-full justify-start border-gray-600 hover:border-teal-400 hover:bg-teal-500/10"
-                        onClick={() => handleWalletConnect(wallet)}
-                        disabled={connecting === wallet.id}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-teal-400 to-violet-400 flex items-center justify-center text-xs font-bold">
-                            {wallet.metadata.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <span>{wallet.metadata.name}</span>
-                          {connecting === wallet.id && (
-                            <div className="ml-auto">
-                              <div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                    <Label className="text-sm text-gray-300">
+                      Available Wallets
+                    </Label>
+                    <div className="space-y-2">
+                      {availableWallets.map((wallet) => (
+                        <Button
+                          key={wallet.id}
+                          variant="outline"
+                          className="w-full justify-start border-gray-600 hover:border-teal-400 hover:bg-teal-500/10"
+                          onClick={() => handleWalletConnect(wallet)}
+                          disabled={connecting === wallet.id}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-teal-400 to-violet-400 flex items-center justify-center text-xs font-bold">
+                              {wallet.metadata.name.slice(0, 2).toUpperCase()}
                             </div>
-                          )}
-                        </div>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {availableWallets.length === 0 && (
-                  <div className="text-center py-4 text-gray-400">
-                    <Wallet className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">
-                      No wallets available for{" "}
-                      {networks.find((n) => n.id === activeNetwork)?.name}
-                    </p>
+                            <span>{wallet.metadata.name}</span>
+                            {connecting === wallet.id && (
+                              <div className="ml-auto">
+                                <div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                              </div>
+                            )}
+                          </div>
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {activeNetwork !== "localnet" &&
+                  availableWallets.length === 0 && (
+                    <div className="text-center py-4 text-gray-400">
+                      <Wallet className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">
+                        No wallets available for{" "}
+                        {networks.find((n) => n.id === activeNetwork)?.name}
+                      </p>
+                    </div>
+                  )}
 
                 {/* Localnet Account Creation */}
                 {activeNetwork === "localnet" && (
                   <div className="space-y-2">
+                    <div className="text-center py-4 text-gray-400">
+                      <Wallet className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm mb-2">Localnet Development Mode</p>
+                      <p className="text-xs text-gray-500">
+                        Wallets are not needed for localnet. Use the dev account
+                        creator below.
+                      </p>
+                    </div>
+
                     <Label className="text-sm text-gray-300">
                       Development Account
                     </Label>
@@ -528,6 +717,129 @@ export default function IdentitySheet({
                     <p className="text-xs text-gray-400 text-center">
                       Automatically creates a new account for localnet testing
                     </p>
+                  </div>
+                )}
+
+                {/* Dev Account Details - Only show on localnet */}
+                {activeNetwork === "localnet" && devAccountDetails && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm text-gray-300">
+                        Latest Dev Account
+                      </Label>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={checkLocalnetStatus}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Status
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={getFaucetBalance}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <RefreshCw className="w-3 h-3 mr-1" />
+                          Balance
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearDevAccountDetails}
+                          className="h-6 px-2 text-xs text-red-400 hover:text-red-300"
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-black/20 border border-gray-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-400">Address:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-mono">
+                            {devAccountDetails.address.slice(0, 8)}...
+                            {devAccountDetails.address.slice(-4)}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              copyToClipboard(
+                                devAccountDetails.address,
+                                "Address"
+                              )
+                            }
+                            className="h-6 w-6 p-0"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-400">Mnemonic:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-mono">
+                            {devAccountDetails.mnemonic
+                              .split(" ")
+                              .slice(0, 3)
+                              .join(" ")}
+                            ...
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              copyToClipboard(
+                                devAccountDetails.mnemonic,
+                                "Mnemonic"
+                              )
+                            }
+                            className="h-6 w-6 p-0"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      {devAccountDetails.txId && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-400">
+                            Funding TX:
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-mono">
+                              {devAccountDetails.txId.slice(0, 8)}...
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                copyToClipboard(
+                                  devAccountDetails.txId!,
+                                  "Transaction ID"
+                                )
+                              }
+                              className="h-6 w-6 p-0"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {faucetBalance !== null && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-400">
+                            Faucet Balance:
+                          </span>
+                          <span className="text-sm font-mono text-green-400">
+                            {algosdk.microalgosToAlgos(faucetBalance)} ALGO
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </CardContent>
