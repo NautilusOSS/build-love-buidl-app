@@ -18,7 +18,7 @@ export class ElectionConfigService implements ElectionConfigLoader {
   private config: ElectionConfiguration | null = null;
   private configPath: string;
 
-  constructor(configPath: string = '/src/config/elections.json') {
+  constructor(configPath: string = '/config/elections.json') {
     this.configPath = configPath;
   }
 
