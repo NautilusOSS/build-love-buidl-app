@@ -83,6 +83,9 @@ import {
   VOTE_NO,
 } from "@/utils/command";
 import { toast } from "@/components/ui/use-toast";
+import { APP_SPEC as VNSPublicResolverSpec } from "@/clients/VNSPublicResolverClient";
+import { namehash } from "@/utils/namehash";
+import { stripTrailingZeroBytes } from "@/utils/string";
 
 // Proposal status mapping
 const PROPOSAL_STATUS = {
@@ -409,6 +412,9 @@ export default function Voting() {
   const [voteError, setVoteError] = useState("");
   const [voteSuccess, setVoteSuccess] = useState("");
 
+  // VNS name resolution state
+  const [resolvedName, setResolvedName] = useState<string | null>(null);
+
   // Ref for scrolling to voting details section
   const votingDetailsRef = useRef<HTMLDivElement>(null);
 
@@ -447,6 +453,44 @@ export default function Voting() {
     }
     return undefined;
   }, [activeNetwork]);
+
+  // Function to resolve VNS name for the active account
+  const resolveVNSName = async () => {
+    if (!activeAccount || !algodClient || activeNetwork !== NetworkId.VOIMAIN) {
+      setResolvedName(null);
+      return;
+    }
+
+    try {
+      const resolverAppId = 797608;
+      const resolver = new CONTRACT(
+        resolverAppId,
+        algodClient,
+        undefined,
+        { ...VNSPublicResolverSpec.contract, events: [] },
+        {
+          addr: activeAccount.address,
+          sk: new Uint8Array(),
+        }
+      );
+
+      const reverseAddressHash = await namehash(
+        `${activeAccount.address}.addr.reverse`
+      );
+      
+      const nameR = await resolver.name(reverseAddressHash);
+      
+      if (nameR.success && nameR.returnValue) {
+        const name = stripTrailingZeroBytes(nameR.returnValue);
+        setResolvedName(name && name !== "" ? name : null);
+      } else {
+        setResolvedName(null);
+      }
+    } catch (error) {
+      console.error("Error resolving VNS name:", error);
+      setResolvedName(null);
+    }
+  };
 
   // Function to fetch voter data (matching PowerUp approach)
   const fetchVoterData = async () => {
@@ -543,6 +587,7 @@ export default function Voting() {
     if (activeAccount) {
       fetchUserBalance();
       fetchVoterData();
+      resolveVNSName();
     }
   }, [activeAccount, activeNetwork]);
 
@@ -1345,13 +1390,21 @@ export default function Voting() {
               </Button>
             </div>
             <div className="flex items-center gap-4">
-              <Badge
-                variant="outline"
-                className="glass-morphism-silver neon-glow-silver"
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                Connected: shelly.voi
-              </Badge>
+              {activeAccount && (
+                <Badge
+                  variant="outline"
+                  className="glass-morphism-silver neon-glow-silver px-4 py-2 text-sm font-medium hidden sm:flex"
+                >
+                  <Shield 
+                    className={`w-5 h-5 mr-3 ${
+                      resolvedName 
+                        ? "fill-primary text-primary" 
+                        : "text-white"
+                    }`} 
+                  />
+                  <span className="hidden sm:inline">Connected: </span>{resolvedName || activeWallet?.metadata?.name || activeAccount.name || `${activeAccount.address.slice(0, 8)}...`}
+                </Badge>
+              )}
               <Button
                 variant="outline"
                 className="glass-morphism-violet neon-glow-violet"
