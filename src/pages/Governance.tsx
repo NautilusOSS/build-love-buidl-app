@@ -98,7 +98,10 @@ export interface GlobalState {
 }
 
 // Helper function to convert contract proposal to UI format
-const convertProposalToUI = (proposal: Proposal, aggregatedGlobalState?: GlobalState): UIProposal => {
+const convertProposalToUI = (
+  proposal: Proposal,
+  aggregatedGlobalState?: GlobalState
+): UIProposal => {
   const status =
     PROPOSAL_STATUS[
       Number(proposal.proposalStatus) as keyof typeof PROPOSAL_STATUS
@@ -122,8 +125,8 @@ const convertProposalToUI = (proposal: Proposal, aggregatedGlobalState?: GlobalS
 
   const currentPower = Number(proposal.proposalTotalPower);
   // Use aggregated global state for required power calculation if available
-  const requiredPower = aggregatedGlobalState?.totalVoterCount 
-    ? aggregatedGlobalState.totalVoterCount.asNumber() 
+  const requiredPower = aggregatedGlobalState?.totalVoterCount
+    ? aggregatedGlobalState.totalVoterCount.asNumber()
     : Number(proposal.proposalActivationPower);
 
   // Calculate if proposal is expired (pending proposals that didn't reach activation power)
@@ -435,13 +438,13 @@ const formatRelativeTime = (dateString: string) => {
   const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
 
   if (diffInDays > 0) {
-    return `${diffInDays} day${diffInDays === 1 ? '' : 's'} ago`;
+    return `${diffInDays} day${diffInDays === 1 ? "" : "s"} ago`;
   } else if (diffInHours > 0) {
-    return `${diffInHours} hour${diffInHours === 1 ? '' : 's'} ago`;
+    return `${diffInHours} hour${diffInHours === 1 ? "" : "s"} ago`;
   } else if (diffInMinutes > 0) {
-    return `${diffInMinutes} minute${diffInMinutes === 1 ? '' : 's'} ago`;
+    return `${diffInMinutes} minute${diffInMinutes === 1 ? "" : "s"} ago`;
   } else {
-    return 'Just now';
+    return "Just now";
   }
 };
 
@@ -481,9 +484,11 @@ const Governance = () => {
   const [globalState, setGlobalState] = useState<GlobalState | null>(null);
   const [participationRate, setParticipationRate] = useState(0);
   const [userVotes, setUserVotes] = useState<Record<string, "yes" | "no">>({});
-  
+
   // Network settings state
-  const [networkSettings, setNetworkSettings] = useState<{ [key in NetworkId]: boolean }>({
+  const [networkSettings, setNetworkSettings] = useState<{
+    [key in NetworkId]: boolean;
+  }>({
     [NetworkId.LOCALNET]: true,
     [NetworkId.TESTNET]: true,
     [NetworkId.MAINNET]: false,
@@ -491,7 +496,8 @@ const Governance = () => {
   } as { [key in NetworkId]: boolean });
 
   // Flag to indicate if active network is not enabled
-  const [activeNetworkNotEnabled, setActiveNetworkNotEnabled] = useState<boolean>(false);
+  const [activeNetworkNotEnabled, setActiveNetworkNotEnabled] =
+    useState<boolean>(false);
 
   const isNetworkEnabled = (networkId: NetworkId) => {
     return networkSettings[networkId] || false;
@@ -594,13 +600,13 @@ const Governance = () => {
     const fetchGlobalState = async () => {
       // Check if active network is enabled
       setActiveNetworkNotEnabled(!isNetworkEnabled(activeNetwork));
-      
+
       if (!activeNetwork || !algod) return;
-      
+
       // Get all enabled networks
       const enabledNetworks = getEnabledNetworks();
       console.log("Fetching proposals from enabled networks:", enabledNetworks);
-      
+
       try {
         let allProposals: UIProposal[] = [];
         let aggregatedGlobalState: GlobalState = {
@@ -609,12 +615,12 @@ const Governance = () => {
           totalVoterCount: { asNumber: () => 0 },
           totalParticipatingVoters: { asNumber: () => 0 },
         };
-        
+
         let totalProposals = 0;
         let totalActiveProposals = 0;
         let totalVoters = 0;
         let totalParticipatingVoters = 0;
-        
+
         // Fetch proposals from all enabled networks
         for (const networkId of enabledNetworks) {
           try {
@@ -636,7 +642,7 @@ const Governance = () => {
               // Skip networks without governance contracts
               continue;
             }
-            
+
             // Create indexer for this network
             let networkIndexer;
             if (networkId === NetworkId.LOCALNET) {
@@ -652,13 +658,15 @@ const Governance = () => {
                 443
               );
             }
-            
+
             const governanceAppId = getGovernanceAppId(networkId);
             if (governanceAppId === 0) {
-              console.log(`Skipping network ${networkId} - no governance app ID`);
+              console.log(
+                `Skipping network ${networkId} - no governance app ID`
+              );
               continue;
             }
-            
+
             const client = new PowGovernanceClient(
               {
                 id: governanceAppId,
@@ -666,9 +674,9 @@ const Governance = () => {
               },
               networkAlgod
             );
-            
+
             const state = await client.getGlobalState();
-            
+
             // Aggregate global state from all networks
             if (state.proposalCount) {
               totalProposals += state.proposalCount.asNumber();
@@ -680,24 +688,32 @@ const Governance = () => {
               totalVoters += state.totalVoterCount.asNumber();
             }
             if (state.totalParticipatingVoters) {
-              totalParticipatingVoters += state.totalParticipatingVoters.asNumber();
+              totalParticipatingVoters +=
+                state.totalParticipatingVoters.asNumber();
             }
-            
+
             // Set global state and participation rate based on aggregated data
             if (networkId === enabledNetworks[enabledNetworks.length - 1]) {
               aggregatedGlobalState = {
                 proposalCount: { asNumber: () => totalProposals },
                 activeProposalCount: { asNumber: () => totalActiveProposals },
                 totalVoterCount: { asNumber: () => totalVoters },
-                totalParticipatingVoters: { asNumber: () => totalParticipatingVoters },
+                totalParticipatingVoters: {
+                  asNumber: () => totalParticipatingVoters,
+                },
               };
               setGlobalState(aggregatedGlobalState);
-              const participationRate = totalVoters > 0
-                ? Number(((totalParticipatingVoters / totalVoters) * 100).toFixed(2))
-                : Number((33.33).toFixed(2));
+              const participationRate =
+                totalVoters > 0
+                  ? Number(
+                      ((totalParticipatingVoters / totalVoters) * 100).toFixed(
+                        2
+                      )
+                    )
+                  : Number((33.33).toFixed(2));
               setParticipationRate(participationRate);
             }
-            
+
             const ci = new CONTRACT(
               governanceAppId,
               networkAlgod,
@@ -708,19 +724,22 @@ const Governance = () => {
                 sk: new Uint8Array(),
               }
             );
-            
-            console.log(`Fetching proposals from ${networkId} with app ID ${governanceAppId}`);
+
+            console.log(
+              `Fetching proposals from ${networkId} with app ID ${governanceAppId}`
+            );
             const evts = await ci.getEvents({});
             const proposalCreatedEvts: ProposalCreatedEvent[] = (
-              evts?.find((evt: { name: string }) => evt.name === "ProposalCreated")
-                ?.events || []
+              evts?.find(
+                (evt: { name: string }) => evt.name === "ProposalCreated"
+              )?.events || []
             )?.map((evt: unknown[]) => ({
               txid: evt[0],
               round: evt[1],
               timestamp: evt[2],
               proposalNode: evt[3],
             }));
-            
+
             const rawProposals = (
               await Promise.all(
                 proposalCreatedEvts.map(async (evt) =>
@@ -732,45 +751,59 @@ const Governance = () => {
             ).map((result: { returnValue: unknown }) =>
               decodeProposal(result.returnValue)
             );
-            
-            console.log(`Found ${rawProposals.length} proposals from ${networkId}`);
-            
+
+            console.log(
+              `Found ${rawProposals.length} proposals from ${networkId}`
+            );
+
             // Convert to UI format and add network identifier
-            const networkProposals = rawProposals.map(proposal => {
-              const uiProposal = convertProposalToUI(proposal, aggregatedGlobalState);
+            const networkProposals = rawProposals.map((proposal) => {
+              const uiProposal = convertProposalToUI(
+                proposal,
+                aggregatedGlobalState
+              );
               return {
                 ...uiProposal,
                 network: networkId,
-                networkName: networkId === NetworkId.LOCALNET ? "Localnet" : 
-                             networkId === NetworkId.TESTNET ? "Algorand Testnet" : 
-                             networkId === NetworkId.MAINNET ? "Algorand Mainnet" : 
-                             networkId === NetworkId.VOIMAIN ? "Voi Mainnet" : "Unknown"
+                networkName:
+                  networkId === NetworkId.LOCALNET
+                    ? "Localnet"
+                    : networkId === NetworkId.TESTNET
+                    ? "Algorand Testnet"
+                    : networkId === NetworkId.MAINNET
+                    ? "Algorand Mainnet"
+                    : networkId === NetworkId.VOIMAIN
+                    ? "Voi Mainnet"
+                    : "Unknown",
               };
             });
-            
+
             allProposals = [...allProposals, ...networkProposals];
-            
           } catch (error) {
             console.error(`Error fetching proposals from ${networkId}:`, error);
           }
         }
-        
+
         console.log(`Total proposals found: ${allProposals.length}`);
-        
+
         // Remove duplicate proposals by ID and sort by creation date (most recent first)
         const uniqueProposals = allProposals.reduce((acc, proposal) => {
-          if (!acc.find(p => p.id === proposal.id)) {
+          if (!acc.find((p) => p.id === proposal.id)) {
             acc.push(proposal);
           }
           return acc;
         }, [] as UIProposal[]);
-        
+
         // Sort by creation date (most recent first)
-        uniqueProposals.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        
-        console.log(`Unique proposals after deduplication: ${uniqueProposals.length}`);
+        uniqueProposals.sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        console.log(
+          `Unique proposals after deduplication: ${uniqueProposals.length}`
+        );
         setProposals(uniqueProposals);
-        
       } catch (err) {
         console.error("Failed to fetch global state", err);
         setGlobalState(null);
@@ -779,7 +812,8 @@ const Governance = () => {
     if (mockMode) {
       // Sort mock proposals by creation date (most recent first)
       const sortedMockProposals = [...mockRecentProposals].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
       setProposals(sortedMockProposals);
       setActiveNetworkNotEnabled(false);
@@ -797,7 +831,12 @@ const Governance = () => {
 
   // Debug modal state changes
   useEffect(() => {
-    console.log("Modal state changed - voteModalOpen:", voteModalOpen, "votingProposal:", votingProposal);
+    console.log(
+      "Modal state changed - voteModalOpen:",
+      voteModalOpen,
+      "votingProposal:",
+      votingProposal
+    );
   }, [voteModalOpen, votingProposal]);
 
   console.log({ globalState });
@@ -861,7 +900,7 @@ const Governance = () => {
 
       console.log("Activating proposal:", proposalId);
       console.log("proposalNodeBytes", proposalNodeBytes);
-      
+
       const activateProposalR = await ci.activate_proposal(proposalNodeBytes);
       console.log("activateProposalR", activateProposalR);
 
@@ -899,12 +938,14 @@ const Governance = () => {
             : proposal
         )
       );
-
     } catch (error) {
       console.error("Error activating proposal:", error);
       toast({
         title: "Activation Failed",
-        description: error instanceof Error ? error.message : "Failed to activate proposal",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to activate proposal",
         variant: "destructive",
       });
     } finally {
@@ -917,7 +958,11 @@ const Governance = () => {
     setVotingProposal(proposalId);
     setVoteModalOpen(true);
     setSelectedVote(null);
-    console.log("Modal state set to open, votingProposal:", proposalId, "voteModalOpen: true");
+    console.log(
+      "Modal state set to open, votingProposal:",
+      proposalId,
+      "voteModalOpen: true"
+    );
 
     // Fetch user's existing vote for this proposal
     if (!activeAccount || !activeNetwork) {
@@ -1073,9 +1118,12 @@ const Governance = () => {
 
       return matchesSearch && matchesStatus && matchesCategory;
     });
-    
+
     // Ensure proposals remain sorted by creation date (most recent first)
-    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return filtered.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   }, [proposals, searchQuery, statusFilter, categoryFilter]);
 
   // Get unique categories for filter dropdown
@@ -1212,9 +1260,7 @@ const Governance = () => {
             >
               <Link to="/about">How it Works</Link>
             </Button>
-            {activeWallet &&
-            activeAccount &&
-            activeNetwork === NetworkId.LOCALNET ? (
+            {activeWallet && activeAccount ? (
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button
                   asChild
@@ -1223,13 +1269,15 @@ const Governance = () => {
                 >
                   <Link to="/governance/proposals/create">Create Proposal</Link>
                 </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
-                >
-                  <Link to="/governance/demo">View All States</Link>
-                </Button>
+                {activeNetwork === NetworkId.LOCALNET && (
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg lg:text-xl font-bold border-2 border-white text-white hover:bg-white hover:text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm w-full sm:w-auto"
+                  >
+                    <Link to="/governance/demo">View All States</Link>
+                  </Button>
+                )}
               </div>
             ) : (
               <WalletConnectModal onConnect={handleWalletConnect}>
@@ -1251,8 +1299,18 @@ const Governance = () => {
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center">
-                <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                <svg
+                  className="w-4 h-4 text-yellow-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
                 </svg>
               </div>
               <div>
@@ -1260,11 +1318,18 @@ const Governance = () => {
                   Active Network Not Enabled
                 </h3>
                 <p className="text-xs text-yellow-300/80">
-                  The currently selected network ({activeNetwork === NetworkId.LOCALNET ? "Localnet" : 
-                  activeNetwork === NetworkId.TESTNET ? "Algorand Testnet" : 
-                  activeNetwork === NetworkId.MAINNET ? "Algorand Mainnet" : 
-                  activeNetwork === NetworkId.VOIMAIN ? "Voi Mainnet" : "Unknown"}) is not enabled in your network settings. 
-                  Proposals are being fetched from enabled networks only.
+                  The currently selected network (
+                  {activeNetwork === NetworkId.LOCALNET
+                    ? "Localnet"
+                    : activeNetwork === NetworkId.TESTNET
+                    ? "Algorand Testnet"
+                    : activeNetwork === NetworkId.MAINNET
+                    ? "Algorand Mainnet"
+                    : activeNetwork === NetworkId.VOIMAIN
+                    ? "Voi Mainnet"
+                    : "Unknown"}
+                  ) is not enabled in your network settings. Proposals are being
+                  fetched from enabled networks only.
                 </p>
               </div>
             </div>
@@ -1420,11 +1485,13 @@ const Governance = () => {
             <div className="flex items-center justify-center sm:justify-end flex-1">
               <div className="text-center">
                 <span className="text-sm text-gray-400">
-                  Showing {filteredProposals.length} of {proposals.length} proposals
+                  Showing {filteredProposals.length} of {proposals.length}{" "}
+                  proposals
                 </span>
                 {filteredProposals.length !== proposals.length && (
                   <div className="text-xs text-blue-400 mt-1">
-                    {proposals.length - filteredProposals.length} hidden by filters
+                    {proposals.length - filteredProposals.length} hidden by
+                    filters
                   </div>
                 )}
               </div>
@@ -1531,7 +1598,9 @@ const Governance = () => {
                           {/* Show "New" badge for proposals created in the last 7 days */}
                           {(() => {
                             const daysSinceCreation = Math.floor(
-                              (Date.now() - new Date(proposal.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+                              (Date.now() -
+                                new Date(proposal.createdAt).getTime()) /
+                                (1000 * 60 * 60 * 24)
                             );
                             return daysSinceCreation <= 7 ? (
                               <Badge className="ml-2 text-xs px-2 py-0.5 bg-green-500/20 text-green-400 border-green-500/30">
