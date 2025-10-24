@@ -1,11 +1,14 @@
 import algosdk from "algosdk";
 
 // Localnet configuration from environment variables
-const LOCALNET_ALGOD_URL = import.meta.env.VITE_LOCALNET_ALGOD_URL || "http://localhost:4001";
+const LOCALNET_ALGOD_URL =
+  import.meta.env.VITE_LOCALNET_ALGOD_URL || "http://localhost";
 const LOCALNET_TOKEN = import.meta.env.VITE_LOCALNET_TOKEN || "";
+const LOCALNET_ALGOD_PORT = import.meta.env.VITE_LOCALNET_ALGOD_PORT || 4001;
 
 // Genesis account mnemonic from environment variables
-const GENESIS_MNEMONIC = import.meta.env.VITE_GENESIS_MNEMONIC || 
+const GENESIS_MNEMONIC =
+  import.meta.env.VITE_GENESIS_MNEMONIC ||
   "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon";
 
 export interface LocalnetAccount {
@@ -24,7 +27,11 @@ export interface FundingResult {
  * Creates a new localnet algod client
  */
 export function createLocalnetAlgodClient(): algosdk.Algodv2 {
-  return new algosdk.Algodv2(LOCALNET_TOKEN, LOCALNET_ALGOD_URL, "");
+  return new algosdk.Algodv2(
+    LOCALNET_TOKEN,
+    LOCALNET_ALGOD_URL,
+    Number(LOCALNET_ALGOD_PORT)
+  );
 }
 
 /**
@@ -44,7 +51,9 @@ export function validateMnemonic(mnemonic: string): boolean {
  */
 export function getGenesisAccount(): algosdk.Account {
   if (!validateMnemonic(GENESIS_MNEMONIC)) {
-    throw new Error("Invalid genesis mnemonic in environment variables. Please check VITE_GENESIS_MNEMONIC");
+    throw new Error(
+      "Invalid genesis mnemonic in environment variables. Please check VITE_GENESIS_MNEMONIC"
+    );
   }
   return algosdk.mnemonicToSecretKey(GENESIS_MNEMONIC);
 }
@@ -65,16 +74,16 @@ export function generateAccount(): LocalnetAccount {
  * Funds an account using the genesis account
  */
 export async function fundAccount(
-  address: string, 
+  address: string,
   amount: number = 1000000
 ): Promise<FundingResult> {
   try {
     const algodClient = createLocalnetAlgodClient();
     const genesisAccount = getGenesisAccount();
-    
+
     // Get transaction parameters
     const suggestedParams = await algodClient.getTransactionParams().do();
-    
+
     // Create payment transaction
     const txn = algosdk.makePaymentTxnWithSuggestedParams(
       genesisAccount.addr,
@@ -84,14 +93,14 @@ export async function fundAccount(
       undefined,
       suggestedParams
     );
-    
+
     // Sign and send transaction
     const signedTxn = txn.signTxn(genesisAccount.sk);
     const txId = await algodClient.sendRawTransaction(signedTxn).do();
-    
+
     // Wait for confirmation
     await algosdk.waitForConfirmation(algodClient, txId.txId, 4);
-    
+
     return {
       success: true,
       transactionId: txId.txId,
@@ -116,7 +125,7 @@ export async function createFundedAccount(
 }> {
   const account = generateAccount();
   const funding = await fundAccount(account.address, fundAmount);
-  
+
   return {
     account,
     funding,
@@ -130,6 +139,7 @@ export function getLocalnetConfig() {
   return {
     algodUrl: LOCALNET_ALGOD_URL,
     token: LOCALNET_TOKEN,
+    algodPort: LOCALNET_ALGOD_PORT,
     genesisMnemonic: GENESIS_MNEMONIC,
     isUsingEnvMnemonic: !!import.meta.env.VITE_GENESIS_MNEMONIC,
   };
