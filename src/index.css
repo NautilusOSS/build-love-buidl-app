@@ -2,6 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile-specific styles for sidebar */
+@media (max-width: 768px) {
+  .mobile-app-container {
+    position: relative;
+  }
+  
+  /* Ensure sidebar overlay works properly on mobile */
+  [data-sidebar="sidebar"] {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+  }
+  
+  [data-sidebar="sidebar"][data-state="open"] {
+    transform: translateX(0);
+  }
+  
+  /* Mobile sidebar content scrolling */
+  [data-sidebar="sidebar"] [data-sidebar="content"] {
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Mobile-friendly touch targets */
+  [data-sidebar="menu-item"] button,
+  [data-sidebar="menu-item"] a {
+    min-height: 44px;
+    padding: 12px 16px;
+  }
+  
+  /* Mobile header adjustments */
+  [data-sidebar="sidebar"] .sidebar-header {
+    padding: 16px;
+    min-height: 60px;
+  }
+  
+  /* Mobile footer adjustments */
+  [data-sidebar="sidebar"] .sidebar-footer {
+    padding: 16px;
+    border-top: 1px solid rgba(0, 136, 255, 0.2);
+  }
+
+  /* iOS Safari specific fixes for Sheet components */
+  [data-radix-popper-content-wrapper] {
+    height: 100vh !important;
+    max-height: 100vh !important;
+  }
+  
+  /* Ensure Sheet content is properly sized on mobile */
+  [data-state="open"][data-side="right"] {
+    height: 100vh !important;
+    max-height: 100vh !important;
+  }
+  
+  /* Fix iOS Safari viewport height issues */
+  @supports (-webkit-touch-callout: none) {
+    [data-state="open"][data-side="right"] {
+      height: -webkit-fill-available !important;
+      max-height: -webkit-fill-available !important;
+    }
+  }
+  
+  /* Ensure wallet options are scrollable on mobile */
+  .wallet-options-container {
+    max-height: 200px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 @layer base {
   /* OLED Dark Mode Design System */
   :root {

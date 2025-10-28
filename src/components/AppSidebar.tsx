@@ -20,16 +20,18 @@ import {
   Wallet,
   TrendingUp,
   ThumbsUp,
-  Map,
+  Unlock,
+  Coins,
+  PawPrint,
+  CreditCard,
 } from "lucide-react";
 import WalletConnectButton from "./WalletConnectButton";
 import { useWallet } from "@txnlab/use-wallet-react";
 
 const baseNavItems = [
-  { label: "Home", to: "/", icon: Home },
-  { label: "Voting", to: "/voting", icon: ThumbsUp },
-  { label: "Voting Demo", to: "/voting-demo", icon: ThumbsUp },
-  { label: "Roadmap", to: "/roadmap", icon: Map },
+  { label: "ExitLab", to: "/", icon: PawPrint },
+  { label: "Staking Contracts", to: "/staking", icon: Unlock },
+  { label: "Fund Recovery", to: "/recovery", icon: Coins },
 ];
 
 const AppSidebar: React.FC = () => {
@@ -41,15 +43,6 @@ const AppSidebar: React.FC = () => {
   const navItems = useMemo(
     () => [
       ...baseNavItems,
-      ...(activeAccount
-        ? [
-            {
-              label: "Wallet",
-              to: `/wallet/${activeAccount.address}`,
-              icon: Wallet,
-            },
-          ]
-        : []),
     ],
     [activeAccount]
   );
@@ -110,13 +103,13 @@ const AppSidebar: React.FC = () => {
   }, [isMobile, setOpen, setOpenMobile]);
 
   return (
-    <Sidebar data-sidebar>
-      <SidebarContent>
+    <Sidebar data-sidebar className="overflow-hidden">
+      <SidebarContent className="flex flex-col h-full">
         {/* Header with close button */}
-        <div className="flex items-center justify-between p-4 border-b border-[#0088ff33]">
+        <div className="flex items-center justify-between p-4 border-b border-[#0088ff33] flex-shrink-0 sidebar-header">
           <div className="flex items-center gap-2">
-            <Menu className="h-5 w-5 text-[#1EAEDB]" />
-            <span className="font-semibold text-[#1EAEDB]">POW App</span>
+            <PawPrint className="h-5 w-5 text-[#1EAEDB]" />
+            <span className="font-semibold text-[#1EAEDB]">ExitLab</span>
             {isMobile && (
               <span className="text-xs text-[#1EAEDB] opacity-60">
                 (Tap outside to close)
@@ -133,41 +126,47 @@ const AppSidebar: React.FC = () => {
           </button>
         </div>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.label} data-sidebar="menu-item">
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <SidebarGroup>
+            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navItems.map((item) => (
+                  <SidebarMenuItem key={item.label} data-sidebar="menu-item">
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname === item.to}
+                    >
+                      <Link to={item.to} onClick={handleNavItemClick}>
+                        <item.icon className="mr-2" />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+                <SidebarMenuItem data-sidebar="menu-item">
                   <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.to}
+                    onClick={handleCloseSidebar}
+                    isActive={false}
+                    className="border-0"
                   >
-                    <Link to={item.to} onClick={handleNavItemClick}>
-                      <item.icon className="mr-2" />
-                      <span>{item.label}</span>
-                    </Link>
+                    <X className="mr-2" />
+                    <span>Close Sidebar</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
-              <SidebarMenuItem data-sidebar="menu-item">
-                <SidebarMenuButton
-                  onClick={handleCloseSidebar}
-                  isActive={false}
-                  className="border-0"
-                >
-                  <X className="mr-2" />
-                  <span>Close Sidebar</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        {/* Add WalletConnect button after nav */}
-        <WalletConnectButton />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+          
+          {/* Wallet Connect Section */}
+          <div className="p-4">
+            <WalletConnectButton />
+          </div>
+        </div>
 
-        {/* Footer with helpful information */}
-        <div className="mt-auto p-4 border-t border-[#0088ff33]">
+        {/* Footer with helpful information - fixed at bottom */}
+        <div className="flex-shrink-0 p-4 border-t border-[#0088ff33] sidebar-footer">
           <div className="text-xs text-[#1EAEDB] opacity-70 space-y-1">
             <div className="flex items-center justify-between">
               <span>Keyboard shortcuts:</span>

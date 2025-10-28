@@ -1379,15 +1379,6 @@ export default function Voting() {
                 <Home className="w-4 h-4 mr-2" />
                 Home
               </Button>
-              <div className="hidden md:block h-6 w-px bg-gray-600"></div>
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/roadmap")}
-                className="hidden md:flex text-gray-400 hover:text-white"
-              >
-                <Map className="w-4 h-4 mr-2" />
-                Roadmap
-              </Button>
             </div>
             <div className="flex items-center gap-4">
               {activeAccount && (

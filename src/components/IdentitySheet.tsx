@@ -211,21 +211,75 @@ export default function IdentitySheet({
     }
   };
 
-  // Copy text to clipboard
+  // Copy text to clipboard with fallback
   const copyToClipboard = async (text: string, label: string) => {
     try {
+      // Check if we have clipboard access
+      if (!navigator.clipboard) {
+        console.warn("Clipboard API not available, using fallback");
+        throw new Error("Clipboard API not available");
+      }
+
+      // Check secure context
+      if (!window.isSecureContext) {
+        console.warn("Not a secure context, using fallback");
+        throw new Error("Not a secure context");
+      }
+
+      // Try clipboard API
       await navigator.clipboard.writeText(text);
+      console.log("Successfully copied to clipboard");
+      
       toast({
         title: "Copied to Clipboard",
         description: `${label} has been copied to your clipboard`,
       });
     } catch (error) {
-      console.error("Failed to copy to clipboard:", error);
-      toast({
-        title: "Copy Failed",
-        description: "Failed to copy to clipboard",
-        variant: "destructive",
-      });
+      console.error("Clipboard API failed:", error);
+      
+      // Try fallback method with simpler approach
+      try {
+        console.log("Attempting fallback copy method");
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        
+        // Position it off-screen
+        textArea.style.position = "absolute";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "-9999px";
+        textArea.style.opacity = "0";
+        textArea.style.pointerEvents = "none";
+        
+        document.body.appendChild(textArea);
+        
+        // Focus and select
+        textArea.focus({ preventScroll: true });
+        textArea.select();
+        textArea.setSelectionRange(0, text.length);
+        
+        const successful = document.execCommand("copy");
+        
+        document.body.removeChild(textArea);
+        
+        if (successful) {
+          console.log("Successfully copied using fallback method");
+          toast({
+            title: "Copied to Clipboard",
+            description: `${label} has been copied to your clipboard`,
+          });
+        } else {
+          throw new Error("execCommand returned false");
+        }
+      } catch (fallbackError) {
+        console.error("All copy methods failed:", fallbackError);
+        // Show the text so user can copy manually
+        toast({
+          title: "Copy Not Supported",
+          description: `Text: ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`,
+          variant: "default",
+          duration: 5000,
+        });
+      }
     }
   };
 
@@ -540,9 +594,9 @@ export default function IdentitySheet({
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-[400px] sm:w-[540px] glass-morphism-silver"
+        className="w-[400px] sm:w-[540px] glass-morphism-silver h-full flex flex-col"
       >
-        <SheetHeader>
+        <SheetHeader className="flex-shrink-0">
           <SheetTitle className="text-gradient-primary text-xl">
             Identity & Collateral
           </SheetTitle>
@@ -551,7 +605,7 @@ export default function IdentitySheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-6 mt-6">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden mt-6 space-y-6">
           {/* Connected enVOI */}
           {activeAccount ? (
             <Card className="glass-morphism-violet">
@@ -646,7 +700,7 @@ export default function IdentitySheet({
                     <Label className="text-sm text-gray-300">
                       Available Wallets
                     </Label>
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-h-48 overflow-y-auto wallet-options-container">
                       {availableWallets.map((wallet) => (
                         <Button
                           key={wallet.id}

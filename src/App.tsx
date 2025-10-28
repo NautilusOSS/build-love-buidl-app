@@ -24,10 +24,9 @@ import {
 // import About from "./pages/About"; // Removed about page
 // import PALGO from "./pages/pALGO"; // Removed palgo page
 // import Trading from "./pages/Trading"; // Removed trading page
-import Voting from "./pages/Voting";
-import VotingDemo from "./pages/VotingDemo";
-import ElectionDemo from "./pages/ElectionDemo";
-import Roadmap from "./pages/Roadmap";
+import ExitLab from "./pages/ExitLab";
+import StakingContracts from "./pages/StakingContracts";
+import FundRecovery from "./pages/FundRecovery";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -53,7 +52,7 @@ const App = () => {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbPage className="text-[#1EAEDB] font-bold tracking-tight">
-              POW
+              EXITLAB
             </BreadcrumbPage>
           </BreadcrumbItem>
           {pathSegments.map((segment, index) => (
@@ -80,10 +79,10 @@ const App = () => {
         options: {
           projectId: walletConnectProjectId,
           metadata: {
-            name: "POW App",
-            url: "https://powapp.xyz",
-            description: "Power ($POW) Airdrop App",
-            icons: ["https://powapp.xyz/favicon.ico"],
+            name: "ExitLab",
+            url: "https://exitlab.xyz",
+            description: "Staking Contract Exit & Fund Recovery Lab",
+            icons: ["https://exitlab.xyz/favicon.ico"],
           },
           themeMode: "light",
         },
@@ -93,10 +92,10 @@ const App = () => {
         options: {
           projectId: walletConnectProjectId,
           metadata: {
-            name: "POW App",
-            url: "https://powapp.xyz",
-            description: "Power ($POW) Airdrop App",
-            icons: ["https://powapp.xyz/favicon.ico"],
+            name: "ExitLab",
+            url: "https://exitlab.xyz",
+            description: "Staking Contract Exit & Fund Recovery Lab",
+            icons: ["https://exitlab.xyz/favicon.ico"],
           },
           themeMode: "light",
         },
@@ -113,25 +112,19 @@ const App = () => {
   // Component to conditionally render sidebar based on route
   const AppLayout = () => {
     const location = useLocation();
-    const isVotingPage = location.pathname.startsWith("/voting");
-    const isElectionPage = location.pathname.startsWith("/election");
-    const isRoadmapPage = location.pathname === "/roadmap";
+    const isExitLabPage = location.pathname === "/";
+    const isStakingPage = location.pathname.startsWith("/staking");
+    const isRecoveryPage = location.pathname.startsWith("/recovery");
+    const isWalletPage = location.pathname.startsWith("/wallet");
 
-    if (
-      isVotingPage ||
-      isElectionPage ||
-      isRoadmapPage ||
-      location.pathname === "/"
-    ) {
-      // Full-screen layout for voting pages and home (no sidebar)
+    if (isExitLabPage || isStakingPage || isRecoveryPage || isWalletPage) {
+      // Full-screen layout for ExitLab pages (no sidebar)
       return (
         <div className="min-h-screen w-full">
           <Routes>
-            <Route path="/" element={<Voting />} />
-            <Route path="/voting" element={<Voting />} />
-            <Route path="/voting-demo" element={<VotingDemo />} />
-            <Route path="/election-demo" element={<ElectionDemo />} />
-            <Route path="/roadmap" element={<Roadmap />} />
+            <Route path="/" element={<ExitLab />} />
+                  <Route path="/staking" element={<StakingContracts />} />
+                  <Route path="/recovery" element={<FundRecovery />} />
           </Routes>
         </div>
       );
@@ -142,9 +135,14 @@ const App = () => {
       <SidebarProvider>
         <div className="min-h-screen flex w-full mobile-app-container">
           <AppSidebar />
-          <SidebarInset className="flex-1 flex flex-col max-h-screen">
-            <SidebarTrigger />
-            <div className="flex-1 overflow-auto">
+          <SidebarInset className="flex-1 flex flex-col max-h-screen overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-[#0088ff33] flex-shrink-0">
+              <SidebarTrigger />
+              <div className="text-sm text-gray-500">
+                Wallet Management
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
               <Routes>
                 <Route path="/wallet/:address" element={<Wallet />} />
                 <Route path="*" element={<NotFound />} />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Wallet, Power } from "lucide-react";
+import { Loader2, Wallet, CheckCircle } from "lucide-react";
 import { useWallet, NetworkId, WalletId } from "@txnlab/use-wallet-react";
 import {
   Select,
@@ -204,7 +204,7 @@ const WalletConnectButton: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  {wallet.id === activeWallet?.id && <Power />}
+                  {wallet.id === activeWallet?.id && <CheckCircle />}
                 </div>
               </Button>
               {wallet.id === activeWallet?.id && activeWalletAccounts && (
