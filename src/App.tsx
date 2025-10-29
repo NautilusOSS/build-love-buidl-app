@@ -27,6 +27,7 @@ import {
 import ExitLab from "./pages/ExitLab";
 import StakingContracts from "./pages/StakingContracts";
 import FundRecovery from "./pages/FundRecovery";
+import GrantPay from "./pages/GrantPay";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -116,15 +117,14 @@ const App = () => {
     const isStakingPage = location.pathname.startsWith("/staking");
     const isRecoveryPage = location.pathname.startsWith("/recovery");
     const isWalletPage = location.pathname.startsWith("/wallet");
+    const isGrantPayPage = location.pathname.startsWith("/grant-pay");
 
-    if (isExitLabPage || isStakingPage || isRecoveryPage || isWalletPage) {
+    if (isExitLabPage || isStakingPage || isRecoveryPage || isWalletPage || isGrantPayPage) {
       // Full-screen layout for ExitLab pages (no sidebar)
       return (
         <div className="min-h-screen w-full">
           <Routes>
-            <Route path="/" element={<ExitLab />} />
-                  <Route path="/staking" element={<StakingContracts />} />
-                  <Route path="/recovery" element={<FundRecovery />} />
+            <Route path="/" element={<GrantPay />} />
           </Routes>
         </div>
       );
