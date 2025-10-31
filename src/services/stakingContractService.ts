@@ -44,8 +44,10 @@ export interface FormattedStakingContract {
   contractAddress: string;
   stakedAmount: string;
   vestingPeriod: string;
+  vestingDays: number; // Total vesting days for progress calculation
   daysRemaining: number;
-  status: "vesting" | "ready";
+  vestedDate: string; // ISO date string when contract will be fully vested
+  status: "locked" | "vesting" | "ready"; // locked = in lockup period, vesting = currently vesting, ready = fully vested
   canWithdraw: boolean;
   rewards: string;
   apy: string;
@@ -91,18 +93,52 @@ export class StakingContractService {
    * Format a raw account to the component's contract structure
    */
   formatContract(account: StakingContractAccount): FormattedStakingContract {
-    const now = Date.now();
-    const deadline = account.global_deadline * 1000; // Convert to milliseconds
-    const daysRemaining = Math.max(0, Math.floor((deadline - now) / (1000 * 60 * 60 * 24)));
+    const now = Date.now() / 1000; // Current time in seconds
     
-    // Determine status based on deadline
-    const canWithdraw = daysRemaining === 0 && deadline > 0;
-    const status: "vesting" | "ready" = canWithdraw ? "ready" : "vesting";
+    // Calculate lockup and distribution durations
+    const lockupDuration = account.global_period_seconds * account.global_lockup_delay;
+    const distributionDuration = account.global_distribution_count * account.global_period * account.global_distribution_seconds;
     
-    // Calculate vesting period in days
-    const vestingDays = Math.floor(
-      account.global_distribution_seconds * account.global_distribution_count / (60 * 60 * 24)
-    );
+    // Calculate full vesting time in seconds:
+    // Formula: global_deadline + (global_period_seconds * global_lockup_delay) + (global_distribution_count * global_period * global_distribution_seconds)
+    // If global_deadline is >= 1000000000, it's likely a Unix timestamp
+    // Otherwise, it might be an offset or relative time
+    const fullVestingTimeSeconds = 
+      account.global_deadline + lockupDuration + distributionDuration;
+    
+    // Calculate lockup end time (when lockup period ends and vesting begins)
+    const lockupEndTimeSeconds = account.global_deadline + lockupDuration;
+    
+    // Calculate days remaining until fully vested
+    const secondsRemaining = Math.max(0, fullVestingTimeSeconds - now);
+    const daysRemaining = Math.ceil(secondsRemaining / (60 * 60 * 24)); // Use ceil to show at least 1 day if any time remains
+    
+    // Calculate vested date (when contract will be fully vested)
+    // Only format as date if it's a valid timestamp (> epoch), otherwise use "N/A"
+    const vestedDate = fullVestingTimeSeconds > 1000000000 
+      ? new Date(fullVestingTimeSeconds * 1000).toISOString().split('T')[0]
+      : "N/A";
+    
+    // Determine status based on contract lifecycle
+    // Locked: still in lockup period (now < lockupEndTime)
+    // Vesting: lockup ended, currently in vesting period
+    // Ready: fully vested (can withdraw)
+    let status: "locked" | "vesting" | "ready";
+    const canWithdraw = secondsRemaining < 3600; // Less than 1 hour remaining
+    
+    if (canWithdraw) {
+      status = "ready";
+    } else if (now < lockupEndTimeSeconds && lockupEndTimeSeconds > 1000000000) {
+      status = "locked";
+    } else {
+      status = "vesting";
+    }
+    
+    // Calculate vesting period in days (total duration from start to full vest)
+    const totalVestingDurationSeconds = 
+      (account.global_period_seconds * account.global_lockup_delay) + 
+      (account.global_distribution_count * account.global_period * account.global_distribution_seconds);
+    const vestingDays = Math.floor(totalVestingDurationSeconds / (60 * 60 * 24));
     
     const vestingPeriod = vestingDays > 0 ? `${vestingDays} days` : "N/A";
     
@@ -138,14 +174,16 @@ export class StakingContractService {
       contractAddress: account.contractAddress,
       stakedAmount,
       vestingPeriod,
+      vestingDays, // Total vesting days for progress calculation
       daysRemaining,
+      vestedDate, // Date when contract will be fully vested
       status,
       canWithdraw,
       rewards,
       apy,
       lockPeriod,
       createdAt,
-      deadline: account.global_deadline,
+      deadline: fullVestingTimeSeconds, // Full vesting time in seconds
       total: account.global_total,
       period: account.global_period,
     };

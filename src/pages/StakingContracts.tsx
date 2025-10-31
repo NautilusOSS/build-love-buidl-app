@@ -45,6 +45,7 @@ import {
   Home,
   User,
   Loader2,
+  Lock,
 } from "lucide-react";
 import { stakingContractService, FormattedStakingContract } from "@/services/stakingContractService";
 
@@ -131,7 +132,7 @@ export default function StakingContracts() {
   }, [algodClient, activeAccount?.address]);
   
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "locked" | "vesting" | "ready">("all");
   const [contracts, setContracts] = useState<FormattedStakingContract[]>([]);
   const [isLoadingContracts, setIsLoadingContracts] = useState(false);
   
@@ -177,6 +178,8 @@ export default function StakingContracts() {
         return "bg-green-500/20 text-green-400 border-green-500/30";
       case "vesting":
         return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "locked":
+        return "bg-blue-500/20 text-blue-400 border-blue-500/30";
       default:
         return "bg-gray-500/20 text-gray-400 border-gray-500/30";
     }
@@ -188,6 +191,8 @@ export default function StakingContracts() {
         return <CheckCircle className="w-4 h-4" />;
       case "vesting":
         return <Clock className="w-4 h-4" />;
+      case "locked":
+        return <Lock className="w-4 h-4" />;
       default:
         return <AlertTriangle className="w-4 h-4" />;
     }
@@ -289,18 +294,28 @@ export default function StakingContracts() {
                 All ({contracts.length})
               </Button>
               <Button
-                variant={filterStatus === "ready" ? "default" : "outline"}
+                variant={filterStatus === "locked" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setFilterStatus("ready")}
+                onClick={() => setFilterStatus("locked")}
               >
-                Ready ({contracts.filter(c => c.status === "ready").length})
+                <Lock className="w-4 h-4 mr-2" />
+                Locked ({contracts.filter(c => c.status === "locked").length})
               </Button>
               <Button
                 variant={filterStatus === "vesting" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setFilterStatus("vesting")}
               >
+                <Clock className="w-4 h-4 mr-2" />
                 Vesting ({contracts.filter(c => c.status === "vesting").length})
+              </Button>
+              <Button
+                variant={filterStatus === "ready" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilterStatus("ready")}
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Ready ({contracts.filter(c => c.status === "ready").length})
               </Button>
             </div>
           </div>
@@ -353,7 +368,7 @@ export default function StakingContracts() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div>
                     <div className="text-sm text-gray-400 mb-2">Contract Address</div>
                     <div className="flex items-center gap-2">
@@ -373,16 +388,28 @@ export default function StakingContracts() {
                     <div className="text-sm text-gray-400 mb-2">Days Remaining</div>
                     <div className="text-2xl font-bold text-yellow-400">{contract.daysRemaining}</div>
                   </div>
+                  <div>
+                    <div className="text-sm text-gray-400 mb-2">Vested Date</div>
+                    <div className="text-lg font-semibold text-[#1EAEDB]">
+                      {contract.vestedDate !== "N/A" 
+                        ? new Date(contract.vestedDate).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })
+                        : "N/A"}
+                    </div>
+                  </div>
                 </div>
                 
-                {contract.status === "vesting" && (
+                {(contract.status === "vesting" || contract.status === "locked") && contract.vestingDays > 0 && (
                   <div className="mb-6">
                     <div className="flex justify-between text-sm mb-2">
-                      <span>Vesting Progress</span>
-                      <span>{Math.round(((90 - contract.daysRemaining) / 90) * 100)}%</span>
+                      <span>{contract.status === "locked" ? "Lockup Progress" : "Vesting Progress"}</span>
+                      <span>{Math.round(((contract.vestingDays - contract.daysRemaining) / contract.vestingDays) * 100)}%</span>
                     </div>
                     <Progress 
-                      value={((90 - contract.daysRemaining) / 90) * 100} 
+                      value={((contract.vestingDays - contract.daysRemaining) / contract.vestingDays) * 100} 
                       className="h-3"
                     />
                   </div>
