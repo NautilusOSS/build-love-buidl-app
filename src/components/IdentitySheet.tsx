@@ -46,7 +46,12 @@ import {
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
-import { useWallet, NetworkId, WalletId } from "@txnlab/use-wallet-react";
+import {
+  useWallet,
+  NetworkId,
+  WalletId,
+  useNetwork,
+} from "@txnlab/use-wallet-react";
 import { APP_SPEC as VNSRegistrySpec } from "@/clients/VNSRegistryClient";
 import { APP_SPEC as VNSPublicResolverSpec } from "@/clients/VNSPublicResolverClient";
 import { CONTRACT, abi } from "ulujs";
@@ -76,9 +81,10 @@ export default function IdentitySheet({
     activeWallet,
     activeWalletAccounts,
     wallets,
-    activeNetwork,
-    setActiveNetwork,
   } = useWallet();
+  const network = useNetwork();
+  const { activeNetwork, setActiveNetwork } = network;
+  console.log({ network });
 
   const { toast } = useToast();
 
@@ -147,7 +153,7 @@ export default function IdentitySheet({
   const networks = [
     { id: NetworkId.MAINNET, name: "Algorand Mainnet" },
     { id: "testnet" as any, name: "Algorand Testnet" },
-    { id: NetworkId.VOIMAIN, name: "Voi Mainnet" },
+    { id: "voi-mainnet", name: "Voi Mainnet" },
     { id: "voitest" as any, name: "Voi Testnet" },
     { id: "localnet" as any, name: "Localnet" },
   ];
@@ -165,7 +171,7 @@ export default function IdentitySheet({
       { id: WalletId.KIBISIS, name: "Kibisis" },
       { id: WalletId.LUTE, name: "Lute" },
     ],
-    [NetworkId.VOIMAIN]: [
+    ["voi-mainnet"]: [
       { id: WalletId.KIBISIS, name: "Kibisis" },
       { id: WalletId.LUTE, name: "Lute" },
       { id: WalletId.BIATEC, name: "Biatec" },
@@ -180,7 +186,7 @@ export default function IdentitySheet({
 
   // Filter wallets based on active network
   const availableWallets = wallets.filter((wallet) =>
-    networkWallets[activeNetwork as NetworkId].some(
+    networkWallets[activeNetwork as NetworkId]?.some(
       (networkWallet) => networkWallet.id === wallet.id
     )
   );
@@ -229,38 +235,38 @@ export default function IdentitySheet({
       // Try clipboard API
       await navigator.clipboard.writeText(text);
       console.log("Successfully copied to clipboard");
-      
+
       toast({
         title: "Copied to Clipboard",
         description: `${label} has been copied to your clipboard`,
       });
     } catch (error) {
       console.error("Clipboard API failed:", error);
-      
+
       // Try fallback method with simpler approach
       try {
         console.log("Attempting fallback copy method");
         const textArea = document.createElement("textarea");
         textArea.value = text;
-        
+
         // Position it off-screen
         textArea.style.position = "absolute";
         textArea.style.left = "-9999px";
         textArea.style.top = "-9999px";
         textArea.style.opacity = "0";
         textArea.style.pointerEvents = "none";
-        
+
         document.body.appendChild(textArea);
-        
+
         // Focus and select
         textArea.focus({ preventScroll: true });
         textArea.select();
         textArea.setSelectionRange(0, text.length);
-        
+
         const successful = document.execCommand("copy");
-        
+
         document.body.removeChild(textArea);
-        
+
         if (successful) {
           console.log("Successfully copied using fallback method");
           toast({
@@ -275,7 +281,9 @@ export default function IdentitySheet({
         // Show the text so user can copy manually
         toast({
           title: "Copy Not Supported",
-          description: `Text: ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`,
+          description: `Text: ${text.substring(0, 50)}${
+            text.length > 50 ? "..." : ""
+          }`,
           variant: "default",
           duration: 5000,
         });
@@ -494,15 +502,21 @@ export default function IdentitySheet({
           .do();
         const balanceMicro = accountInfo.amount || 0;
         const minBalance = accountInfo["min-balance"] || 0;
-        const availableBalance = Math.max(0, balanceMicro - (minBalance + 1e5));
+        const availableBalance = Math.max(
+          0,
+          Number(balanceMicro) - Number(minBalance) + 1e5
+        );
         setNetworkBalance(availableBalance / 1e6);
       } else {
         const accountInfo = await algodClient
           .accountInformation(activeAccount.address)
           .do();
         const balanceMicro = accountInfo.amount || 0;
-        const minBalance = accountInfo["min-balance"] || 0;
-        const availableBalance = Math.max(0, balanceMicro - (minBalance + 1e5));
+        const minBalance = accountInfo.minBalance || 0;
+        const availableBalance = Math.max(
+          0,
+          Number(balanceMicro) - Number(minBalance) + 1e5
+        );
         setNetworkBalance(availableBalance / 1e6);
       }
     } catch (error) {
@@ -674,23 +688,31 @@ export default function IdentitySheet({
                     Select Network
                   </Label>
                   <div className="grid grid-cols-2 gap-2">
-                    {networks.map((network) => (
-                      <Button
-                        key={network.id}
-                        variant={
-                          activeNetwork === network.id ? "default" : "outline"
-                        }
-                        size="sm"
-                        onClick={() => setActiveNetwork(network.id)}
-                        className={
-                          activeNetwork === network.id
-                            ? "neon-glow-teal"
-                            : "border-gray-600 hover:border-teal-400"
-                        }
-                      >
-                        {network.name}
-                      </Button>
-                    ))}
+                    {
+                      //networks.map((network) => (
+                      [
+                        {
+                          id: "voi-mainnet",
+                          name: "Voi Mainnet",
+                        },
+                      ].map((network) => (
+                        <Button
+                          key={network.id}
+                          variant={
+                            activeNetwork === network.id ? "default" : "outline"
+                          }
+                          size="sm"
+                          onClick={() => setActiveNetwork(network.id)}
+                          className={
+                            activeNetwork === network.id
+                              ? "neon-glow-teal"
+                              : "border-gray-600 hover:border-teal-400"
+                          }
+                        >
+                          {network.name}
+                        </Button>
+                      ))
+                    }
                   </div>
                 </div>
 

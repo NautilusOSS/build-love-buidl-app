@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import Home from "./pages/Home";
 import {
+  NetworkConfigBuilder,
   NetworkId,
   WalletId,
   WalletManager,
@@ -34,6 +35,21 @@ import {
   BreadcrumbItem,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
+
+// Add other AVM-compatible networks
+const networks = new NetworkConfigBuilder()
+  .addNetwork("voi-mainnet", {
+    algod: {
+      token: "",
+      baseServer: "https://mainnet-api.voi.nodely.dev",
+      port: "",
+    },
+    isTestnet: false,
+    genesisHash: "r20fSQI8gWe/kFZziNonSPCXLwcQmH/nxROvnnueWOk=",
+    genesisId: "voimain-v1.0",
+    caipChainId: "algorand:r20fSQI8gWe_kFZziNonSPCXLwcQmH_n",
+  })
+  .build();
 
 const queryClient = new QueryClient();
 
@@ -68,8 +84,8 @@ const App = () => {
 
   const walletManager = new WalletManager({
     wallets: [
-      WalletId.PERA,
-      WalletId.DEFLY,
+      // WalletId.PERA,
+      // WalletId.DEFLY,
       WalletId.KIBISIS,
       {
         id: WalletId.LUTE,
@@ -101,14 +117,15 @@ const App = () => {
           themeMode: "light",
         },
       },
-      {
-        id: WalletId.MNEMONIC,
-        options: {
-          persistToStorage: true,
-        },
-      },
+      // {
+      //   id: WalletId.MNEMONIC,
+      //   options: {
+      //     persistToStorage: true,
+      //   },
+      // },
     ],
-    network: NetworkId.MAINNET,
+    defaultNetwork: "voi-mainnet",
+    networks,
   });
   // Component to conditionally render sidebar based on route
   const AppLayout = () => {
@@ -119,7 +136,13 @@ const App = () => {
     const isWalletPage = location.pathname.startsWith("/wallet");
     const isGrantPayPage = location.pathname.startsWith("/grant-pay");
 
-    if (isExitLabPage || isStakingPage || isRecoveryPage || isWalletPage || isGrantPayPage) {
+    if (
+      isExitLabPage ||
+      isStakingPage ||
+      isRecoveryPage ||
+      isWalletPage ||
+      isGrantPayPage
+    ) {
       // Full-screen layout for ExitLab pages (no sidebar)
       return (
         <div className="min-h-screen w-full">
@@ -138,9 +161,7 @@ const App = () => {
           <SidebarInset className="flex-1 flex flex-col max-h-screen overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-[#0088ff33] flex-shrink-0">
               <SidebarTrigger />
-              <div className="text-sm text-gray-500">
-                Wallet Management
-              </div>
+              <div className="text-sm text-gray-500">Wallet Management</div>
             </div>
             <div className="flex-1 overflow-auto p-4">
               <Routes>

@@ -47,6 +47,7 @@ import { CONTRACT, abi } from "ulujs";
 import BigNumber from "bignumber.js";
 import { toast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import { APP_SPEC as compensationFactoryAppSpec } from "@/clients/CompensationFactoryClient";
 
 interface EnVOIResult {
   name: string;
@@ -64,8 +65,8 @@ const GrantPay = () => {
   const [address, setAddress] = useState("");
   const [addressInput, setAddressInput] = useState("");
   const [amount, setAmount] = useState("");
-  const [lockupYears, setLockupYears] = useState("1");
-  const [vestingYears, setVestingYears] = useState("");
+  const [lockupMonths, setLockupMonths] = useState("12");
+  const [vestingMonths, setVestingMonths] = useState("");
   const [note, setNote] = useState("");
   const [searchResults, setSearchResults] = useState<EnVOIResult[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -130,8 +131,11 @@ const GrantPay = () => {
           .accountInformation(activeAccount.address)
           .do();
         const balanceMicro = accountInfo.amount || 0;
-        const minBalance = accountInfo["min-balance"] || 0;
-        const availableBalance = Math.max(0, balanceMicro - (minBalance + 2e5));
+        const minBalance = accountInfo.minBalance || 0;
+        const availableBalance = Math.max(
+          0,
+          Number(balanceMicro) - Number(minBalance) + 2e5
+        );
         setBalance(availableBalance / 1e6);
       } catch (error) {
         console.error("Failed to fetch balance:", error);
@@ -223,7 +227,7 @@ const GrantPay = () => {
       address &&
       amount &&
       parseFloat(amount) > 0 &&
-      vestingYears &&
+      vestingMonths &&
       activeAccount
     );
   };
@@ -280,8 +284,8 @@ const GrantPay = () => {
     console.log("Grant Pay Form:", {
       address,
       amount,
-      lockupYears,
-      vestingYears,
+      lockupMonths,
+      vestingMonths,
       note,
     });
 
@@ -338,7 +342,20 @@ const GrantPay = () => {
       factoryAppId,
       algodClient,
       indexerClient,
-      factoryABI,
+      {
+        ...compensationFactoryAppSpec.contract,
+        events: [
+          {
+            name: "FactoryCreated",
+            args: [
+              {
+                type: "uint64",
+                name: "appId",
+              },
+            ],
+          },
+        ],
+      },
       {
         addr: activeAccount.address,
         sk: new Uint8Array(),
@@ -351,28 +368,7 @@ const GrantPay = () => {
         algodClient,
         indexerClient,
         {
-          name: "",
-          desc: "",
-          methods: [
-            {
-              name: "create",
-              args: [
-                {
-                  type: "address",
-                  name: "owner",
-                },
-                {
-                  type: "uint64",
-                  name: "years",
-                },
-              ],
-              readonly: false,
-              returns: {
-                type: "uint64",
-              },
-              desc: "Create compensation contract.\nArguments: - owner, who is the beneficiary - period, vesting period\nReturns: - app id",
-            },
-          ],
+          ...compensationFactoryAppSpec.contract,
           events: [
             {
               name: "FactoryCreated",
@@ -402,7 +398,11 @@ const GrantPay = () => {
         BigInt(new BigNumber(amount).multipliedBy(1e6).toFixed(0)) +
         BigInt(1334500);
       const txnO = (
-        await builder.factory.create(address, parseInt(vestingYears))
+        await builder.factory.create(
+          address,
+          parseInt(lockupMonths),
+          parseInt(vestingMonths)
+        )
       ).obj;
       buildN.push({ ...txnO, payment, note: new TextEncoder().encode(note) });
     }
@@ -445,14 +445,14 @@ const GrantPay = () => {
     const res = await algodClient.sendRawTransaction(stxns).do();
 
     const status = await algodClient.status().do();
-    const lastRound = status["last-round"];
+    const lastRound = status.lastRound;
 
-    await algosdk.waitForConfirmation(algodClient, res.txId, 4);
+    await algosdk.waitForConfirmation(algodClient, res.txid, 4);
 
     let events: any[];
     do {
       const eventResponse = await ciFactory.getEvents({
-        minRound: lastRound,
+        minRound: Number(lastRound),
       });
       events =
         eventResponse.find((e: any) => e.name === "FactoryCreated")?.events ||
@@ -645,14 +645,32 @@ const GrantPay = () => {
                   )}
                 </div>
 
-                {/* Lockup Years Field */}
+                {/* Lockup Months Field */}
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Lock className="w-4 h-4 text-[#1EAEDB]" />
-                    Lockup
+                    Lockup (Months)
                   </Label>
-                  <div className="px-2">
-                    <span className="text-sm text-gray-300">1 year</span>
+                  <div className="flex flex-wrap gap-2">
+                    {[0, 3, 6, 9, 12].map((month) => (
+                      <Button
+                        key={month}
+                        type="button"
+                        onClick={() => setLockupMonths(month.toString())}
+                        variant={
+                          lockupMonths === month.toString()
+                            ? "default"
+                            : "outline"
+                        }
+                        className={`flex-1 min-w-[60px] ${
+                          lockupMonths === month.toString()
+                            ? "bg-[#1EAEDB] hover:bg-[#00eeff] text-black"
+                            : "border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-[#1EAEDB]"
+                        }`}
+                      >
+                        {month}
+                      </Button>
+                    ))}
                   </div>
                 </div>
 
@@ -660,21 +678,21 @@ const GrantPay = () => {
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-[#1EAEDB]" />
-                    Vesting (Years)
+                    Vesting (Months)
                   </Label>
                   <div className="flex flex-wrap gap-2">
-                    {[0, 1, 2, 3, 4, 5].map((year) => (
+                    {[0, 12, 24, 36, 48, 60].map((year) => (
                       <Button
                         key={year}
                         type="button"
-                        onClick={() => setVestingYears(year.toString())}
+                        onClick={() => setVestingMonths(year.toString())}
                         variant={
-                          vestingYears === year.toString()
+                          vestingMonths === year.toString()
                             ? "default"
                             : "outline"
                         }
                         className={`flex-1 min-w-[60px] ${
-                          vestingYears === year.toString()
+                          vestingMonths === year.toString()
                             ? "bg-[#1EAEDB] hover:bg-[#00eeff] text-black"
                             : "border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-[#1EAEDB]"
                         }`}
@@ -819,11 +837,11 @@ const GrantPay = () => {
                   ))}
 
                   {/* Line chart showing locked amount */}
-                  {vestingYears &&
-                    parseInt(vestingYears) > 0 &&
+                  {vestingMonths &&
+                    parseInt(vestingMonths) > 0 &&
                     (() => {
-                      const lockupNum = parseInt(lockupYears);
-                      const vestingNum = parseInt(vestingYears);
+                      const lockupNum = parseInt(lockupMonths) / 12; // Convert months to years
+                      const vestingNum = parseInt(vestingMonths);
                       const totalNum = lockupNum + vestingNum;
                       const lockupX = (lockupNum / totalNum) * 400;
                       const lockupXStr = lockupX.toString();
@@ -838,11 +856,11 @@ const GrantPay = () => {
                     })()}
 
                   {/* Fill area */}
-                  {vestingYears &&
-                    parseInt(vestingYears) > 0 &&
+                  {vestingMonths &&
+                    parseInt(vestingMonths) > 0 &&
                     (() => {
-                      const lockupNum = parseInt(lockupYears);
-                      const vestingNum = parseInt(vestingYears);
+                      const lockupNum = parseInt(lockupMonths) / 12; // Convert months to years
+                      const vestingNum = parseInt(vestingMonths);
                       const totalNum = lockupNum + vestingNum;
                       const lockupX = (lockupNum / totalNum) * 400;
                       const lockupXStr = lockupX.toString();
@@ -869,7 +887,7 @@ const GrantPay = () => {
                   </defs>
 
                   {/* Year labels */}
-                  {vestingYears && parseInt(vestingYears) > 0 && (
+                  {vestingMonths && parseInt(vestingMonths) > 0 && (
                     <>
                       <text x="10" y="195" fill="#9CA3AF" fontSize="10">
                         0
@@ -877,17 +895,19 @@ const GrantPay = () => {
                       <text
                         x={`${
                           400 *
-                          (parseInt(lockupYears) /
-                            (parseInt(lockupYears) + parseInt(vestingYears)))
+                          (parseInt(lockupMonths) /
+                            12 /
+                            (parseInt(lockupMonths) / 12 +
+                              parseInt(vestingMonths)))
                         }`}
                         y="195"
                         fill="#9CA3AF"
                         fontSize="10"
                       >
-                        {lockupYears}
+                        {parseInt(lockupMonths) / 12}
                       </text>
                       <text x="380" y="195" fill="#9CA3AF" fontSize="10">
-                        {parseInt(lockupYears) + parseInt(vestingYears)}
+                        {parseInt(lockupMonths) / 12 + parseInt(vestingMonths)}
                       </text>
                     </>
                   )}
@@ -902,13 +922,13 @@ const GrantPay = () => {
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-gray-700 rounded"></div>
                   <span>
-                    Lockup Period ({lockupYears} year
-                    {parseInt(lockupYears) !== 1 ? "s" : ""})
+                    Lockup Period ({lockupMonths} month
+                    {parseInt(lockupMonths) !== 1 ? "s" : ""})
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-gradient-to-t from-[#1EAEDB] to-[#00eeff] rounded"></div>
-                  <span>Vesting Period ({vestingYears || 0} years)</span>
+                  <span>Vesting Period ({vestingMonths || 0} months)</span>
                 </div>
               </div>
             </div>
@@ -935,7 +955,8 @@ const GrantPay = () => {
                       Lockup Period
                     </TableHead>
                     <TableCell>
-                      {lockupYears} year{parseInt(lockupYears) !== 1 ? "s" : ""}
+                      {lockupMonths} month
+                      {parseInt(lockupMonths) !== 1 ? "s" : ""}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -943,8 +964,10 @@ const GrantPay = () => {
                       Vesting Period
                     </TableHead>
                     <TableCell>
-                      {vestingYears || 0} year
-                      {vestingYears && parseInt(vestingYears) !== 1 ? "s" : ""}
+                      {vestingMonths || 0} month
+                      {vestingMonths && parseInt(vestingMonths) !== 1
+                        ? "s"
+                        : ""}
                     </TableCell>
                   </TableRow>
                   {note && (
