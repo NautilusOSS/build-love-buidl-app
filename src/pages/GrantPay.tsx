@@ -61,6 +61,16 @@ interface EnVOIResult {
 }
 
 const GrantPay = () => {
+  /** Factory schedule caps: lockup/cliff 0–12 mo, vesting 0–60 mo (`docs/APP.md`). Use literals below to avoid bundler/HMR scope bugs. */
+  function validateScheduleMonths(raw: string, max: number): string | null {
+    const t = raw.trim();
+    if (t === "") return `Enter months (0–${max})`;
+    const n = parseInt(t, 10);
+    if (Number.isNaN(n)) return "Enter a whole number";
+    if (n < 0 || n > max) return `Must be between 0 and ${max} months`;
+    return null;
+  }
+
   const { activeAccount, algodClient, signTransactions } = useWallet();
   const [showIdentitySheet, setShowIdentitySheet] = useState(false);
   const [address, setAddress] = useState("");
@@ -75,6 +85,8 @@ const GrantPay = () => {
   const [balance, setBalance] = useState<number>(0);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   const [amountError, setAmountError] = useState<string>("");
+  const [lockupError, setLockupError] = useState("");
+  const [vestingError, setVestingError] = useState("");
   const [recentRecipients, setRecentRecipients] = useState<string[]>([]);
   const [incentiveNotes, setIncentiveNotes] = useState<
     Array<{ note: string; prefix: string | null; transaction: any }>
@@ -232,13 +244,22 @@ const GrantPay = () => {
   };
 
   const isFormComplete = () => {
-    return (
-      !!getRecipientAddress() &&
-      amount &&
-      parseFloat(amount) > 0 &&
-      vestingMonths &&
-      activeAccount
-    );
+    if (
+      !getRecipientAddress() ||
+      !amount ||
+      parseFloat(amount) <= 0 ||
+      !vestingMonths?.trim() ||
+      !activeAccount
+    ) {
+      return false;
+    }
+    if (validateScheduleMonths(lockupMonths, 12)) {
+      return false;
+    }
+    if (validateScheduleMonths(vestingMonths, 60)) {
+      return false;
+    }
+    return true;
   };
 
   const handleAmountChange = (value: string) => {
@@ -316,6 +337,17 @@ const GrantPay = () => {
     if (amountError) {
       return;
     }
+
+    const lockupErr = validateScheduleMonths(lockupMonths, 12);
+    const vestingErr = validateScheduleMonths(vestingMonths, 60);
+    setLockupError(lockupErr ?? "");
+    setVestingError(vestingErr ?? "");
+    if (lockupErr || vestingErr) {
+      return;
+    }
+
+    const lockupN = parseInt(lockupMonths, 10);
+    const vestingN = parseInt(vestingMonths, 10);
 
     // Handle form submission here
     console.log("Grant Pay Form:", {
@@ -435,11 +467,7 @@ const GrantPay = () => {
         BigInt(new BigNumber(amount).multipliedBy(1e6).toFixed(0)) +
         BigInt(1334500);
       const txnO = (
-        await builder.factory.create(
-          recipient,
-          parseInt(lockupMonths),
-          parseInt(vestingMonths)
-        )
+        await builder.factory.create(recipient, lockupN, vestingN)
       ).obj;
       buildN.push({ ...txnO, payment, note: new TextEncoder().encode(note) });
     }
@@ -687,18 +715,24 @@ const GrantPay = () => {
                   )}
                 </div>
 
-                {/* Lockup Months Field */}
+                {/* Lockup / cliff (months) — factory max 12 */}
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Lock className="w-4 h-4 text-[#1EAEDB]" />
-                    Lockup (Months)
+                    Lockup / cliff (months)
                   </Label>
+                  <p className="text-xs text-gray-500 px-0.5">
+                    Custom value from 0 to 12 months.
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     {[0, 3, 6, 9, 12].map((month) => (
                       <Button
                         key={month}
                         type="button"
-                        onClick={() => setLockupMonths(month.toString())}
+                        onClick={() => {
+                          setLockupMonths(month.toString());
+                          setLockupError("");
+                        }}
                         variant={
                           lockupMonths === month.toString()
                             ? "default"
@@ -714,35 +748,91 @@ const GrantPay = () => {
                       </Button>
                     ))}
                   </div>
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                    <Input
+                      id="lockup-custom"
+                      type="number"
+                      min={0}
+                      max={12}
+                      step={1}
+                      inputMode="numeric"
+                      placeholder="Custom months"
+                      value={lockupMonths}
+                      onChange={(e) => {
+                        setLockupMonths(e.target.value);
+                        setLockupError("");
+                      }}
+                      onBlur={() =>
+                        setLockupError(
+                          validateScheduleMonths(lockupMonths, 12) ?? ""
+                        )
+                      }
+                      className="bg-black/50 border-gray-700 text-white sm:max-w-[200px]"
+                    />
+                  </div>
+                  {lockupError && (
+                    <p className="text-xs text-red-400 px-0.5">{lockupError}</p>
+                  )}
                 </div>
 
-                {/* Vesting Years Field */}
+                {/* Vesting (months) — factory max 60 */}
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-[#1EAEDB]" />
-                    Vesting (Months)
+                    Vesting (months)
                   </Label>
+                  <p className="text-xs text-gray-500 px-0.5">
+                    Custom value from 0 to 60 months.
+                  </p>
                   <div className="flex flex-wrap gap-2">
-                    {[0, 12, 24, 36, 48, 60].map((year) => (
+                    {[0, 12, 24, 36, 48, 60].map((m) => (
                       <Button
-                        key={year}
+                        key={m}
                         type="button"
-                        onClick={() => setVestingMonths(year.toString())}
+                        onClick={() => {
+                          setVestingMonths(m.toString());
+                          setVestingError("");
+                        }}
                         variant={
-                          vestingMonths === year.toString()
-                            ? "default"
-                            : "outline"
+                          vestingMonths === m.toString() ? "default" : "outline"
                         }
                         className={`flex-1 min-w-[60px] ${
-                          vestingMonths === year.toString()
+                          vestingMonths === m.toString()
                             ? "bg-[#1EAEDB] hover:bg-[#00eeff] text-black"
                             : "border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-[#1EAEDB]"
                         }`}
                       >
-                        {year}
+                        {m}
                       </Button>
                     ))}
                   </div>
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                    <Input
+                      id="vesting-custom"
+                      type="number"
+                      min={0}
+                      max={60}
+                      step={1}
+                      inputMode="numeric"
+                      placeholder="Custom months"
+                      value={vestingMonths}
+                      onChange={(e) => {
+                        setVestingMonths(e.target.value);
+                        setVestingError("");
+                      }}
+                      onBlur={() =>
+                        setVestingError(
+                          validateScheduleMonths(vestingMonths, 60) ?? ""
+                        )
+                      }
+                      className="bg-black/50 border-gray-700 text-white sm:max-w-[200px]"
+                    />
+                  </div>
+                  {vestingError && (
+                    <p className="text-xs text-red-400 px-0.5">
+                      {vestingError}
+                    </p>
+                  )}
                 </div>
 
                 {/* Note Field */}
