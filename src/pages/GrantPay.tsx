@@ -40,6 +40,7 @@ import {
   X,
   BarChart3,
   Copy,
+  LayoutTemplate,
 } from "lucide-react";
 import algosdk from "algosdk";
 import networks from "@/config/networks";
@@ -222,9 +223,17 @@ const GrantPay = () => {
     setShowDropdown(false);
   };
 
+  /** Raw address in the field, or address chosen from enVOI (input may show the name). */
+  const getRecipientAddress = (): string | null => {
+    const t = addressInput.trim();
+    if (t && algosdk.isValidAddress(t)) return t;
+    if (address && algosdk.isValidAddress(address)) return address;
+    return null;
+  };
+
   const isFormComplete = () => {
     return (
-      address &&
+      !!getRecipientAddress() &&
       amount &&
       parseFloat(amount) > 0 &&
       vestingMonths &&
@@ -262,12 +271,40 @@ const GrantPay = () => {
     setAmountError("");
   };
 
+  /** VF-YYYY-MM-#### prefix uses local date; #### is a random 4-digit id. */
+  const applyCouncilCompensationNoteTemplate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const startDate = `${year}-${month}-${day}`;
+    const seq = String(Math.floor(1000 + Math.random() * 9000));
+    const vfPrefix = `VF-${year}-${month}-${seq}`;
+
+    const trimmedInput = addressInput.trim();
+    const displayName =
+      trimmedInput && !algosdk.isValidAddress(trimmedInput)
+        ? trimmedInput
+        : "[Name]";
+
+    const cliffM = lockupMonths || "0";
+    const durM = vestingMonths || "0";
+    const amt =
+      amount && !Number.isNaN(parseFloat(amount)) && parseFloat(amount) > 0
+        ? amount
+        : "X";
+
+    const header = `${vfPrefix} — Council Compensation — ${displayName}`;
+    const body = `Council Pay | Cliff: ${cliffM}m | Duration: ${durM}m | Amount: ${amt} VOI | Start: ${startDate}`;
+    setNote(`${header}\n\n${body}`);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate all fields
-    if (!address) {
-      setAmountError("Please select a recipient");
+    const recipient = getRecipientAddress();
+    if (!recipient) {
+      setAmountError("Please enter a valid recipient address or select an enVOI name");
       return;
     }
 
@@ -282,7 +319,7 @@ const GrantPay = () => {
 
     // Handle form submission here
     console.log("Grant Pay Form:", {
-      address,
+      address: recipient,
       amount,
       lockupMonths,
       vestingMonths,
@@ -399,7 +436,7 @@ const GrantPay = () => {
         BigInt(1334500);
       const txnO = (
         await builder.factory.create(
-          address,
+          recipient,
           parseInt(lockupMonths),
           parseInt(vestingMonths)
         )
@@ -578,7 +615,7 @@ const GrantPay = () => {
                                 </div>
                               )}
                             </div>
-                            {address === result.address ||
+                            {getRecipientAddress() === result.address ||
                             address === result.name ? (
                               <Check className="w-4 h-4 text-[#1EAEDB]" />
                             ) : null}
@@ -587,14 +624,19 @@ const GrantPay = () => {
                       </div>
                     )}
                   </div>
-                  {address && (
-                    <p className="text-xs text-gray-400">
-                      Selected:{" "}
-                      {address.length > 40
-                        ? `${address.slice(0, 20)}...${address.slice(-20)}`
-                        : address}
-                    </p>
-                  )}
+                  {(() => {
+                    const r = getRecipientAddress();
+                    if (!r) return null;
+                    const display =
+                      r.length > 40
+                        ? `${r.slice(0, 20)}...${r.slice(-20)}`
+                        : r;
+                    return (
+                      <p className="text-xs text-gray-400">
+                        Selected: {display}
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 {/* Amount Field */}
@@ -730,6 +772,16 @@ const GrantPay = () => {
                     className="bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-[#1EAEDB] min-h-[80px]"
                     rows={3}
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="inline-flex border-gray-600 text-gray-200 hover:bg-gray-800 hover:text-white hover:border-[#1EAEDB]"
+                    onClick={applyCouncilCompensationNoteTemplate}
+                  >
+                    <LayoutTemplate className="w-4 h-4 mr-2 shrink-0" />
+                    Council Compensation
+                  </Button>
                   {incentiveNotes.length > 0 && !note && (
                     <div className="space-y-2">
                       <p className="text-xs text-gray-400 px-2">
@@ -941,7 +993,7 @@ const GrantPay = () => {
                   <TableRow>
                     <TableHead className="text-gray-400">Recipient</TableHead>
                     <TableCell className="font-mono text-sm">
-                      {addressInput || address}
+                      {getRecipientAddress() ?? addressInput}
                     </TableCell>
                   </TableRow>
                   <TableRow>
