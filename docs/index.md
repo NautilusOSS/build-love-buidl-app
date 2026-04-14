@@ -6,6 +6,8 @@ This is a **Vite + React + TypeScript** web app for **Voi** (AVM-compatible chai
 
 A second routed surface is **`/wallet/:address`**, which provides **wallet management** (balances, transfers, and related tooling) in a sidebar layout.
 
+Those flows are **client-only** for the scope of this doc: wallets, **Algod**, and EnVOI’s search API — no separate app backend is involved.
+
 The HTML shell still references legacy **“enChain Elections”** metadata; the **Grant Pay** UI is the primary product surface in the current router.
 
 ---
@@ -106,12 +108,6 @@ Treat `src/config/networks.ts` as the **source of truth** for which factory app 
 ## Versioning and storage
 
 `src/main.tsx` compares `APP_VERSION` (`src/constants/version.ts`) to a key in **localStorage**. On mismatch it clears **localStorage** and **IndexedDB**, sets the new version, and **reloads** so users do not keep stale state across releases.
-
----
-
-## Backend / Supabase
-
-- `supabase/` includes config and an edge function (`sync-github-bounties`). Nothing in the **current** `App.tsx` routing depends on these paths for the Grant Pay / wallet flows; they may support other features or future integration.
 
 ---
 
