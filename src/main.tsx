@@ -1,3 +1,7 @@
+import { Buffer } from "buffer";
+// Algokit / algosdk decode app global state using Buffer; browsers don't provide it.
+globalThis.Buffer = Buffer;
+
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'

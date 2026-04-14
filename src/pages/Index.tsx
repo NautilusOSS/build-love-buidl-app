@@ -6,10 +6,6 @@ import ConfettiPop from "@/components/ConfettiPop";
 import MentorTooltip from "@/components/MentorTooltip";
 import DashboardStats from "@/components/DashboardStats";
 import WeeklySummary from "@/components/WeeklySummary";
-import { Buffer } from "buffer";
-
-window.Buffer = Buffer;
-
 const breadCrumb = [
   {
     to: "/bounties",

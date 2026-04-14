@@ -190,6 +190,83 @@ button:focus-visible {
   .sidebar-flashy-bg {
     @apply bg-gradient-to-br from-[#9b87f5]/80 via-[#1EAEDB]/80 to-[#D946EF]/90 bg-opacity-80 shadow-[0_4px_24px_-2px_#9b87f655] backdrop-blur-xl border border-white/20;
   }
+
+  /**
+   * Grant / DeFi shell — Voi · Nautilus · DorkFi adjacent:
+   * deep blue field, sky/cyan signal, hairline borders, minimal radius.
+   */
+  .grant-shell {
+    @apply min-h-screen antialiased text-slate-200;
+    background-color: #020617;
+    background-image:
+      linear-gradient(180deg, #020617 0%, #0a1628 42%, #020617 100%),
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(56, 189, 248, 0.08), transparent),
+      linear-gradient(
+        90deg,
+        rgba(15, 23, 42, 0.9) 0%,
+        transparent 45%,
+        transparent 55%,
+        rgba(15, 23, 42, 0.9) 100%
+      );
+  }
+
+  .grant-shell-header {
+    @apply border-b border-sky-950/60 bg-[#030712]/95 backdrop-blur-sm;
+  }
+
+  .grant-title {
+    @apply font-semibold tracking-tight text-white;
+    background: linear-gradient(
+      92deg,
+      #f1f5f9 0%,
+      #bae6fd 45%,
+      #38bdf8 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .grant-title-sub {
+    @apply text-sm font-medium uppercase tracking-[0.18em] text-slate-500;
+  }
+
+  .grant-panel {
+    @apply rounded-sm border border-sky-950/50 bg-slate-950/70 shadow-none;
+  }
+
+  .grant-panel-muted {
+    @apply rounded-sm border border-slate-800/80 bg-[#050a14]/90;
+  }
+
+  .grant-hairline {
+    @apply h-px bg-gradient-to-r from-transparent via-sky-900/40 to-transparent;
+  }
+
+  .grant-btn-primary {
+    @apply rounded-sm border border-sky-400/20 bg-sky-500 font-semibold tracking-tight text-slate-950 shadow-none transition-colors hover:bg-sky-400 active:bg-sky-600;
+  }
+
+  .grant-btn-outline {
+    @apply rounded-sm border border-sky-900/70 bg-transparent font-medium tracking-tight text-slate-200 transition-colors hover:border-sky-600/60 hover:bg-sky-950/50;
+  }
+
+  .grant-link {
+    @apply font-medium text-sky-400 transition-colors hover:text-sky-300;
+  }
+
+  .grant-input {
+    @apply rounded-sm border-slate-800 bg-[#050a14]/90 text-slate-100 placeholder:text-slate-600 focus-visible:border-sky-600/60 focus-visible:ring-sky-500/20;
+  }
+
+  .grant-table-row {
+    @apply border-slate-800/90 transition-colors hover:bg-sky-950/25;
+  }
+
+  .grant-shell :focus-visible {
+    outline-color: rgb(56 189 248 / 0.45);
+    outline-offset: 2px;
+  }
 }
 
 /* Mobile-specific styles for Voting App */

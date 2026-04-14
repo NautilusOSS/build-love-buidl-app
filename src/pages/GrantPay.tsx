@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useWallet } from "@txnlab/use-wallet-react";
 import {
   Card,
@@ -49,6 +50,7 @@ import BigNumber from "bignumber.js";
 import { toast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { APP_SPEC as compensationFactoryAppSpec } from "@/clients/CompensationFactoryClient";
+import { upsertGrant } from "@/lib/grantStorage";
 
 interface EnVOIResult {
   name: string;
@@ -533,41 +535,64 @@ const GrantPay = () => {
 
     const appId = Number(events[0][3]);
 
+    const recipientLabel =
+      addressInput.trim() && !algosdk.isValidAddress(addressInput.trim())
+        ? addressInput.trim()
+        : undefined;
+    upsertGrant({
+      id: appId,
+      recipientAddress: recipient,
+      recipientLabel,
+      totalAmountVoi: parseFloat(amount),
+      lockupMonths: lockupN,
+      vestingMonths: vestingN,
+      createdAt: new Date().toISOString(),
+      creationTxId: res.txid,
+      claims: [],
+    });
+
     setCreatedAppId(appId);
     setShowSuccessModal(true);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+    <div className="grant-shell">
       {/* Header */}
-      <div className="border-b border-gray-800/50 bg-black/50 backdrop-blur-xl">
-        <div className="container mx-auto px-6 py-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#1EAEDB] to-[#00eeff] bg-clip-text text-transparent">
-            Grant Pay
-          </h1>
-          <p className="text-gray-400 mt-2 text-lg">
-            Create a new grant payment with vesting schedule
-          </p>
+      <div className="grant-shell-header">
+        <div className="container mx-auto px-6 py-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
+          <div>
+            <p className="grant-title-sub mb-2">Create</p>
+            <h1 className="grant-title text-4xl">Grant Pay</h1>
+            <p className="text-slate-500 mt-3 text-sm max-w-md leading-relaxed">
+              New compensation grant with cliff and vesting — settled on Voi.
+            </p>
+          </div>
+          <Link to="/" className="grant-link text-sm shrink-0">
+            ← Grant dashboard
+          </Link>
         </div>
+        <div className="grant-hairline" />
       </div>
 
       {/* Main Content */}
       <div className="container mx-auto px-6 py-8">
         <div className="max-w-2xl mx-auto">
-          <Card className="bg-gray-900/50 border-gray-800">
+          <Card className="grant-panel shadow-none">
             <CardHeader>
-              <CardTitle className="text-2xl">Grant Payment Details</CardTitle>
-              <CardDescription className="text-gray-400">
-                Fill in the details to create a grant payment
+              <CardTitle className="text-xl font-semibold tracking-tight text-slate-100">
+                Grant payment details
+              </CardTitle>
+              <CardDescription className="text-slate-500 text-sm">
+                Required fields for factory <span className="font-mono text-slate-400">create</span>
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Identity Display */}
                 {activeAccount && (
-                  <div className="flex items-center gap-3 bg-black/20 rounded-lg px-4 py-3 mb-4">
-                    <Avatar className="w-10 h-10">
-                      <AvatarFallback className="bg-gradient-to-br from-[#1EAEDB] to-violet-400 text-sm">
+                  <div className="flex items-center gap-3 grant-panel-muted px-4 py-3 mb-4 rounded-sm">
+                    <Avatar className="w-10 h-10 rounded-sm">
+                      <AvatarFallback className="bg-gradient-to-br from-sky-600 to-slate-800 text-sm text-white rounded-sm">
                         {activeAccount.address.slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
@@ -584,7 +609,7 @@ const GrantPay = () => {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="border-[#1EAEDB] text-[#1EAEDB] hover:bg-[#1EAEDB]/10 h-8 px-3 text-sm"
+                      className="grant-btn-outline border-sky-800 h-8 px-3 text-sm"
                       onClick={() => setShowIdentitySheet(true)}
                     >
                       <User className="w-4 h-4 mr-1.5" />
@@ -596,7 +621,7 @@ const GrantPay = () => {
                 {/* Address Field */}
                 <div className="space-y-2">
                   <Label htmlFor="address" className="flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-[#1EAEDB]" />
+                    <Wallet className="w-4 h-4 text-sky-400" />
                     Recipient Address or enVOI Name
                   </Label>
                   <div className="relative">
@@ -607,18 +632,18 @@ const GrantPay = () => {
                       value={addressInput}
                       onChange={(e) => setAddressInput(e.target.value)}
                       onFocus={() => addressInput && setShowDropdown(true)}
-                      className="bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-[#1EAEDB]"
+                      className="grant-input placeholder:text-slate-600"
                       required
                     />
                     <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
 
                     {/* Search Results Dropdown */}
                     {showDropdown && searchResults.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      <div className="absolute z-10 w-full mt-1 grant-panel border-sky-950/60 rounded-sm shadow-xl max-h-60 overflow-y-auto">
                         {searchResults.map((result, index) => (
                           <div
                             key={index}
-                            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-800 cursor-pointer transition-colors"
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-sky-950/30 cursor-pointer transition-colors"
                             onClick={() => handleSelectResult(result)}
                           >
                             {result.metadata.avatar && (
@@ -645,7 +670,7 @@ const GrantPay = () => {
                             </div>
                             {getRecipientAddress() === result.address ||
                             address === result.name ? (
-                              <Check className="w-4 h-4 text-[#1EAEDB]" />
+                              <Check className="w-4 h-4 text-sky-400" />
                             ) : null}
                           </div>
                         ))}
@@ -670,7 +695,7 @@ const GrantPay = () => {
                 {/* Amount Field */}
                 <div className="space-y-2">
                   <Label htmlFor="amount" className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-[#1EAEDB]" />
+                    <DollarSign className="w-4 h-4 text-sky-400" />
                     Grant Amount
                   </Label>
                   <div className="relative">
@@ -680,8 +705,8 @@ const GrantPay = () => {
                       placeholder="Enter grant amount"
                       value={amount}
                       onChange={(e) => handleAmountChange(e.target.value)}
-                      className={`bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-[#1EAEDB] pr-20 ${
-                        amountError ? "border-red-500 focus:border-red-500" : ""
+                      className={`grant-input placeholder:text-slate-600 pr-20 ${
+                        amountError ? "border-red-500 focus-visible:ring-red-500/30" : ""
                       }`}
                       required
                       min="0"
@@ -694,7 +719,7 @@ const GrantPay = () => {
                           setAmount(balance.toFixed(4));
                           setAmountError("");
                         }}
-                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 px-3 text-xs bg-[#1EAEDB] hover:bg-[#00eeff] text-black font-semibold"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 px-3 text-xs grant-btn-primary rounded-sm"
                       >
                         MAX
                       </Button>
@@ -706,7 +731,7 @@ const GrantPay = () => {
                   {activeAccount && !amountError && (
                     <div className="flex items-center justify-between text-sm px-2">
                       <span className="text-gray-400">Available Balance:</span>
-                      <span className="text-[#1EAEDB] font-medium">
+                      <span className="text-sky-400 font-medium">
                         {isLoadingBalance
                           ? "Loading..."
                           : `${balance.toFixed(4)} ALGO`}
@@ -718,10 +743,10 @@ const GrantPay = () => {
                 {/* Lockup / cliff (months) — factory max 12 */}
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-[#1EAEDB]" />
+                    <Lock className="w-4 h-4 text-sky-400" />
                     Lockup / cliff (months)
                   </Label>
-                  <p className="text-xs text-gray-500 px-0.5">
+                  <p className="text-xs text-slate-500 px-0.5">
                     Custom value from 0 to 12 months.
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -738,10 +763,10 @@ const GrantPay = () => {
                             ? "default"
                             : "outline"
                         }
-                        className={`flex-1 min-w-[60px] ${
+                        className={`flex-1 min-w-[60px] rounded-sm font-medium ${
                           lockupMonths === month.toString()
-                            ? "bg-[#1EAEDB] hover:bg-[#00eeff] text-black"
-                            : "border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-[#1EAEDB]"
+                            ? "bg-sky-500/20 border border-sky-500/50 text-sky-200"
+                            : "border border-slate-700 bg-slate-950/50 text-slate-400 hover:border-sky-900 hover:bg-sky-950/25"
                         }`}
                       >
                         {month}
@@ -767,7 +792,7 @@ const GrantPay = () => {
                           validateScheduleMonths(lockupMonths, 12) ?? ""
                         )
                       }
-                      className="bg-black/50 border-gray-700 text-white sm:max-w-[200px]"
+                      className="grant-input sm:max-w-[200px]"
                     />
                   </div>
                   {lockupError && (
@@ -778,10 +803,10 @@ const GrantPay = () => {
                 {/* Vesting (months) — factory max 60 */}
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-[#1EAEDB]" />
+                    <Calendar className="w-4 h-4 text-sky-400" />
                     Vesting (months)
                   </Label>
-                  <p className="text-xs text-gray-500 px-0.5">
+                  <p className="text-xs text-slate-500 px-0.5">
                     Custom value from 0 to 60 months.
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -796,10 +821,10 @@ const GrantPay = () => {
                         variant={
                           vestingMonths === m.toString() ? "default" : "outline"
                         }
-                        className={`flex-1 min-w-[60px] ${
+                        className={`flex-1 min-w-[60px] rounded-sm font-medium ${
                           vestingMonths === m.toString()
-                            ? "bg-[#1EAEDB] hover:bg-[#00eeff] text-black"
-                            : "border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-[#1EAEDB]"
+                            ? "bg-sky-500/20 border border-sky-500/50 text-sky-200"
+                            : "border border-slate-700 bg-slate-950/50 text-slate-400 hover:border-sky-900 hover:bg-sky-950/25"
                         }`}
                       >
                         {m}
@@ -825,7 +850,7 @@ const GrantPay = () => {
                           validateScheduleMonths(vestingMonths, 60) ?? ""
                         )
                       }
-                      className="bg-black/50 border-gray-700 text-white sm:max-w-[200px]"
+                      className="grant-input sm:max-w-[200px]"
                     />
                   </div>
                   {vestingError && (
@@ -839,7 +864,7 @@ const GrantPay = () => {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="note" className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-[#1EAEDB]" />
+                      <FileText className="w-4 h-4 text-sky-400" />
                       Note
                     </Label>
                     {note && (
@@ -848,7 +873,7 @@ const GrantPay = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => setNote("")}
-                        className="h-6 w-6 p-0 text-gray-400 hover:text-white hover:bg-gray-800"
+                        className="h-6 w-6 p-0 text-slate-500 hover:text-slate-200 hover:bg-slate-800 rounded-sm"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -859,14 +884,14 @@ const GrantPay = () => {
                     placeholder="Add an optional note..."
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    className="bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-[#1EAEDB] min-h-[80px]"
+                    className="grant-input placeholder:text-slate-600 min-h-[80px]"
                     rows={3}
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="inline-flex border-gray-600 text-gray-200 hover:bg-gray-800 hover:text-white hover:border-[#1EAEDB]"
+                    className="grant-btn-outline inline-flex"
                     onClick={applyCouncilCompensationNoteTemplate}
                   >
                     <LayoutTemplate className="w-4 h-4 mr-2 shrink-0" />
@@ -883,11 +908,11 @@ const GrantPay = () => {
                             key={index}
                             type="button"
                             onClick={() => setNote(item.note)}
-                            className="text-left px-3 py-2 bg-black/20 border border-gray-700 rounded-lg hover:bg-black/40 hover:border-[#1EAEDB] transition-colors text-sm text-gray-300"
+                            className="text-left px-3 py-2 rounded-sm border border-slate-800 bg-[#050a14]/60 hover:border-sky-900/60 hover:bg-sky-950/20 transition-colors text-sm text-slate-300"
                           >
                             {item.prefix ? (
                               <div>
-                                <span className="text-[#1EAEDB] font-medium">
+                                <span className="text-sky-400 font-medium">
                                   {item.prefix}
                                 </span>
                                 {item.note.length > 100
@@ -910,7 +935,7 @@ const GrantPay = () => {
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full border-[#1EAEDB] text-[#1EAEDB] hover:bg-[#1EAEDB] hover:text-black font-semibold"
+                      className="grant-btn-outline w-full font-semibold border-sky-700/50 hover:bg-sky-950/40 hover:text-sky-100"
                       size="lg"
                       onClick={() => setShowPreview(true)}
                     >
@@ -920,7 +945,7 @@ const GrantPay = () => {
                   )}
                   <Button
                     type="submit"
-                    className="w-full bg-[#1EAEDB] hover:bg-[#00eeff] text-black font-semibold"
+                    className="w-full grant-btn-primary"
                     size="lg"
                     onClick={
                       !activeAccount
@@ -948,13 +973,13 @@ const GrantPay = () => {
 
       {/* Preview Modal */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-3xl bg-gray-900 border-gray-800 text-white">
+        <DialogContent className="max-w-3xl grant-panel border-sky-950/60 text-slate-200">
           <DialogHeader>
-            <DialogTitle className="text-2xl bg-gradient-to-r from-[#1EAEDB] to-[#00eeff] bg-clip-text text-transparent">
-              Grant Payment Preview
+            <DialogTitle className="grant-title text-2xl">
+              Grant payment preview
             </DialogTitle>
-            <DialogDescription className="text-gray-400">
-              Review your grant payment details and schedule
+            <DialogDescription className="text-slate-500 text-sm">
+              Review details before signing
             </DialogDescription>
           </DialogHeader>
 
@@ -962,7 +987,7 @@ const GrantPay = () => {
             {/* Chart Section */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Vesting Schedule</h3>
-              <div className="h-64 bg-black/30 rounded-lg border border-gray-800 relative p-6">
+              <div className="h-64 grant-panel-muted rounded-sm relative p-6">
                 <svg viewBox="0 0 400 200" className="w-full h-full">
                   {/* Grid lines */}
                   {[0, 25, 50, 75, 100].map((line) => (
@@ -991,7 +1016,7 @@ const GrantPay = () => {
                         <polyline
                           points={`0,0 ${lockupXStr},0 400,200`}
                           fill="none"
-                          stroke="#1EAEDB"
+                          stroke="#38bdf8"
                           strokeWidth="3"
                         />
                       );
@@ -1023,8 +1048,8 @@ const GrantPay = () => {
                       x2="0%"
                       y2="100%"
                     >
-                      <stop offset="0%" stopColor="#1EAEDB" />
-                      <stop offset="100%" stopColor="#00eeff" />
+                      <stop offset="0%" stopColor="#38bdf8" />
+                      <stop offset="100%" stopColor="#0ea5e9" />
                     </linearGradient>
                   </defs>
 
@@ -1062,14 +1087,14 @@ const GrantPay = () => {
               </div>
               <div className="flex gap-4 text-sm text-gray-400 justify-center">
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-gray-700 rounded"></div>
+                  <div className="w-4 h-4 bg-slate-700 rounded-sm"></div>
                   <span>
                     Lockup Period ({lockupMonths} month
                     {parseInt(lockupMonths) !== 1 ? "s" : ""})
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-gradient-to-t from-[#1EAEDB] to-[#00eeff] rounded"></div>
+                  <div className="w-4 h-4 bg-gradient-to-t from-sky-500 to-sky-700 rounded-sm"></div>
                   <span>Vesting Period ({vestingMonths || 0} months)</span>
                 </div>
               </div>
@@ -1125,7 +1150,7 @@ const GrantPay = () => {
             {/* Close Button */}
             <div className="pt-4">
               <Button
-                className="w-full bg-[#1EAEDB] hover:bg-[#00eeff] text-black font-semibold"
+                className="w-full grant-btn-primary"
                 size="lg"
                 onClick={() => setShowPreview(false)}
               >
@@ -1138,22 +1163,24 @@ const GrantPay = () => {
 
       {/* Success Modal */}
       <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
-        <DialogContent className="max-w-md bg-gray-900 border-gray-800 text-white">
+        <DialogContent className="max-w-md grant-panel border-sky-950/60 text-slate-200">
           <DialogHeader>
-            <DialogTitle className="text-2xl bg-gradient-to-r from-[#1EAEDB] to-[#00eeff] bg-clip-text text-transparent">
-              Grant Payment Created Successfully!
+            <DialogTitle className="grant-title text-2xl">
+              Grant created
             </DialogTitle>
-            <DialogDescription className="text-gray-400">
-              Your grant payment contract has been deployed
+            <DialogDescription className="text-slate-500 text-sm">
+              Contract deployed on chain
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="bg-black/30 rounded-lg p-6 border border-gray-800">
+            <div className="grant-panel-muted rounded-sm p-6">
               <div className="space-y-2">
-                <Label className="text-gray-400 text-sm">Application ID</Label>
+                <Label className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Application ID
+                </Label>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-gray-950 px-4 py-3 rounded-lg font-mono text-lg text-[#1EAEDB] border border-gray-800">
+                  <code className="flex-1 bg-[#020617] px-4 py-3 rounded-sm font-mono text-lg text-sky-400 border border-sky-950/60">
                     {createdAppId}
                   </code>
                   <Button
@@ -1168,7 +1195,7 @@ const GrantPay = () => {
                         duration: 2000,
                       });
                     }}
-                    className="border-gray-700 hover:bg-gray-800"
+                    className="grant-btn-outline border-slate-700 h-10 w-10 p-0"
                   >
                     <Copy className="w-4 h-4" />
                   </Button>
@@ -1176,26 +1203,42 @@ const GrantPay = () => {
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3">
               <Button
-                className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-semibold"
-                onClick={() => setShowSuccessModal(false)}
+                asChild
+                className="w-full grant-btn-primary"
               >
-                Close
+                <Link
+                  to={
+                    createdAppId != null
+                      ? `/grant/${createdAppId}`
+                      : "/"
+                  }
+                  onClick={() => setShowSuccessModal(false)}
+                >
+                  View grant details
+                </Link>
               </Button>
-              <Button
-                className="flex-1 bg-[#1EAEDB] hover:bg-[#00eeff] text-black font-semibold"
-                onClick={() => {
-                  setShowSuccessModal(false);
-                  // Reset form
-                  setAddress("");
-                  setAddressInput("");
-                  setAmount("");
-                  setNote("");
-                }}
-              >
-                Create Another
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  className="flex-1 rounded-sm bg-slate-900 border border-slate-800 text-slate-200 hover:bg-slate-800 font-medium"
+                  onClick={() => setShowSuccessModal(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  className="flex-1 grant-btn-outline"
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    setAddress("");
+                    setAddressInput("");
+                    setAmount("");
+                    setNote("");
+                  }}
+                >
+                  Create another
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>

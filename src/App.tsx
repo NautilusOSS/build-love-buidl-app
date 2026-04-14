@@ -17,7 +17,9 @@ import {
   WalletManager,
   WalletProvider,
 } from "@txnlab/use-wallet-react";
+import GrantDashboard from "./pages/GrantDashboard";
 import GrantPay from "./pages/GrantPay";
+import GrantDetail from "./pages/GrantDetail";
 
 // Add other AVM-compatible networks
 const networks = new NetworkConfigBuilder()
@@ -87,24 +89,18 @@ const App = () => {
   // Component to conditionally render sidebar based on route
   const AppLayout = () => {
     const location = useLocation();
-    const isExitLabPage = location.pathname === "/";
-    const isStakingPage = location.pathname.startsWith("/staking");
-    const isRecoveryPage = location.pathname.startsWith("/recovery");
-    const isWalletPage = location.pathname.startsWith("/wallet");
-    const isGrantPayPage = location.pathname.startsWith("/grant-pay");
+    const isGrantAppShell =
+      location.pathname === "/" ||
+      location.pathname.startsWith("/grant-pay") ||
+      location.pathname.startsWith("/grant/");
 
-    if (
-      isExitLabPage ||
-      isStakingPage ||
-      isRecoveryPage ||
-      isWalletPage ||
-      isGrantPayPage
-    ) {
-      // Full-screen layout for ExitLab pages (no sidebar)
+    if (isGrantAppShell) {
       return (
         <div className="min-h-screen w-full">
           <Routes>
-            <Route path="/" element={<GrantPay />} />
+            <Route path="/" element={<GrantDashboard />} />
+            <Route path="/grant-pay" element={<GrantPay />} />
+            <Route path="/grant/:grantId" element={<GrantDetail />} />
           </Routes>
         </div>
       );
