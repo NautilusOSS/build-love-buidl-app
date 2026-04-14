@@ -3,7 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Wallet from "./pages/Wallet";
 import AppSidebar from "@/components/AppSidebar";
@@ -12,29 +11,13 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import Home from "./pages/Home";
 import {
   NetworkConfigBuilder,
-  NetworkId,
   WalletId,
   WalletManager,
   WalletProvider,
 } from "@txnlab/use-wallet-react";
-//import Wallet from "./pages/Wallet";
-// import Airdrop from "./pages/Airdrop"; // Removed airdrop page
-// import About from "./pages/About"; // Removed about page
-// import PALGO from "./pages/pALGO"; // Removed palgo page
-// import Trading from "./pages/Trading"; // Removed trading page
-import ExitLab from "./pages/ExitLab";
-import StakingContracts from "./pages/StakingContracts";
-import FundRecovery from "./pages/FundRecovery";
 import GrantPay from "./pages/GrantPay";
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
 
 // Add other AVM-compatible networks
 const networks = new NetworkConfigBuilder()
@@ -54,33 +37,7 @@ const networks = new NetworkConfigBuilder()
 const queryClient = new QueryClient();
 
 const App = () => {
-  let walletConnectProjectId: string | null;
-  if (!walletConnectProjectId) {
-    walletConnectProjectId = "e7b04c22de006e0fc7cef5a00cb7fac9";
-  }
-
-  // Create a BreadcrumbContent component to use useLocation
-  const BreadcrumbContent = () => {
-    const location = useLocation();
-    const pathSegments = location.pathname.split("/").filter(Boolean);
-
-    return (
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbPage className="text-[#1EAEDB] font-bold tracking-tight">
-              EXITLAB
-            </BreadcrumbPage>
-          </BreadcrumbItem>
-          {pathSegments.map((segment, index) => (
-            <BreadcrumbItem key={index}>
-              <BreadcrumbPage className="capitalize">{segment}</BreadcrumbPage>
-            </BreadcrumbItem>
-          ))}
-        </BreadcrumbList>
-      </Breadcrumb>
-    );
-  };
+  const walletConnectProjectId = "e7b04c22de006e0fc7cef5a00cb7fac9";
 
   const walletManager = new WalletManager({
     wallets: [
