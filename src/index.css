@@ -251,6 +251,29 @@ button:focus-visible {
     @apply rounded-sm border border-sky-900/70 bg-transparent font-medium tracking-tight text-slate-200 transition-colors hover:border-sky-600/60 hover:bg-sky-950/50;
   }
 
+  /** Destructive / funder actions — warm rose, heavier border, filled — not sky outline */
+  .grant-btn-danger {
+    @apply rounded-sm border-2 border-rose-500/50 bg-gradient-to-b from-rose-950/90 to-[#1a0a0c] font-semibold tracking-tight shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] transition-colors hover:border-rose-400/65 hover:from-rose-900/85 hover:to-rose-950/70 active:from-rose-950 active:to-[#1a0a0c];
+    /* Beat shadcn Button default `text-primary-foreground` after tailwind-merge */
+    color: rgb(255 255 255) !important;
+  }
+
+  .grant-btn-danger:hover,
+  .grant-btn-danger:focus-visible,
+  .grant-btn-danger:active {
+    color: rgb(255 255 255) !important;
+  }
+
+  .grant-btn-danger svg {
+    color: rgb(255 255 255) !important;
+  }
+
+  .grant-btn-danger:hover svg,
+  .grant-btn-danger:focus-visible svg,
+  .grant-btn-danger:active svg {
+    color: rgb(255 255 255) !important;
+  }
+
   .grant-link {
     @apply font-medium text-sky-400 transition-colors hover:text-sky-300;
   }
@@ -266,6 +289,10 @@ button:focus-visible {
   .grant-shell :focus-visible {
     outline-color: rgb(56 189 248 / 0.45);
     outline-offset: 2px;
+  }
+
+  .grant-shell .grant-btn-danger:focus-visible {
+    outline-color: rgb(244 63 94 / 0.55);
   }
 }
 

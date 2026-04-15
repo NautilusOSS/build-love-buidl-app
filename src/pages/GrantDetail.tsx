@@ -1,8 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useWallet } from "@txnlab/use-wallet-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -14,6 +23,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import {
   ArrowLeft,
+  Ban,
   Calendar,
   Check,
   ChevronDown,
@@ -42,19 +52,29 @@ import {
   getGrantById,
   grantLifecycleStatus,
   monthlyUnlockVoi,
+  upsertGrant,
   type StoredGrant,
+  type StoredGrantClaim,
 } from "@/lib/grantStorage";
 import { cn } from "@/lib/utils";
 import {
   matchCouncilCompensationNote,
   parseCouncilCompensationNote,
 } from "@/lib/councilCompensationNote";
-import { AirdropClient } from "@/clients/AirdropClient";
+import { AirdropClient, APP_SPEC } from "@/clients/AirdropClient";
 import IdentitySheet from "@/components/IdentitySheet";
 import algosdk from "algosdk";
+import { CONTRACT } from "ulujs";
 
 const EXPLORER_APP = (appId: number) =>
   `https://voiager.xyz/application/${appId}/`;
+
+/** CONTRACT simulate+sign bundle for non-readonly methods (withdraw / abort_funding). */
+type ContractSimSignResult = {
+  success: boolean;
+  error?: string;
+  txns?: string[];
+};
 
 const ON_CHAIN_STATE_PAGE_SIZE = 20;
 
@@ -320,6 +340,93 @@ interface Milestone {
   txId?: string;
 }
 
+/** Claim applied to a row; `showTx` false = covered by same withdrawal as a later slice (no link). */
+type MilestoneClaimSlot =
+  | undefined
+  | { claim: StoredGrantClaim; showTx: boolean };
+
+function amountCloseForGrant(a: number, b: number, totalVoi: number): boolean {
+  return Math.abs(a - b) < Math.max(1e-6, totalVoi * 1e-9);
+}
+
+/**
+ * Assigns each stored claim to at most one milestone. Exact per-slice matches (FIFO) first;
+ * bulk amounts fill k consecutive unlocked rows: earlier rows are claimed without tx link,
+ * the k-th row carries the transaction link.
+ */
+function assignClaimsFifo(
+  milestoneRows: Array<{ dateMs: number; amountVoi: number }>,
+  claims: StoredGrantClaim[],
+  nowMs: number,
+  totalVoi: number
+): MilestoneClaimSlot[] {
+  const n = milestoneRows.length;
+  const byDate = Array.from({ length: n }, (_, i) => i).sort(
+    (a, b) => milestoneRows[a].dateMs - milestoneRows[b].dateMs
+  );
+  const claimEntries = claims
+    .map((c, i) => ({ c, i }))
+    .sort(
+      (a, b) =>
+        new Date(a.c.claimedAt).getTime() - new Date(b.c.claimedAt).getTime()
+    );
+  const usedClaim = new Set<number>();
+  const assigned: MilestoneClaimSlot[] = Array(n).fill(undefined);
+
+  for (const mi of byDate) {
+    const m = milestoneRows[mi];
+    if (nowMs < m.dateMs) continue;
+    for (const { c, i } of claimEntries) {
+      if (usedClaim.has(i)) continue;
+      if (amountCloseForGrant(c.amountVoi, m.amountVoi, totalVoi)) {
+        assigned[mi] = { claim: c, showTx: true };
+        usedClaim.add(i);
+        break;
+      }
+    }
+  }
+
+  for (const { c, i } of claimEntries) {
+    if (usedClaim.has(i)) continue;
+
+    const per = milestoneRows[0]?.amountVoi ?? 0;
+    if (!(per > 0)) continue;
+
+    const eligible = byDate.filter((mi) => {
+      const m = milestoneRows[mi];
+      return nowMs >= m.dateMs && !assigned[mi];
+    });
+
+    if (eligible.length === 0) continue;
+
+    const k = Math.max(
+      1,
+      Math.min(
+        eligible.length,
+        Math.round(c.amountVoi / per)
+      )
+    );
+
+    for (let j = 0; j < k - 1; j++) {
+      assigned[eligible[j]] = { claim: c, showTx: false };
+    }
+    assigned[eligible[k - 1]] = { claim: c, showTx: true };
+    usedClaim.add(i);
+  }
+
+  return assigned;
+}
+
+function milestoneStateFromMatch(
+  dateMs: number,
+  nowMs: number,
+  slot: MilestoneClaimSlot
+): MilestoneState {
+  if (nowMs < dateMs) return "upcoming";
+  if (slot) return "claimed";
+  return "available";
+}
+
 function buildMilestones(grant: StoredGrant, nowMs: number): Milestone[] {
   const snap = computeVestingSnapshot(grant, nowMs);
   const { cliffEnd, vestingEnd } = snap;
@@ -343,35 +450,33 @@ function buildMilestones(grant: StoredGrant, nowMs: number): Milestone[] {
         dateMs: cliffEnd,
         amountVoi: total,
         state,
-        txId: claims[0]?.txId,
+        txId: claims.find((c) => Math.abs(c.amountVoi - total) < 1e-9)?.txId,
       },
     ];
   }
 
+  const rows = Array.from({ length: v }, (_, j) => {
+    const i = j + 1;
+    return {
+      dateMs: cliffEnd + (i * (vestingEnd - cliffEnd)) / v,
+      amountVoi: total / v,
+    };
+  });
+  const assigned = assignClaimsFifo(rows, claims, nowMs, total);
+
   const out: Milestone[] = [];
-  for (let i = 1; i <= v; i++) {
-    const dateMs =
-      cliffEnd + (i * (vestingEnd - cliffEnd)) / v;
-    const amountVoi = total / v;
-
-    const matchedClaim = claims.find(
-      (c) =>
-        Math.abs(c.amountVoi - amountVoi) < Math.max(1e-6, total * 1e-9) ||
-        Math.abs(new Date(c.claimedAt).getTime() - dateMs) < 3 * 86400000
-    );
-
-    let state: MilestoneState = "upcoming";
-    if (matchedClaim) state = "claimed";
-    else if (nowMs >= dateMs) state = "available";
-    else state = "upcoming";
-
+  for (let j = 0; j < v; j++) {
+    const i = j + 1;
+    const { dateMs, amountVoi } = rows[j];
+    const slot = assigned[j];
+    const state = milestoneStateFromMatch(dateMs, nowMs, slot);
     out.push({
       id: `m-${i}`,
       label: `Vesting ${i}/${v}`,
       dateMs,
       amountVoi,
       state,
-      txId: matchedClaim?.txId,
+      txId: slot?.showTx ? slot.claim.txId : undefined,
     });
   }
   return out;
@@ -403,7 +508,7 @@ function buildMilestonesFromAirdrop(
         dateMs: cliffEnd,
         amountVoi: total,
         state,
-        txId: claims[0]?.txId,
+        txId: claims.find((c) => Math.abs(c.amountVoi - total) < 1e-9)?.txId,
       },
     ];
   }
@@ -415,25 +520,27 @@ function buildMilestonesFromAirdrop(
     const n = Number(dc);
     const stepMs = Number(ds) * 1000;
     const per = total / n;
+    const rows = Array.from({ length: n }, (_, j) => {
+      const i = j + 1;
+      return {
+        dateMs: cliffEnd + i * stepMs,
+        amountVoi: per,
+      };
+    });
+    const assigned = assignClaimsFifo(rows, claims, nowMs, total);
     const out: Milestone[] = [];
-    for (let i = 1; i <= n; i++) {
-      const dateMs = cliffEnd + i * stepMs;
-      const matchedClaim = claims.find(
-        (c) =>
-          Math.abs(c.amountVoi - per) < Math.max(1e-6, total * 1e-9) ||
-          Math.abs(new Date(c.claimedAt).getTime() - dateMs) < 3 * 86400000
-      );
-      let state: MilestoneState = "upcoming";
-      if (matchedClaim) state = "claimed";
-      else if (nowMs >= dateMs) state = "available";
-      else state = "upcoming";
+    for (let j = 0; j < n; j++) {
+      const i = j + 1;
+      const { dateMs, amountVoi } = rows[j];
+      const slot = assigned[j];
+      const state = milestoneStateFromMatch(dateMs, nowMs, slot);
       out.push({
         id: `dist-${i}`,
         label: `Distribution ${i}/${n}`,
         dateMs,
-        amountVoi: per,
+        amountVoi,
         state,
-        txId: matchedClaim?.txId,
+        txId: slot?.showTx ? slot.claim.txId : undefined,
       });
     }
     return out;
@@ -442,26 +549,27 @@ function buildMilestonesFromAirdrop(
   const span = Math.max(vestingEnd - cliffEnd, 1);
   const monthMs = 30 * 24 * 60 * 60 * 1000;
   const steps = Math.min(24, Math.max(1, Math.ceil(span / monthMs)));
+  const linRows = Array.from({ length: steps }, (_, j) => {
+    const i = j + 1;
+    return {
+      dateMs: cliffEnd + (i * span) / steps,
+      amountVoi: total / steps,
+    };
+  });
+  const linAssigned = assignClaimsFifo(linRows, claims, nowMs, total);
   const out: Milestone[] = [];
-  for (let i = 1; i <= steps; i++) {
-    const dateMs = cliffEnd + (i * span) / steps;
-    const amountVoi = total / steps;
-    const matchedClaim = claims.find(
-      (c) =>
-        Math.abs(c.amountVoi - amountVoi) < Math.max(1e-6, total * 1e-9) ||
-        Math.abs(new Date(c.claimedAt).getTime() - dateMs) < 5 * 86400000
-    );
-    let state: MilestoneState = "upcoming";
-    if (matchedClaim) state = "claimed";
-    else if (nowMs >= dateMs) state = "available";
-    else state = "upcoming";
+  for (let j = 0; j < steps; j++) {
+    const i = j + 1;
+    const { dateMs, amountVoi } = linRows[j];
+    const slot = linAssigned[j];
+    const state = milestoneStateFromMatch(dateMs, nowMs, slot);
     out.push({
       id: `lin-${i}`,
       label: `Vesting ${i}/${steps} (linear)`,
       dateMs,
       amountVoi,
       state,
-      txId: matchedClaim?.txId,
+      txId: slot?.showTx ? slot.claim.txId : undefined,
     });
   }
   return out;
@@ -547,16 +655,57 @@ function VestingChart({
   );
 }
 
+/** VOI → micro-VOI for `withdraw(uint64)` amount arg (ABI uint64). */
+function voiToWithdrawMicro(voi: number): bigint {
+  if (!Number.isFinite(voi) || voi <= 0) return 0n;
+  return BigInt(Math.round(voi * 1_000_000));
+}
+
+/**
+ * Approximate VOI still claimable from vesting snapshot vs. sum of locally recorded claims.
+ * On-chain `withdraw` enforces the real cap.
+ */
+function claimableVoiFromSnapshot(
+  snap: Extract<AirdropVestingSnapshot, { ok: true }>,
+  claimedVoiSum: number,
+  nowMs: number
+): number {
+  if (snap.lumpSumPostCliff) {
+    if (nowMs < snap.cliffEnd) return 0;
+    return Math.max(0, snap.totalVoi - claimedVoiSum);
+  }
+  return Math.max(0, snap.vested - claimedVoiSum);
+}
+
+function isGrantDetailDebugEnabled(searchParams: URLSearchParams): boolean {
+  if (!searchParams.has("debug")) return false;
+  const v = searchParams.get("debug");
+  if (v === null || v === "") return true;
+  const lower = v.trim().toLowerCase();
+  if (lower === "0" || lower === "false" || lower === "no") return false;
+  return true;
+}
+
 const GrantDetail = () => {
   const { grantId } = useParams<{ grantId: string }>();
-  const { activeAccount, algodClient } = useWallet();
+  const [searchParams] = useSearchParams();
+  const showOnChainDebugCard = useMemo(
+    () => isGrantDetailDebugEnabled(searchParams),
+    [searchParams]
+  );
+  const { activeAccount, algodClient, signTransactions } = useWallet();
   const [showIdentitySheet, setShowIdentitySheet] = useState(false);
   const numericId = grantId ? parseInt(grantId, 10) : NaN;
+  const grantApplicationAddress = useMemo(() => {
+    if (Number.isNaN(numericId)) return null;
+    return String(algosdk.getApplicationAddress(numericId));
+  }, [numericId]);
 
+  const [grantReloadTick, setGrantReloadTick] = useState(0);
   const grant = useMemo(() => {
     if (Number.isNaN(numericId)) return undefined;
     return getGrantById(numericId);
-  }, [numericId]);
+  }, [numericId, grantReloadTick]);
 
   const nowMs = Date.now();
 
@@ -572,6 +721,10 @@ const GrantDetail = () => {
   const [chainStatePage, setChainStatePage] = useState(0);
   /** On-chain globals table is collapsed by default; user expands when needed. */
   const [showChainStateTable, setShowChainStateTable] = useState(false);
+  const [chainRefreshTick, setChainRefreshTick] = useState(0);
+  const [claimSubmitting, setClaimSubmitting] = useState(false);
+  const [revokeSubmitting, setRevokeSubmitting] = useState(false);
+  const [revokeConfirmOpen, setRevokeConfirmOpen] = useState(false);
 
   useEffect(() => {
     setChainStatePage(0);
@@ -618,7 +771,7 @@ const GrantDetail = () => {
     return () => {
       cancelled = true;
     };
-  }, [algodClient, numericId]);
+  }, [algodClient, numericId, chainRefreshTick]);
 
   useEffect(() => {
     if (!chainRows?.length) return;
@@ -791,7 +944,7 @@ const GrantDetail = () => {
 
   const displayName = grant
     ? grant.recipientLabel ||
-      `${grant.recipientAddress.slice(0, 8)}…${grant.recipientAddress.slice(-6)}`
+    `${grant.recipientAddress.slice(0, 8)}…${grant.recipientAddress.slice(-6)}`
     : councilCompensationParsed?.displayName?.trim() || "Unknown recipient";
 
   const showClaim =
@@ -806,9 +959,24 @@ const GrantDetail = () => {
 
   const isConnectedRecipient = Boolean(
     activeAccount &&
-      claimRecipientAddress &&
-      activeAccount.address === claimRecipientAddress
+    claimRecipientAddress &&
+    activeAccount.address === claimRecipientAddress
   );
+
+  const funderAddress = useMemo(
+    () => globalAddressOrNull(chainGlobal?.funder),
+    [chainGlobal]
+  );
+  const isConnectedFunder = Boolean(
+    activeAccount &&
+      funderAddress &&
+      activeAccount.address === funderAddress
+  );
+  const showRevokePayment =
+    !chainLoading &&
+    chainGlobal !== null &&
+    chainError === null &&
+    isConnectedFunder;
 
   const copyId = () => {
     if (Number.isNaN(numericId)) return;
@@ -816,14 +984,266 @@ const GrantDetail = () => {
     toast({ description: "Grant ID copied", duration: 2000 });
   };
 
-  const onClaim = () => {
-    toast({
-      title: "Claim",
-      description:
-        "On-chain claim transactions are not wired in this build. Use your wallet with the grant application when the contract supports it.",
-      duration: 5000,
-    });
-  };
+  const onClaim = useCallback(async () => {
+    if (!signTransactions) {
+      toast({
+        variant: "destructive",
+        description: "This wallet cannot sign transactions.",
+      });
+      return;
+    }
+    if (!algodClient || !activeAccount || Number.isNaN(numericId)) {
+      toast({
+        variant: "destructive",
+        description: "Connect your wallet and open a valid grant.",
+      });
+      return;
+    }
+    if (!chainVestingSnap.ok) {
+      toast({
+        variant: "destructive",
+        description: "On-chain vesting data not loaded yet.",
+      });
+      return;
+    }
+
+    const claimedSoFar =
+      grant?.claims?.reduce((s, c) => s + c.amountVoi, 0) ?? 0;
+    const claimableVoi = claimableVoiFromSnapshot(
+      chainVestingSnap,
+      claimedSoFar,
+      Date.now()
+    );
+    const amountMicro = voiToWithdrawMicro(claimableVoi);
+    if (amountMicro <= 0n) {
+      toast({
+        description: "Nothing available to claim right now.",
+        duration: 4000,
+      });
+      return;
+    }
+
+    setClaimSubmitting(true);
+    try {
+      const grantContractSpec = {
+        ...APP_SPEC.contract,
+        events: [],
+      };
+
+      const ci = new CONTRACT(
+        numericId,
+        algodClient,
+        undefined,
+        grantContractSpec,
+        {
+          addr: activeAccount.address,
+          sk: new Uint8Array(),
+        }
+      );
+      ci.setFee(8000);
+
+      const contractAppAddress = algosdk.getApplicationAddress(numericId);
+      const contractAccountInfo = await algodClient
+        .accountInformation(contractAppAddress)
+        .do();
+      const contractBalanceMicro = BigInt(contractAccountInfo.amount);
+      console.log("contractBalanceMicro", contractBalanceMicro);
+
+      let result = await ci.withdraw(0);
+      console.log("result", result);
+      const maxWithdraw = contractBalanceMicro - BigInt(result.returnValue) - BigInt(1e5);
+      console.log("maxWithdraw", maxWithdraw);
+      result = await ci.withdraw(maxWithdraw);
+      if (!result.success) {
+        const err =
+          typeof result.error === "string"
+            ? result.error
+            : "Withdraw simulation failed";
+        throw new Error(err);
+      }
+      const txns = result.txns;
+      if (!txns?.length) {
+        throw new Error("No transactions returned for withdraw");
+      }
+
+      const signed = await signTransactions(
+        txns.map(
+          (txn: string) =>
+            new Uint8Array(
+              atob(txn)
+                .split("")
+                .map((char) => char.charCodeAt(0))
+            )
+        )
+      );
+
+      const sendRes = await algodClient.sendRawTransaction(signed).do();
+      await algosdk.waitForConfirmation(algodClient, sendRes.txid, 4);
+
+      if (grant) {
+        upsertGrant({
+          ...grant,
+          claims: [
+            ...(grant.claims ?? []),
+            {
+              txId: sendRes.txid,
+              amountVoi: claimableVoi,
+              claimedAt: new Date().toISOString(),
+            },
+          ],
+        });
+        setGrantReloadTick((t) => t + 1);
+      }
+
+      setChainRefreshTick((t) => t + 1);
+
+      toast({
+        title: "Claim submitted",
+        description: (
+          <span>
+            Withdrew{" "}
+            {claimableVoi.toLocaleString(undefined, {
+              maximumFractionDigits: 6,
+            })}{" "}
+            VOI.{" "}
+            <a
+              href={`https://voiager.xyz/transaction/${sendRes.txid}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sky-400 underline"
+            >
+              View transaction
+            </a>
+          </span>
+        ),
+        duration: 8000,
+      });
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : "Withdraw transaction failed";
+      toast({
+        variant: "destructive",
+        description: msg.slice(0, 220),
+        duration: 6000,
+      });
+    } finally {
+      setClaimSubmitting(false);
+    }
+  }, [
+    algodClient,
+    activeAccount,
+    numericId,
+    chainVestingSnap,
+    grant,
+    signTransactions,
+  ]);
+
+  const onRevokePayment = useCallback(async () => {
+    if (!signTransactions) {
+      toast({
+        variant: "destructive",
+        description: "This wallet cannot sign transactions.",
+      });
+      return;
+    }
+    if (!algodClient || !activeAccount || Number.isNaN(numericId)) {
+      toast({
+        variant: "destructive",
+        description: "Connect your wallet and open a valid grant.",
+      });
+      return;
+    }
+    const funder = globalAddressOrNull(chainGlobal?.funder);
+    if (!funder || activeAccount.address !== funder) {
+      toast({
+        variant: "destructive",
+        description: "Only the on-chain funder can revoke payment.",
+      });
+      return;
+    }
+
+    setRevokeConfirmOpen(false);
+    setRevokeSubmitting(true);
+    try {
+      const grantContractSpec = {
+        ...APP_SPEC.contract,
+        events: [],
+      };
+      const ci = new CONTRACT(
+        numericId,
+        algodClient,
+        undefined,
+        grantContractSpec,
+        {
+          addr: activeAccount.address,
+          sk: new Uint8Array(),
+        }
+      );
+      ci.setFee(8000);
+      ci.setOnComplete(5);
+
+      const result = await (
+        ci as unknown as {
+          abort_funding: () => Promise<ContractSimSignResult>;
+        }
+      ).abort_funding();
+      if (!result.success) {
+        const err =
+          typeof result.error === "string"
+            ? result.error
+            : "abort_funding simulation failed";
+        throw new Error(err);
+      }
+      const txns = result.txns;
+      if (!txns?.length) {
+        throw new Error("No transactions returned for abort_funding");
+      }
+
+      const signed = await signTransactions(
+        txns.map(
+          (txn: string) =>
+            new Uint8Array(
+              atob(txn)
+                .split("")
+                .map((char) => char.charCodeAt(0))
+            )
+        )
+      );
+
+      const sendRes = await algodClient.sendRawTransaction(signed).do();
+      await algosdk.waitForConfirmation(algodClient, sendRes.txid, 4);
+
+      setChainRefreshTick((t) => t + 1);
+
+      toast({
+        title: "Payment revoked",
+        description: (
+          <span>
+            Abort funding submitted.{" "}
+            <a
+              href={`https://voiager.xyz/transaction/${sendRes.txid}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sky-400 underline"
+            >
+              View transaction
+            </a>
+          </span>
+        ),
+        duration: 8000,
+      });
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : "abort_funding transaction failed";
+      toast({
+        variant: "destructive",
+        description: msg.slice(0, 220),
+        duration: 6000,
+      });
+    } finally {
+      setRevokeSubmitting(false);
+    }
+  }, [algodClient, activeAccount, numericId, chainGlobal, signTransactions]);
 
   if (Number.isNaN(numericId)) {
     return (
@@ -995,8 +1415,8 @@ const GrantDetail = () => {
                   <p className="text-xs sm:text-sm text-slate-100 tabular-nums">
                     {councilCompensationParsed.cliffMonths > 0
                       ? `${formatCouncilMonths(
-                          councilCompensationParsed.cliffMonths,
-                        )} before vesting`
+                        councilCompensationParsed.cliffMonths,
+                      )} before vesting`
                       : "None"}
                   </p>
                 </div>
@@ -1107,12 +1527,11 @@ const GrantDetail = () => {
                     </TableCell>
                   </TableRow>
                   <TableRow className="grant-table-row border-slate-800/80">
-                    <TableCell className="text-slate-500 text-sm">Address</TableCell>
+                    <TableCell className="text-slate-500 text-sm">
+                      Application address
+                    </TableCell>
                     <TableCell className="font-mono text-sm break-all">
-                      {grant?.recipientAddress ??
-                        (chainGlobal
-                          ? encodeGlobalAddress(chainGlobal.owner)
-                          : "—")}
+                      {grantApplicationAddress ?? "—"}
                     </TableCell>
                   </TableRow>
                   <TableRow className="grant-table-row border-slate-800/80">
@@ -1165,7 +1584,7 @@ const GrantDetail = () => {
                   <TableRow className="grant-table-row border-slate-800/80">
                     <TableCell className="text-slate-500 text-sm">
                       {chainVestingSnap.ok &&
-                      chainVestingSnap.distributionCount > 0n
+                        chainVestingSnap.distributionCount > 0n
                         ? "Per distribution"
                         : "Monthly unlock"}
                     </TableCell>
@@ -1244,190 +1663,192 @@ const GrantDetail = () => {
           </Card>
         </div>
 
-        {/* On-chain application state (Airdrop contract) */}
-        <Card className="grant-panel">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold tracking-tight text-slate-100">
-              On-chain state
-            </CardTitle>
-            <p className="text-xs text-slate-500 font-normal mt-1">
-              Live global state from the grant application contract. Owner, funder, and
-              delegate are Algorand addresses; micro-VOI amounts are shown as VOI.
-            </p>
-          </CardHeader>
-          <CardContent>
-            {!algodClient && (
-              <p className="text-sm text-slate-500">
-                Connect to a network to load on-chain data.
+        {/* On-chain application state — only with ?debug (see isGrantDetailDebugEnabled) */}
+        {showOnChainDebugCard && (
+          <Card className="grant-panel">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold tracking-tight text-slate-100">
+                On-chain state
+              </CardTitle>
+              <p className="text-xs text-slate-500 font-normal mt-1">
+                Live global state from the grant application contract. Owner, funder, and
+                delegate are Algorand addresses; micro-VOI amounts are shown as VOI.
               </p>
-            )}
-            {algodClient && chainLoading && (
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                Loading application state…
-              </div>
-            )}
-            {algodClient && !chainLoading && chainError && (
-              <p className="text-sm text-amber-200/90 leading-relaxed">
-                Could not read this application&apos;s globals: {chainError}
-              </p>
-            )}
-            {algodClient && !chainLoading && !chainError && chainRows && (
-              <div className="space-y-3">
-                {!showChainStateTable ? (
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-sm border border-slate-800/70 bg-slate-950/40 px-3 py-3">
-                    <p className="text-sm text-slate-400">
-                      {chainRows.length} global key
-                      {chainRows.length === 1 ? "" : "s"} loaded. Table hidden by
-                      default.
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="grant-btn-outline shrink-0"
-                      onClick={() => setShowChainStateTable(true)}
-                      aria-expanded={false}
-                    >
-                      <ChevronDown className="w-3.5 h-3.5 mr-2" />
-                      Show on-chain table
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex justify-end">
+            </CardHeader>
+            <CardContent>
+              {!algodClient && (
+                <p className="text-sm text-slate-500">
+                  Connect to a network to load on-chain data.
+                </p>
+              )}
+              {algodClient && chainLoading && (
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  Loading application state…
+                </div>
+              )}
+              {algodClient && !chainLoading && chainError && (
+                <p className="text-sm text-amber-200/90 leading-relaxed">
+                  Could not read this application&apos;s globals: {chainError}
+                </p>
+              )}
+              {algodClient && !chainLoading && !chainError && chainRows && (
+                <div className="space-y-3">
+                  {!showChainStateTable ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-sm border border-slate-800/70 bg-slate-950/40 px-3 py-3">
+                      <p className="text-sm text-slate-400">
+                        {chainRows.length} global key
+                        {chainRows.length === 1 ? "" : "s"} loaded. Table hidden by
+                        default.
+                      </p>
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        className="text-slate-400 hover:text-slate-200 h-8 text-xs"
-                        onClick={() => setShowChainStateTable(false)}
-                        aria-expanded
+                        className="grant-btn-outline shrink-0"
+                        onClick={() => setShowChainStateTable(true)}
+                        aria-expanded={false}
                       >
-                        <ChevronUp className="w-3.5 h-3.5 mr-1" />
-                        Hide table
+                        <ChevronDown className="w-3.5 h-3.5 mr-2" />
+                        Show on-chain table
                       </Button>
                     </div>
-                    <Table>
-                      <TableBody>
-                        {chainRowsPage.map((row) => (
-                          <TableRow
-                            key={row.label}
-                            className="grant-table-row border-slate-800/80"
-                          >
-                            <TableCell className="text-slate-500 text-sm w-[40%]">
-                              {row.label}
-                            </TableCell>
-                            <TableCell className="font-mono text-sm text-slate-200 break-all">
-                              {row.value}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    {chainRows.length > ON_CHAIN_STATE_PAGE_SIZE && (
-                      <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+                  ) : (
+                    <>
+                      <div className="flex justify-end">
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="grant-btn-outline h-8 text-xs shrink-0"
-                          disabled={chainStatePage <= 0}
-                          onClick={() =>
-                            setChainStatePage((p) => Math.max(0, p - 1))
-                          }
+                          className="text-slate-400 hover:text-slate-200 h-8 text-xs"
+                          onClick={() => setShowChainStateTable(false)}
+                          aria-expanded
                         >
-                          <ChevronLeft className="w-3.5 h-3.5 mr-1" />
-                          Previous
-                        </Button>
-                        <span className="text-xs text-slate-500 tabular-nums text-center min-w-0">
-                          Page {chainStatePage + 1} of {chainStatePageCount}
-                          <span className="text-slate-600">
-                            {" "}
-                            ({chainRows.length} keys)
-                          </span>
-                        </span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="grant-btn-outline h-8 text-xs shrink-0"
-                          disabled={chainStatePage >= chainStatePageCount - 1}
-                          onClick={() =>
-                            setChainStatePage((p) =>
-                              Math.min(chainStatePageCount - 1, p + 1)
-                            )
-                          }
-                        >
-                          Next
-                          <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                          <ChevronUp className="w-3.5 h-3.5 mr-1" />
+                          Hide table
                         </Button>
                       </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      <Table>
+                        <TableBody>
+                          {chainRowsPage.map((row) => (
+                            <TableRow
+                              key={row.label}
+                              className="grant-table-row border-slate-800/80"
+                            >
+                              <TableCell className="text-slate-500 text-sm w-[40%]">
+                                {row.label}
+                              </TableCell>
+                              <TableCell className="font-mono text-sm text-slate-200 break-all">
+                                {row.value}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      {chainRows.length > ON_CHAIN_STATE_PAGE_SIZE && (
+                        <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="grant-btn-outline h-8 text-xs shrink-0"
+                            disabled={chainStatePage <= 0}
+                            onClick={() =>
+                              setChainStatePage((p) => Math.max(0, p - 1))
+                            }
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5 mr-1" />
+                            Previous
+                          </Button>
+                          <span className="text-xs text-slate-500 tabular-nums text-center min-w-0">
+                            Page {chainStatePage + 1} of {chainStatePageCount}
+                            <span className="text-slate-600">
+                              {" "}
+                              ({chainRows.length} keys)
+                            </span>
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="grant-btn-outline h-8 text-xs shrink-0"
+                            disabled={chainStatePage >= chainStatePageCount - 1}
+                            onClick={() =>
+                              setChainStatePage((p) =>
+                                Math.min(chainStatePageCount - 1, p + 1)
+                              )
+                            }
+                          >
+                            Next
+                            <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* First txn note (hidden when council compensation parsed successfully) */}
         {(firstTxnLoading ||
           firstTxnError ||
           !councilCompensationParsed) && (
-          <Card className="grant-panel">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold tracking-tight text-slate-100">
-                First account transaction note
-              </CardTitle>
-              <p className="text-xs text-slate-500 font-normal mt-1">
-                Uses <code className="text-slate-400">getApplicationAddress(appId)</code>{" "}
-                and the indexer account transaction list; note is from the chronologically
-                first match (prefer creation round). UTF-8 decoded.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {firstTxnLoading && (
-                <div className="flex items-center gap-2 text-sm text-slate-400">
-                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                  Loading first account transaction…
-                </div>
-              )}
-              {!firstTxnLoading && firstTxnError && (
-                <p className="text-sm text-amber-200/90 leading-relaxed">{firstTxnError}</p>
-              )}
-              {!firstTxnLoading && !firstTxnError && firstTxnNote !== null && firstTxnNote === "" && (
-                <p className="text-sm text-slate-500">No note on this transaction.</p>
-              )}
-              {!firstTxnLoading &&
-                !firstTxnError &&
-                councilCompensationUnparsed && (
-                  <p className="text-xs text-amber-200/90">
-                    This note looks like Council Compensation but the structured lines
-                    could not be parsed. See raw text below.
-                  </p>
+            <Card className="grant-panel">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold tracking-tight text-slate-100">
+                  First account transaction note
+                </CardTitle>
+                <p className="text-xs text-slate-500 font-normal mt-1">
+                  Uses <code className="text-slate-400">getApplicationAddress(appId)</code>{" "}
+                  and the indexer account transaction list; note is from the chronologically
+                  first match (prefer creation round). UTF-8 decoded.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {firstTxnLoading && (
+                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                    Loading first account transaction…
+                  </div>
                 )}
-              {!firstTxnLoading && !firstTxnError && firstTxnNote && (
-                <div>
-                  <p className="text-sm text-slate-200 whitespace-pre-wrap break-words">
-                    {firstTxnNote}
-                  </p>
-                </div>
-              )}
-              {!firstTxnLoading && !firstTxnError && firstTxnId && (
-                <a
-                  href={`https://voiager.xyz/transaction/${firstTxnId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-slate-500 hover:text-sky-400 inline-flex items-center gap-1"
-                >
-                  Open transaction
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                {!firstTxnLoading && firstTxnError && (
+                  <p className="text-sm text-amber-200/90 leading-relaxed">{firstTxnError}</p>
+                )}
+                {!firstTxnLoading && !firstTxnError && firstTxnNote !== null && firstTxnNote === "" && (
+                  <p className="text-sm text-slate-500">No note on this transaction.</p>
+                )}
+                {!firstTxnLoading &&
+                  !firstTxnError &&
+                  councilCompensationUnparsed && (
+                    <p className="text-xs text-amber-200/90">
+                      This note looks like Council Compensation but the structured lines
+                      could not be parsed. See raw text below.
+                    </p>
+                  )}
+                {!firstTxnLoading && !firstTxnError && firstTxnNote && (
+                  <div>
+                    <p className="text-sm text-slate-200 whitespace-pre-wrap break-words">
+                      {firstTxnNote}
+                    </p>
+                  </div>
+                )}
+                {!firstTxnLoading && !firstTxnError && firstTxnId && (
+                  <a
+                    href={`https://voiager.xyz/transaction/${firstTxnId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-slate-500 hover:text-sky-400 inline-flex items-center gap-1"
+                  >
+                    Open transaction
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
         {/* Claim history timeline */}
         {milestones.length > 0 && (
@@ -1460,7 +1881,7 @@ const GrantDetail = () => {
                         <div className="w-6 h-6 rounded-sm bg-slate-900/80 border border-slate-700/60 opacity-50" />
                       )}
                     </div>
-                    <div className="flex-1 min-w-0 pt-0.5">
+                    <div className="flex-1 min-w-0 pt-0.5 pl-11">
                       <div className="flex flex-wrap items-baseline gap-2">
                         <span className="font-medium text-slate-200">{m.label}</span>
                         <span className="text-[10px] uppercase tracking-wider text-slate-500">
@@ -1496,10 +1917,21 @@ const GrantDetail = () => {
         )}
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row flex-wrap gap-3 pb-12">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 pb-12 sm:items-center">
           {showClaim && isConnectedRecipient && (
-            <Button className="grant-btn-primary px-6" onClick={onClaim}>
-              Claim available tokens
+            <Button
+              className="grant-btn-primary px-6"
+              disabled={claimSubmitting}
+              onClick={() => void onClaim()}
+            >
+              {claimSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Claiming…
+                </>
+              ) : (
+                "Claim available tokens"
+              )}
             </Button>
           )}
           <Button className="grant-btn-outline px-5" onClick={copyId}>
@@ -1516,6 +1948,26 @@ const GrantDetail = () => {
               View on explorer
             </a>
           </Button>
+          {showRevokePayment && (
+            <Button
+              type="button"
+              className="grant-btn-danger px-5"
+              disabled={revokeSubmitting || claimSubmitting}
+              onClick={() => setRevokeConfirmOpen(true)}
+            >
+              {revokeSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Revoking…
+                </>
+              ) : (
+                <>
+                  <Ban className="w-4 h-4 mr-2" />
+                  Revoke payment
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1523,6 +1975,51 @@ const GrantDetail = () => {
         isOpen={showIdentitySheet}
         onOpenChange={setShowIdentitySheet}
       />
+
+      <AlertDialog
+        open={revokeConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open && revokeSubmitting) return;
+          setRevokeConfirmOpen(open);
+        }}
+      >
+        <AlertDialogContent className="grant-panel border-slate-800 bg-slate-950 text-slate-100 sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">
+              Revoke payment?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400 text-sm leading-relaxed">
+              This will call{" "}
+              <code className="text-sky-400/95 font-mono text-xs">abort_funding</code>{" "}
+              on the grant application. On-chain rules apply; remaining escrow may be
+              returned to the funder.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel
+              className="grant-btn-outline mt-0 border-slate-700 text-slate-200 hover:bg-slate-900"
+              disabled={revokeSubmitting}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              className="grant-btn-danger px-5"
+              disabled={revokeSubmitting}
+              onClick={() => void onRevokePayment()}
+            >
+              {revokeSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Revoking…
+                </>
+              ) : (
+                "Confirm revoke"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

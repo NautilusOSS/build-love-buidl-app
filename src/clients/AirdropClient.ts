@@ -234,6 +234,14 @@ export const APP_SPEC: AppSpec = {
         }
       },
       {
+        "name": "abort_funding",
+        "args": [],
+        "readonly": false,
+        "returns": {
+          "type": "void"
+        }
+      },
+      {
         "name": "withdraw",
         "args": [
           {

@@ -155,6 +155,73 @@ export function computeAirdropVestingSnapshot(
   };
 }
 
+/**
+ * Seconds per month slice emitted by CompensationFactory → Airdrop `template` call
+ * (TEAL literal `2630000`, ~30.38 days).
+ */
+export const FACTORY_MONTH_SECONDS = 2_630_000;
+
+export type FactoryPreviewMilestoneState = "available" | "upcoming";
+
+export type FactoryPreviewMilestone = {
+  id: string;
+  label: string;
+  dateMs: number;
+  amountVoi: number;
+  state: FactoryPreviewMilestoneState;
+};
+
+/**
+ * Project per-distribution claim times for a grant created via `CompensationFactory.create`,
+ * matching {@link computeAirdropVestingSnapshot} / grant detail milestones when globals use
+ * factory defaults (monthly slices, `distribution_seconds` = {@link FACTORY_MONTH_SECONDS}).
+ */
+export function projectFactoryClaimMilestones(params: {
+  fundingUnix: number;
+  lockupMonths: number;
+  vestingMonths: number;
+  totalVoi: number;
+  nowMs: number;
+}): FactoryPreviewMilestone[] {
+  const { fundingUnix, lockupMonths, vestingMonths, totalVoi, nowMs } = params;
+  const fundedMs = fundingUnix * 1000;
+  const monthSec = FACTORY_MONTH_SECONDS;
+  const lockupSec = lockupMonths * monthSec;
+  const cliffEnd = fundedMs + lockupSec * 1000;
+  const n = vestingMonths;
+
+  if (n <= 0) {
+    const state: FactoryPreviewMilestoneState =
+      nowMs >= cliffEnd ? "available" : "upcoming";
+    return [
+      {
+        id: "full",
+        label: "Full unlock (after cliff)",
+        dateMs: cliffEnd,
+        amountVoi: totalVoi,
+        state,
+      },
+    ];
+  }
+
+  const stepMs = monthSec * 1000;
+  const per = totalVoi / n;
+  const out: FactoryPreviewMilestone[] = [];
+  for (let i = 1; i <= n; i++) {
+    const dateMs = cliffEnd + i * stepMs;
+    const state: FactoryPreviewMilestoneState =
+      nowMs >= dateMs ? "available" : "upcoming";
+    out.push({
+      id: `dist-${i}`,
+      label: `Distribution ${i}/${n}`,
+      dateMs,
+      amountVoi: per,
+      state,
+    });
+  }
+  return out;
+}
+
 export function airdropLifecycleFromSnapshot(
   cliffEnd: number,
   vestingEnd: number,

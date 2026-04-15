@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useWallet } from "@txnlab/use-wallet-react";
 import {
@@ -33,6 +33,7 @@ import {
   Wallet,
   DollarSign,
   Calendar,
+  Clock,
   User,
   Search,
   Check,
@@ -42,6 +43,7 @@ import {
   BarChart3,
   Copy,
   LayoutTemplate,
+  Circle,
 } from "lucide-react";
 import algosdk from "algosdk";
 import networks from "@/config/networks";
@@ -51,6 +53,7 @@ import { toast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { APP_SPEC as compensationFactoryAppSpec } from "@/clients/CompensationFactoryClient";
 import { upsertGrant } from "@/lib/grantStorage";
+import { projectFactoryClaimMilestones } from "@/lib/airdropVesting";
 
 interface EnVOIResult {
   name: string;
@@ -73,6 +76,19 @@ const GrantPay = () => {
     return null;
   }
 
+  function formatDatetimeLocalValue(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function validateFundingDeadline(raw: string): string | null {
+    const t = raw.trim();
+    if (t === "") return "Choose a start of funding";
+    const ms = new Date(t).getTime();
+    if (Number.isNaN(ms)) return "Invalid date";
+    return null;
+  }
+
   const { activeAccount, algodClient, signTransactions } = useWallet();
   const [showIdentitySheet, setShowIdentitySheet] = useState(false);
   const [address, setAddress] = useState("");
@@ -89,13 +105,61 @@ const GrantPay = () => {
   const [amountError, setAmountError] = useState<string>("");
   const [lockupError, setLockupError] = useState("");
   const [vestingError, setVestingError] = useState("");
+  const [fundingDeadlineLocal, setFundingDeadlineLocal] = useState(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 1);
+    d.setHours(23, 59, 0, 0);
+    return formatDatetimeLocalValue(d);
+  });
+  const [fundingDeadlineError, setFundingDeadlineError] = useState("");
   const [recentRecipients, setRecentRecipients] = useState<string[]>([]);
   const [incentiveNotes, setIncentiveNotes] = useState<
     Array<{ note: string; prefix: string | null; transaction: any }>
   >([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [previewTimeMs, setPreviewTimeMs] = useState(() => Date.now());
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdAppId, setCreatedAppId] = useState<number | null>(null);
+
+  const fundingStartInputRef = useRef<HTMLInputElement>(null);
+
+  const openFundingStartPicker = () => {
+    const el = fundingStartInputRef.current;
+    if (!el) return;
+    try {
+      el.showPicker();
+    } catch {
+      el.focus();
+    }
+  };
+
+  useEffect(() => {
+    if (showPreview) setPreviewTimeMs(Date.now());
+  }, [showPreview]);
+
+  const previewClaimMilestones = useMemo(() => {
+    const amt = parseFloat(amount);
+    if (!Number.isFinite(amt) || amt <= 0) return [];
+    const lockupN = parseInt(lockupMonths, 10);
+    const vestingN = parseInt(vestingMonths, 10);
+    if (Number.isNaN(lockupN) || Number.isNaN(vestingN)) return [];
+    const ms = new Date(fundingDeadlineLocal).getTime();
+    if (Number.isNaN(ms)) return [];
+    const fundingUnix = Math.floor(ms / 1000);
+    return projectFactoryClaimMilestones({
+      fundingUnix,
+      lockupMonths: lockupN,
+      vestingMonths: vestingN,
+      totalVoi: amt,
+      nowMs: previewTimeMs,
+    });
+  }, [
+    amount,
+    lockupMonths,
+    vestingMonths,
+    fundingDeadlineLocal,
+    previewTimeMs,
+  ]);
 
   const searchEnVOINames = async (query: string) => {
     if (!query || query.length < 1) {
@@ -261,6 +325,9 @@ const GrantPay = () => {
     if (validateScheduleMonths(vestingMonths, 60)) {
       return false;
     }
+    if (validateFundingDeadline(fundingDeadlineLocal)) {
+      return false;
+    }
     return true;
   };
 
@@ -300,7 +367,10 @@ const GrantPay = () => {
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, "0");
     const day = String(now.getDate()).padStart(2, "0");
-    const startDate = `${year}-${month}-${day}`;
+    const fundingParsed = new Date(fundingDeadlineLocal.trim());
+    const startDate = !Number.isNaN(fundingParsed.getTime())
+      ? `${fundingParsed.getFullYear()}-${String(fundingParsed.getMonth() + 1).padStart(2, "0")}-${String(fundingParsed.getDate()).padStart(2, "0")}`
+      : `${year}-${month}-${day}`;
     const seq = String(Math.floor(1000 + Math.random() * 9000));
     const vfPrefix = `VF-${year}-${month}-${seq}`;
 
@@ -342,14 +412,17 @@ const GrantPay = () => {
 
     const lockupErr = validateScheduleMonths(lockupMonths, 12);
     const vestingErr = validateScheduleMonths(vestingMonths, 60);
+    const fundingErr = validateFundingDeadline(fundingDeadlineLocal);
     setLockupError(lockupErr ?? "");
     setVestingError(vestingErr ?? "");
-    if (lockupErr || vestingErr) {
+    setFundingDeadlineError(fundingErr ?? "");
+    if (lockupErr || vestingErr || fundingErr) {
       return;
     }
 
     const lockupN = parseInt(lockupMonths, 10);
     const vestingN = parseInt(vestingMonths, 10);
+    const fundingUnix = Math.floor(new Date(fundingDeadlineLocal).getTime() / 1000);
 
     // Handle form submission here
     console.log("Grant Pay Form:", {
@@ -357,6 +430,7 @@ const GrantPay = () => {
       amount,
       lockupMonths,
       vestingMonths,
+      fundingUnix,
       note,
     });
 
@@ -367,42 +441,6 @@ const GrantPay = () => {
       "https://mainnet-idx.voi.nodely.dev",
       443
     );
-
-    const factoryABI = {
-      name: "",
-      desc: "",
-      methods: [
-        {
-          name: "create",
-          args: [
-            {
-              type: "address",
-              name: "owner",
-            },
-            {
-              type: "uint64",
-              name: "years",
-            },
-          ],
-          readonly: false,
-          returns: {
-            type: "uint64",
-          },
-          desc: "Create compensation contract.\nArguments: - owner, who is the beneficiary - period, vesting period\nReturns: - app id",
-        },
-      ],
-      events: [
-        {
-          name: "FactoryCreated",
-          args: [
-            {
-              type: "uint64",
-              name: "appId",
-            },
-          ],
-        },
-      ],
-    };
 
     const ci = new CONTRACT(factoryAppId, algodClient, undefined, abi.custom, {
       addr: activeAccount.address,
@@ -469,7 +507,7 @@ const GrantPay = () => {
         BigInt(new BigNumber(amount).multipliedBy(1e6).toFixed(0)) +
         BigInt(1334500);
       const txnO = (
-        await builder.factory.create(recipient, lockupN, vestingN)
+        await builder.factory.create(fundingUnix, recipient, lockupN, vestingN)
       ).obj;
       buildN.push({ ...txnO, payment, note: new TextEncoder().encode(note) });
     }
@@ -737,6 +775,61 @@ const GrantPay = () => {
                           : `${balance.toFixed(4)} ALGO`}
                       </span>
                     </div>
+                  )}
+                </div>
+
+                {/* Factory create: funding (uint64 unix) */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="funding-start"
+                    className="flex items-center gap-2"
+                  >
+                    <Clock className="w-4 h-4 text-sky-400" />
+                    Start of funding
+                  </Label>
+                  <p className="text-xs text-slate-500 px-0.5">
+                    On-chain{" "}
+                    <span className="font-mono text-slate-400">funding</span>{" "}
+                    timestamp (Unix seconds).
+                  </p>
+                  <div className="relative">
+                    <Input
+                      ref={fundingStartInputRef}
+                      id="funding-start"
+                      type="datetime-local"
+                      step={60}
+                      value={fundingDeadlineLocal}
+                      onChange={(e) => {
+                        setFundingDeadlineLocal(e.target.value);
+                        setFundingDeadlineError("");
+                      }}
+                      onBlur={() =>
+                        setFundingDeadlineError(
+                          validateFundingDeadline(fundingDeadlineLocal) ?? ""
+                        )
+                      }
+                      className={`grant-input placeholder:text-slate-600 pr-11 ${
+                        fundingDeadlineError
+                          ? "border-red-500 focus-visible:ring-red-500/30"
+                          : ""
+                      }`}
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 rounded-sm text-slate-400 hover:bg-sky-950/40 hover:text-sky-300"
+                      onClick={openFundingStartPicker}
+                      aria-label="Open date and time picker"
+                    >
+                      <Calendar className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {fundingDeadlineError && (
+                    <p className="text-xs text-red-400 px-2">
+                      {fundingDeadlineError}
+                    </p>
                   )}
                 </div>
 
@@ -1119,6 +1212,21 @@ const GrantPay = () => {
                   </TableRow>
                   <TableRow>
                     <TableHead className="text-gray-400">
+                      Start of funding
+                    </TableHead>
+                    <TableCell>
+                      {fundingDeadlineLocal
+                        ? (() => {
+                            const ms = new Date(fundingDeadlineLocal).getTime();
+                            return Number.isNaN(ms)
+                              ? fundingDeadlineLocal
+                              : new Date(ms).toLocaleString();
+                          })()
+                        : "—"}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableHead className="text-gray-400">
                       Lockup Period
                     </TableHead>
                     <TableCell>
@@ -1146,6 +1254,58 @@ const GrantPay = () => {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Claim history (projected, matches on-chain grant detail timeline) */}
+            {previewClaimMilestones.length > 0 && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold">Claim history</h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Projected distribution dates (factory schedule: monthly
+                    slices after cliff)
+                  </p>
+                </div>
+                <div className="relative pl-8 space-y-0 max-h-96 overflow-y-auto pr-1">
+                  <div className="absolute left-[11px] top-2 bottom-2 w-px bg-sky-950/80" />
+                  {previewClaimMilestones.map((m) => (
+                    <div
+                      key={m.id}
+                      className="relative pb-10 last:pb-2 flex gap-4"
+                    >
+                      <div className="absolute left-0 top-1.5">
+                        {m.state === "available" && (
+                          <div className="w-6 h-6 rounded-sm bg-emerald-950/50 border border-emerald-500/60 flex items-center justify-center animate-pulse shadow-[0_0_14px_rgba(16,185,129,0.35)]">
+                            <Circle className="w-3 h-3 fill-emerald-400 text-emerald-400" />
+                          </div>
+                        )}
+                        {m.state === "upcoming" && (
+                          <div className="w-6 h-6 rounded-sm bg-slate-900/80 border border-slate-700/60 opacity-50" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 pt-0.5 pl-11">
+                        <div className="flex flex-wrap items-baseline gap-2">
+                          <span className="font-medium text-slate-200">
+                            {m.label}
+                          </span>
+                          <span className="text-[10px] uppercase tracking-wider text-slate-500">
+                            {m.state}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-500 tabular-nums">
+                          {new Date(m.dateMs).toLocaleString()}
+                        </p>
+                        <p className="text-sky-400 tabular-nums mt-1">
+                          {m.amountVoi.toLocaleString(undefined, {
+                            maximumFractionDigits: 6,
+                          })}{" "}
+                          VOI
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Close Button */}
             <div className="pt-4">
