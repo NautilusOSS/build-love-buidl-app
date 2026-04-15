@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -44,6 +45,7 @@ import {
   Copy,
   LayoutTemplate,
   Circle,
+  AlertTriangle,
 } from "lucide-react";
 import algosdk from "algosdk";
 import networks from "@/config/networks";
@@ -118,6 +120,7 @@ const GrantPay = () => {
   >([]);
   const [showPreview, setShowPreview] = useState(false);
   const [previewTimeMs, setPreviewTimeMs] = useState(() => Date.now());
+  const [acceptedRiskDisclaimer, setAcceptedRiskDisclaimer] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdAppId, setCreatedAppId] = useState<number | null>(null);
 
@@ -328,6 +331,9 @@ const GrantPay = () => {
     if (validateFundingDeadline(fundingDeadlineLocal)) {
       return false;
     }
+    if (!acceptedRiskDisclaimer) {
+      return false;
+    }
     return true;
   };
 
@@ -394,6 +400,16 @@ const GrantPay = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (activeAccount && !acceptedRiskDisclaimer) {
+      toast({
+        title: "Accept the disclosure",
+        description:
+          "Confirm the risk disclosure below before creating a grant payment.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const recipient = getRecipientAddress();
     if (!recipient) {
@@ -1022,6 +1038,45 @@ const GrantPay = () => {
                   )}
                 </div>
 
+                {/* Third-party / risk disclosure (opt-in) */}
+                <div className="rounded-sm border border-amber-900/40 bg-amber-950/15 px-4 py-3 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" aria-hidden />
+                    <div className="space-y-2 text-xs text-slate-400 leading-relaxed">
+                      <p className="text-slate-200 font-medium text-sm">
+                        Disclosure
+                      </p>
+                      <p>
+                        This app connects to third-party wallet software, the
+                        Voi network, and on-chain smart contracts we do not
+                        control. There is no guarantee of correctness,
+                        availability, or fitness for a particular purpose.
+                        Grants and vesting involve risk of loss, software bugs,
+                        network congestion, and user error. Your use of this
+                        feature is at your own risk.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 pt-1">
+                    <Checkbox
+                      id="grant-risk-disclaimer"
+                      checked={acceptedRiskDisclaimer}
+                      onCheckedChange={(v) =>
+                        setAcceptedRiskDisclaimer(v === true)
+                      }
+                      className="mt-0.5 border-amber-800/60 data-[state=checked]:bg-amber-600 data-[state=checked]:border-amber-600"
+                    />
+                    <Label
+                      htmlFor="grant-risk-disclaimer"
+                      className="text-sm text-slate-300 leading-snug cursor-pointer font-normal"
+                    >
+                      I have read this disclosure and agree to the risks of
+                      using third-party on-chain services through this
+                      interface.
+                    </Label>
+                  </div>
+                </div>
+
                 {/* Action Buttons */}
                 <div className="pt-4 space-y-3">
                   {isFormComplete() && (
@@ -1040,6 +1095,7 @@ const GrantPay = () => {
                     type="submit"
                     className="w-full grant-btn-primary"
                     size="lg"
+                    disabled={!!activeAccount && !acceptedRiskDisclaimer}
                     onClick={
                       !activeAccount
                         ? (e) => {
