@@ -53,6 +53,7 @@ import {
   computeVestingSnapshot,
   getGrantById,
   grantLifecycleStatus,
+  grantScheduleStartMs,
   monthlyUnlockVoi,
   upsertGrant,
   type StoredGrant,
@@ -960,7 +961,7 @@ const GrantDetail = () => {
 
   const chartScheduleStartMs = useMemo(() => {
     if (chainVestingSnap.ok) return chainVestingSnap.fundingMs;
-    if (grant) return new Date(grant.createdAt).getTime();
+    if (grant) return grantScheduleStartMs(grant);
     return null;
   }, [chainVestingSnap, grant]);
 
@@ -994,7 +995,9 @@ const GrantDetail = () => {
     if (chainVestingSnap.ok) {
       return new Date(chainVestingSnap.fundingMs).toLocaleString();
     }
-    if (grant) return new Date(grant.createdAt).toLocaleString();
+    if (grant) {
+      return new Date(grantScheduleStartMs(grant)).toLocaleString();
+    }
     return "—";
   }, [chainVestingSnap, grant]);
 
@@ -1606,7 +1609,7 @@ const GrantDetail = () => {
                 : "—",
             },
             {
-              label: chainVestingSnap.ok ? "Schedule start" : "Created",
+              label: "Schedule start",
               value: createdSummaryDisplay,
             },
           ].map((c) => (
@@ -1677,7 +1680,7 @@ const GrantDetail = () => {
                         <span className="space-y-1 block">
                           <span className="tabular-nums">
                             {formatScheduleDateTime(
-                              new Date(grant.createdAt).getTime(),
+                              grantScheduleStartMs(grant),
                             )}
                           </span>
                           <span className="block text-xs text-slate-500 font-normal">

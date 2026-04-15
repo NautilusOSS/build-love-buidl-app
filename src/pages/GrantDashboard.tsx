@@ -10,6 +10,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -17,11 +26,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowRight, Gift, LayoutGrid, Plus } from "lucide-react";
+import { ArrowRight, Gift, LayoutGrid, Plus, Trash2 } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 import {
   loadGrants,
+  removeGrant,
   type StoredGrant,
   grantLifecycleStatus,
+  grantScheduleStartMs,
 } from "@/lib/grantStorage";
 
 function statusBadgeClass(s: ReturnType<typeof grantLifecycleStatus>) {
@@ -38,12 +50,24 @@ function statusBadgeClass(s: ReturnType<typeof grantLifecycleStatus>) {
 const GrantDashboard = () => {
   const navigate = useNavigate();
   const [grants, setGrants] = useState<StoredGrant[]>([]);
+  const [pendingRemove, setPendingRemove] = useState<StoredGrant | null>(null);
 
   useEffect(() => {
     setGrants(loadGrants());
   }, []);
 
   const refresh = () => setGrants(loadGrants());
+
+  const confirmRemove = () => {
+    if (!pendingRemove) return;
+    removeGrant(pendingRemove.id);
+    refresh();
+    toast({
+      description: `Removed grant #${pendingRemove.id} from this device.`,
+      duration: 4000,
+    });
+    setPendingRemove(null);
+  };
 
   useEffect(() => {
     const onFocus = () => refresh();
@@ -117,7 +141,9 @@ const GrantDashboard = () => {
                     <TableHead className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                       Created
                     </TableHead>
-                    <TableHead className="w-10" />
+                    <TableHead className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 text-right w-[7rem]">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -150,10 +176,29 @@ const GrantDashboard = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-slate-500 text-sm tabular-nums">
-                          {new Date(g.createdAt).toLocaleDateString()}
+                          {new Date(
+                            grantScheduleStartMs(g),
+                          ).toLocaleDateString()}
                         </TableCell>
-                        <TableCell>
-                          <ArrowRight className="w-4 h-4 text-slate-600" />
+                        <TableCell
+                          className="text-right"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="inline-flex items-center justify-end gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-sm text-slate-500 hover:text-rose-400 hover:bg-rose-950/40"
+                              aria-label={`Remove grant ${g.id} from dashboard`}
+                              onClick={() => setPendingRemove(g)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                            <span className="inline-flex h-8 w-8 items-center justify-center pointer-events-none">
+                              <ArrowRight className="w-4 h-4 text-slate-600" />
+                            </span>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -164,6 +209,39 @@ const GrantDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog
+        open={pendingRemove !== null}
+        onOpenChange={(open) => !open && setPendingRemove(null)}
+      >
+        <AlertDialogContent className="grant-panel border-slate-800 bg-slate-950 text-slate-100 sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">
+              Remove from dashboard?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400 text-sm leading-relaxed">
+              This only deletes the saved entry on this device. The on-chain
+              application is unchanged. You can still open grant{" "}
+              <span className="font-mono text-slate-300">
+                #{pendingRemove?.id}
+              </span>{" "}
+              by ID if you need it later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel className="grant-btn-outline border-slate-700 bg-transparent">
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              className="grant-btn-danger"
+              onClick={confirmRemove}
+            >
+              Remove
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

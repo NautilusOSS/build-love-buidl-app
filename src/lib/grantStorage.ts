@@ -16,6 +16,8 @@ export interface StoredGrant {
   lockupMonths: number;
   vestingMonths: number;
   createdAt: string;
+  /** Start of funding (matches on-chain `funding` unix); used for cliff / vesting schedule. */
+  fundingAt?: string;
   creationTxId?: string;
   claims?: StoredGrantClaim[];
 }
@@ -43,15 +45,30 @@ export function upsertGrant(grant: StoredGrant): void {
   saveGrants(grants);
 }
 
+/** Drop a grant from the local dashboard index only (does not change on-chain apps). */
+export function removeGrant(id: number): void {
+  const grants = loadGrants().filter((g) => g.id !== id);
+  saveGrants(grants);
+}
+
 export function getGrantById(id: number): StoredGrant | undefined {
   return loadGrants().find((g) => g.id === id);
 }
 
 const APPROX_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** Schedule anchor for local grant math: funding time when set, else save time. */
+export function grantScheduleStartMs(grant: StoredGrant): number {
+  if (grant.fundingAt) {
+    const t = new Date(grant.fundingAt).getTime();
+    if (!Number.isNaN(t)) return t;
+  }
+  return new Date(grant.createdAt).getTime();
+}
+
 export function computeVestingSnapshot(grant: StoredGrant, nowMs = Date.now()) {
-  const created = new Date(grant.createdAt).getTime();
-  const cliffEnd = created + grant.lockupMonths * APPROX_MONTH_MS;
+  const scheduleStart = grantScheduleStartMs(grant);
+  const cliffEnd = scheduleStart + grant.lockupMonths * APPROX_MONTH_MS;
   const total = grant.totalAmountVoi;
   const vMonths = grant.vestingMonths;
 
@@ -108,9 +125,9 @@ export function grantLifecycleStatus(
   grant: StoredGrant,
   nowMs = Date.now()
 ): GrantLifecycleStatus {
-  const created = new Date(grant.createdAt).getTime();
+  const scheduleStart = grantScheduleStartMs(grant);
   const cliffEnd =
-    created + grant.lockupMonths * APPROX_MONTH_MS;
+    scheduleStart + grant.lockupMonths * APPROX_MONTH_MS;
   const vMonths = grant.vestingMonths;
   const vestingEnd =
     vMonths === 0 ? cliffEnd : cliffEnd + vMonths * APPROX_MONTH_MS;

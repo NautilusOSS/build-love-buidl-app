@@ -601,6 +601,7 @@ const GrantPay = () => {
       lockupMonths: lockupN,
       vestingMonths: vestingN,
       createdAt: new Date().toISOString(),
+      fundingAt: new Date(fundingUnix * 1000).toISOString(),
       creationTxId: res.txid,
       claims: [],
     });
