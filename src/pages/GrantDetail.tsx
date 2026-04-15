@@ -45,6 +45,8 @@ import {
   airdropLifecycleFromSnapshot,
   formatApproxMonthsFromSeconds,
   formatDurationSeconds,
+  formatLockupDelayDetail,
+  formatLockupTimesPeriodSeconds,
   type AirdropVestingSnapshot,
 } from "@/lib/airdropVesting";
 import {
@@ -63,6 +65,7 @@ import {
 } from "@/lib/councilCompensationNote";
 import { AirdropClient, APP_SPEC } from "@/clients/AirdropClient";
 import IdentitySheet from "@/components/IdentitySheet";
+import NotFound from "@/pages/NotFound";
 import algosdk from "algosdk";
 import { CONTRACT } from "ulujs";
 
@@ -99,6 +102,31 @@ function formatCouncilStartDateLong(iso: string): string {
 
 function formatCouncilMonths(n: number): string {
   return `${n} ${n === 1 ? "month" : "months"}`;
+}
+
+/** On-chain / chart timestamps for grant schedule. */
+function formatScheduleDateTime(ms: number): string {
+  return new Date(ms).toLocaleString(undefined, {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/** Council note `Start: YYYY-MM-DD` + whole months → end date for cliff (calendar months, local). */
+function addCalendarMonthsToIsoDate(isoYmd: string, months: number): string {
+  const parts = isoYmd.split("-").map((p) => parseInt(p, 10));
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return isoYmd;
+  const [y, mo, d] = parts;
+  const dt = new Date(y, mo - 1, d);
+  dt.setMonth(dt.getMonth() + months);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
 /** Human-readable compensation amount; template uses "X" when unset. */
@@ -686,6 +714,24 @@ function isGrantDetailDebugEnabled(searchParams: URLSearchParams): boolean {
   return true;
 }
 
+/**
+ * Heuristic: algod/indexer errors that mean the app id is not on-chain (deleted / closed).
+ * Avoid treating generic network failures as “missing app”.
+ */
+function errorMessageImpliesMissingApplication(msg: string): boolean {
+  const t = msg.toLowerCase();
+  if (t.includes("failed to fetch")) return false;
+  if (t.includes("network request failed")) return false;
+  if (t.includes("timeout")) return false;
+  return (
+    t.includes("application not found in indexer") ||
+    t.includes("application does not exist") ||
+    t.includes("unknown application") ||
+    /\b404\b/.test(t) ||
+    (t.includes("does not exist") && t.includes("application"))
+  );
+}
+
 const GrantDetail = () => {
   const { grantId } = useParams<{ grantId: string }>();
   const [searchParams] = useSearchParams();
@@ -830,6 +876,54 @@ const GrantDetail = () => {
     if (!firstTxnNote || councilCompensationParsed) return false;
     return matchCouncilCompensationNote(firstTxnNote);
   }, [firstTxnNote, councilCompensationParsed]);
+
+  /** App id has no current on-chain application (e.g. deleted after revoke/close). */
+  const grantApplicationMissing = useMemo(() => {
+    if (Number.isNaN(numericId)) return false;
+
+    const chainStatesAppExists =
+      Boolean(algodClient) &&
+      !chainLoading &&
+      chainError === null &&
+      chainGlobal !== null;
+
+    if (chainStatesAppExists) return false;
+
+    const chainSaysMissing =
+      Boolean(algodClient) &&
+      !chainLoading &&
+      chainError !== null &&
+      errorMessageImpliesMissingApplication(chainError);
+
+    if (chainSaysMissing) return true;
+
+    const indexerSaysMissing =
+      !firstTxnLoading &&
+      firstTxnError !== null &&
+      errorMessageImpliesMissingApplication(firstTxnError);
+
+    if (!algodClient) {
+      return indexerSaysMissing;
+    }
+
+    if (chainLoading) return false;
+
+    const chainFailedForOtherReason =
+      chainError !== null &&
+      !errorMessageImpliesMissingApplication(chainError);
+
+    if (chainFailedForOtherReason) return false;
+
+    return indexerSaysMissing;
+  }, [
+    numericId,
+    algodClient,
+    chainLoading,
+    chainError,
+    chainGlobal,
+    firstTxnLoading,
+    firstTxnError,
+  ]);
 
   const chainStatePageCount = useMemo(() => {
     if (!chainRows?.length) return 1;
@@ -1260,6 +1354,16 @@ const GrantDetail = () => {
     );
   }
 
+  if (grantApplicationMissing) {
+    return (
+      <NotFound
+        quiet
+        heading="Grant not found"
+        subheading="This application is no longer on the network. It may have been closed or deleted (for example, after funding was revoked)."
+      />
+    );
+  }
+
   return (
     <div className="grant-shell">
       <div className="grant-shell-header">
@@ -1381,14 +1485,23 @@ const GrantDetail = () => {
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed border-l-2 border-sky-800/55 pl-3 sm:pl-4 ml-0 sm:ml-1">
               {councilCompensationParsed.cliffMonths > 0 ? (
                 <>
-                  After a{" "}
+                  The{" "}
+                  <strong className="text-slate-100 font-medium tabular-nums">
+                    cliff
+                  </strong>{" "}
+                  is{" "}
                   <strong className="text-slate-100 font-medium tabular-nums">
                     {formatCouncilMonths(councilCompensationParsed.cliffMonths)}
                   </strong>{" "}
-                  cliff, vesting runs for{" "}
+                  from schedule start with{" "}
+                  <strong className="text-slate-100 font-medium">
+                    no vesting during that window
+                  </strong>
+                  . After the cliff, vesting runs for{" "}
                 </>
               ) : (
-                <>Vesting runs for </>
+                <>Vesting runs for{" "}
+                </>
               )}
               <strong className="text-slate-100 font-medium tabular-nums">
                 {formatCouncilMonths(councilCompensationParsed.durationMonths)}
@@ -1408,7 +1521,7 @@ const GrantDetail = () => {
                   className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 shrink-0 mt-0.5"
                   aria-hidden
                 />
-                <div>
+                <div className="min-w-0">
                   <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500">
                     Cliff period
                   </p>
@@ -1416,9 +1529,26 @@ const GrantDetail = () => {
                     {councilCompensationParsed.cliffMonths > 0
                       ? `${formatCouncilMonths(
                         councilCompensationParsed.cliffMonths,
-                      )} before vesting`
-                      : "None"}
+                      )} lockup before any vesting`
+                      : "None — vesting may begin at schedule start"}
                   </p>
+                  {councilCompensationParsed.cliffMonths > 0 ? (
+                    <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1.5 leading-snug">
+                      Approx. cliff ends{" "}
+                      <span className="text-slate-400">
+                        {formatCouncilStartDateLong(
+                          addCalendarMonthsToIsoDate(
+                            councilCompensationParsed.startDate,
+                            councilCompensationParsed.cliffMonths,
+                          ),
+                        )}
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1.5 leading-snug">
+                      No separate cliff — cliff end matches schedule start.
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2.5 sm:gap-3 rounded-sm bg-slate-950/50 border border-slate-800/60 p-2.5 sm:p-3">
@@ -1534,6 +1664,177 @@ const GrantDetail = () => {
                       {grantApplicationAddress ?? "—"}
                     </TableCell>
                   </TableRow>
+                  <TableRow className="grant-table-row border-slate-800/80 align-top">
+                    <TableCell className="text-slate-500 text-sm">
+                      Schedule start (funding)
+                    </TableCell>
+                    <TableCell className="text-sm text-slate-200">
+                      {chainVestingSnap.ok ? (
+                        <span className="tabular-nums">
+                          {formatScheduleDateTime(chainVestingSnap.fundingMs)}
+                        </span>
+                      ) : grant ? (
+                        <span className="space-y-1 block">
+                          <span className="tabular-nums">
+                            {formatScheduleDateTime(
+                              new Date(grant.createdAt).getTime(),
+                            )}
+                          </span>
+                          <span className="block text-xs text-slate-500 font-normal">
+                            From saved grant (approximate schedule)
+                          </span>
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow className="grant-table-row border-slate-800/80 align-top">
+                    <TableCell className="text-slate-500 text-sm">
+                      Cliff period (lockup)
+                    </TableCell>
+                    <TableCell>
+                      {chainVestingSnap.ok ? (
+                        <div className="space-y-2 text-sm">
+                          <p className="text-slate-100">
+                            {chainVestingSnap.lockupSec === 0n ? (
+                              "No lockup — cliff ends when funding is recorded on-chain."
+                            ) : (
+                              (() => {
+                                const lock = formatLockupDelayDetail(
+                                  chainVestingSnap.lockupSec,
+                                );
+                                return (
+                                  <>
+                                    <span className="font-medium">
+                                      {lock.summary}
+                                    </span>
+                                    {lock.detail ? (
+                                      <span className="block text-xs text-slate-500 font-normal mt-1.5 leading-snug">
+                                        {lock.detail}
+                                      </span>
+                                    ) : null}
+                                  </>
+                                );
+                              })()
+                            )}
+                          </p>
+                          {chainGlobal &&
+                            chainVestingSnap.lockupSec !== 0n &&
+                            (() => {
+                              const line = formatLockupTimesPeriodSeconds(
+                                chainVestingSnap.lockupSec,
+                                chainGlobal.periodSeconds?.asBigInt(),
+                                chainGlobal.distributionSeconds?.asBigInt(),
+                              );
+                              return line ? (
+                                <p className="text-[11px] text-slate-500 font-mono leading-snug mt-1.5 break-all">
+                                  {line}
+                                </p>
+                              ) : null;
+                            })()}
+                          <p className="text-xs text-slate-500 leading-relaxed">
+                            On-chain, cliff length is the{" "}
+                            <span className="text-slate-400">lockup_delay</span> global
+                            (seconds). For factory schedules it is{" "}
+                            <span className="text-slate-400">
+                              lockup periods × period_seconds
+                            </span>{" "}
+                            (same step as vesting slices when aligned). During the cliff,{" "}
+                            <span className="text-slate-400">no amount vests</span>; after
+                            it ends, the vesting row below applies.
+                          </p>
+                          <div className="text-xs pt-2 border-t border-slate-800/70 space-y-1">
+                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 items-baseline">
+                              <span className="text-slate-500 shrink-0">
+                                Cliff ends
+                              </span>
+                              <span className="text-slate-100 font-medium tabular-nums">
+                                {formatScheduleDateTime(
+                                  chainVestingSnap.cliffEnd,
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : grant ? (
+                        <div className="space-y-2 text-sm">
+                          <p className="text-slate-100 tabular-nums">
+                            {grant.lockupMonths > 0 ? (
+                              <>
+                                {grant.lockupMonths}{" "}
+                                {grant.lockupMonths === 1 ? "month" : "months"}{" "}
+                                <span className="text-slate-500 font-normal">
+                                  (approx., from saved grant)
+                                </span>
+                              </>
+                            ) : (
+                              "No lockup — cliff ends at schedule start."
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-500 leading-relaxed">
+                            During the cliff, nothing vests. After it ends,
+                            vesting follows the duration in this grant.
+                          </p>
+                          {snapshot ? (
+                            <div className="text-xs pt-2 border-t border-slate-800/70">
+                              <div className="flex flex-wrap gap-x-2 gap-y-0.5 items-baseline">
+                                <span className="text-slate-500 shrink-0">
+                                  Cliff ends (approx.)
+                                </span>
+                                <span className="text-slate-100 font-medium tabular-nums">
+                                  {formatScheduleDateTime(snapshot.cliffEnd)}
+                                </span>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : councilCompensationParsed ? (
+                        <div className="space-y-2 text-sm">
+                          <p className="text-slate-100">
+                            {councilCompensationParsed.cliffMonths > 0 ? (
+                              <>
+                                {formatCouncilMonths(
+                                  councilCompensationParsed.cliffMonths,
+                                )}{" "}
+                                lockup
+                                <span className="text-slate-500 font-normal">
+                                  {" "}
+                                  (from council note; connect wallet for
+                                  on-chain lockup)
+                                </span>
+                              </>
+                            ) : (
+                              "No cliff in note — vesting may begin at schedule start."
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-500 leading-relaxed">
+                            The cliff is the period after funding when no amount
+                            vests until the cliff ends.
+                          </p>
+                          {councilCompensationParsed.cliffMonths > 0 ? (
+                            <div className="text-xs pt-2 border-t border-slate-800/70">
+                              <div className="flex flex-wrap gap-x-2 gap-y-0.5 items-baseline">
+                                <span className="text-slate-500 shrink-0">
+                                  Approx. cliff ends
+                                </span>
+                                <span className="text-slate-100 font-medium">
+                                  {formatCouncilStartDateLong(
+                                    addCalendarMonthsToIsoDate(
+                                      councilCompensationParsed.startDate,
+                                      councilCompensationParsed.cliffMonths,
+                                    ),
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                  </TableRow>
                   <TableRow className="grant-table-row border-slate-800/80">
                     <TableCell className="text-slate-500 text-sm">
                       Vesting period
@@ -1562,20 +1863,6 @@ const GrantDetail = () => {
                         </span>
                       ) : grant ? (
                         `${grant.vestingMonths} months`
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow className="grant-table-row border-slate-800/80">
-                    <TableCell className="text-slate-500 text-sm">
-                      Cliff period
-                    </TableCell>
-                    <TableCell>
-                      {chainVestingSnap.ok ? (
-                        `${formatDurationSeconds(chainVestingSnap.lockupSec)} · ${formatApproxMonthsFromSeconds(chainVestingSnap.lockupSec)}`
-                      ) : grant ? (
-                        `${grant.lockupMonths} months`
                       ) : (
                         "—"
                       )}

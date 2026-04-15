@@ -5,6 +5,8 @@ export type AirdropGlobalVestingFields = {
   funding?: { asBigInt(): bigint };
   total?: { asBigInt(): bigint };
   lockupDelay?: { asBigInt(): bigint };
+  /** Seconds per period; with factory grants, cliff = `lockup_delay` (count) × `period_seconds`. */
+  periodSeconds?: { asBigInt(): bigint };
   vestingDelay?: { asBigInt(): bigint };
   distributionCount?: { asBigInt(): bigint };
   distributionSeconds?: { asBigInt(): bigint };
@@ -15,6 +17,33 @@ const APPROX_MONTH_SEC = 30n * SEC_PER_DAY;
 
 function intBi(x: AirdropGlobalVestingFields[keyof AirdropGlobalVestingFields]): bigint {
   return x ? x.asBigInt() : 0n;
+}
+
+/**
+ * `lockup_delay` may be either total seconds (large) or a period count (small) × step.
+ * When count < step and count ≤ 60, treat as count × `period_seconds` (else `distribution_seconds`).
+ */
+function lockupDelayToTotalSeconds(
+  lockupRaw: bigint,
+  periodSeconds: bigint,
+  distributionSeconds: bigint
+): bigint {
+  const step =
+    periodSeconds > 0n
+      ? periodSeconds
+      : distributionSeconds > 0n
+        ? distributionSeconds
+        : 0n;
+  const maxPlausiblePeriodCount = 60n;
+  if (
+    step > 0n &&
+    lockupRaw > 0n &&
+    lockupRaw < step &&
+    lockupRaw <= maxPlausiblePeriodCount
+  ) {
+    return lockupRaw * step;
+  }
+  return lockupRaw;
 }
 
 export type AirdropVestingSnapshot =
@@ -37,9 +66,15 @@ export type AirdropVestingSnapshot =
   | { ok: false };
 
 /**
- * Vested / remaining from airdrop globals: schedule starts at `funding` (unix seconds),
- * cliff = funding + lockup_delay, vesting window = distribution_count × distribution_seconds
- * when both are set, otherwise `vesting_delay` seconds. Linear accrual over the vesting window.
+ * Vested / remaining from airdrop globals: schedule starts at `funding` (unix seconds).
+ *
+ * **Cliff:** `cliffEnd = funding + lockup_seconds`. The `lockup_delay` global may store either
+ * **total seconds** (large) or a **period count** (small); when count &lt; `period_seconds` and
+ * ≤ 60 we interpret **count × period_seconds** (else **distribution_seconds**), matching
+ * factory **lockup × period_seconds**.
+ *
+ * **Vesting window:** `distribution_count × distribution_seconds` when both are set,
+ * otherwise `vesting_delay`. Linear accrual over the vesting window.
  */
 export function computeAirdropVestingSnapshot(
   g: AirdropGlobalVestingFields,
@@ -51,9 +86,10 @@ export function computeAirdropVestingSnapshot(
     return { ok: false };
   }
 
-  const lockupSec = intBi(g.lockupDelay);
   const dc = intBi(g.distributionCount);
   const ds = intBi(g.distributionSeconds);
+  const ps = intBi(g.periodSeconds);
+  const lockupSec = lockupDelayToTotalSeconds(intBi(g.lockupDelay), ps, ds);
   const vd = intBi(g.vestingDelay);
   const distWindow = dc > 0n && ds > 0n ? dc * ds : 0n;
   const vestingDurationSec = distWindow > 0n ? distWindow : vd;
@@ -246,9 +282,67 @@ export function formatDurationSeconds(sec: bigint): string {
   return `${sec} s`;
 }
 
-/** Approximate months (30-day) for labels that still read "months" in the UI. */
+/**
+ * Approximate calendar months (30-day) for durations that are not factory-aligned.
+ * Prefer {@link formatLockupDelayDetail} for `lockup_delay` globals from Grant Pay / factory.
+ */
 export function formatApproxMonthsFromSeconds(sec: bigint): string {
   if (sec === 0n) return "0";
-  const mo = (Number(sec) / Number(APPROX_MONTH_SEC)).toFixed(1).replace(/\.0$/, "");
-  return `${mo} months (approx.)`;
+  const mo = Number(sec) / Number(APPROX_MONTH_SEC);
+  if (mo > 0 && mo < 0.05) {
+    return "<0.1 month (calendar approx.)";
+  }
+  const rounded = mo.toFixed(1).replace(/\.0$/, "");
+  const n = parseFloat(rounded);
+  const unit = n === 1 ? "month" : "months";
+  return `${rounded} ${unit} (calendar approx.)`;
+}
+
+const FMS_BI = BigInt(FACTORY_MONTH_SECONDS);
+
+/**
+ * Display for `lockup_delay` (seconds): factory grants use whole multiples of
+ * {@link FACTORY_MONTH_SECONDS} (~30.38 days). Avoids misleading “30 days” for one factory month.
+ */
+export function formatLockupDelayDetail(lockupSec: bigint): {
+  summary: string;
+  detail?: string;
+} {
+  if (lockupSec === 0n) return { summary: "" };
+  if (lockupSec % FMS_BI === 0n) {
+    const n = lockupSec / FMS_BI;
+    const days = (Number(lockupSec) / 86400).toFixed(2);
+    return {
+      summary: `${n} mo lockup`,
+      detail: `≈ ${days} calendar days · ${lockupSec.toString()} s on-chain`,
+    };
+  }
+  return {
+    summary: `${formatDurationSeconds(lockupSec)} · ${formatApproxMonthsFromSeconds(lockupSec)}`,
+  };
+}
+
+/**
+ * When `lockup_delay` divides evenly by `period_seconds` (or, if unset, `distribution_seconds`),
+ * show the product: lockup periods × seconds per period = lockup_delay.
+ */
+export function formatLockupTimesPeriodSeconds(
+  lockupSec: bigint,
+  periodSeconds?: bigint,
+  distributionSeconds?: bigint
+): string | null {
+  if (lockupSec === 0n) return null;
+  const step =
+    periodSeconds !== undefined && periodSeconds > 0n
+      ? periodSeconds
+      : distributionSeconds !== undefined && distributionSeconds > 0n
+        ? distributionSeconds
+        : undefined;
+  if (step === undefined || lockupSec % step !== 0n) return null;
+  const periods = lockupSec / step;
+  const label =
+    periodSeconds !== undefined && periodSeconds > 0n
+      ? "period_seconds"
+      : "distribution_seconds";
+  return `${periods} × ${step.toString()} s (${label}) = ${lockupSec.toString()} s lockup_delay`;
 }

@@ -872,13 +872,13 @@ const GrantPay = () => {
                             ? "default"
                             : "outline"
                         }
-                        className={`flex-1 min-w-[60px] rounded-sm font-medium ${
+                        className={`flex-1 min-w-[72px] rounded-sm font-medium ${
                           lockupMonths === month.toString()
                             ? "bg-sky-500/20 border border-sky-500/50 text-sky-200"
                             : "border border-slate-700 bg-slate-950/50 text-slate-400 hover:border-sky-900 hover:bg-sky-950/25"
                         }`}
                       >
-                        {month}
+                        {month} mo
                       </Button>
                     ))}
                   </div>
@@ -930,13 +930,13 @@ const GrantPay = () => {
                         variant={
                           vestingMonths === m.toString() ? "default" : "outline"
                         }
-                        className={`flex-1 min-w-[60px] rounded-sm font-medium ${
+                        className={`flex-1 min-w-[72px] rounded-sm font-medium ${
                           vestingMonths === m.toString()
                             ? "bg-sky-500/20 border border-sky-500/50 text-sky-200"
                             : "border border-slate-700 bg-slate-950/50 text-slate-400 hover:border-sky-900 hover:bg-sky-950/25"
                         }`}
                       >
-                        {m}
+                        {m} mo
                       </Button>
                     ))}
                   </div>
